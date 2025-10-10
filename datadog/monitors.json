@@ -1,0 +1,131 @@
+[
+  {
+    "name": "ZFS Pool Degraded State",
+    "type": "event alert",
+    "query": "events('source:zfs priority:normal tags:(event_type:statechange AND pool_health:DEGRADED)').rollup('count').last('5m') > 0",
+    "message": "## ZFS Pool Degraded\n\nA ZFS pool has entered DEGRADED state.\n\n**Pool**: {{pool.name}}\n**Host**: {{host.name}}\n**Event**: {{event.text}}\n\n### Action Required\n1. Check pool status: `zpool status {{pool.name}}`\n2. Identify failed devices\n3. Replace failed devices if necessary\n4. Clear errors: `zpool clear {{pool.name}}`\n\n@pagerduty-zfs @slack-ops",
+    "tags": ["service:zfs", "alert_type:pool_health"],
+    "options": {
+      "notify_no_data": false,
+      "notify_audit": false,
+      "require_full_window": false,
+      "include_tags": true,
+      "thresholds": {
+        "critical": 0
+      },
+      "new_group_delay": 60
+    },
+    "priority": 2
+  },
+  {
+    "name": "ZFS Pool Failed State",
+    "type": "event alert",
+    "query": "events('source:zfs priority:normal tags:(event_type:statechange AND pool_health:FAULTED)').rollup('count').last('5m') > 0",
+    "message": "## ZFS Pool FAULTED - Critical!\n\n⚠️ **CRITICAL**: A ZFS pool has FAILED!\n\n**Pool**: {{pool.name}}\n**Host**: {{host.name}}\n**Event**: {{event.text}}\n\n### Immediate Action Required\n1. Pool is likely offline or inaccessible\n2. Check pool status: `zpool status {{pool.name}}`\n3. Review system logs for hardware failures\n4. Contact storage team immediately\n\n@pagerduty-critical @slack-ops-critical",
+    "tags": ["service:zfs", "alert_type:pool_health", "severity:critical"],
+    "options": {
+      "notify_no_data": false,
+      "notify_audit": true,
+      "require_full_window": false,
+      "include_tags": true,
+      "thresholds": {
+        "critical": 0
+      },
+      "escalation_message": "Pool {{pool.name}} still in FAULTED state - escalating",
+      "new_group_delay": 0
+    },
+    "priority": 1
+  },
+  {
+    "name": "ZFS Checksum Errors Detected",
+    "type": "event alert",
+    "query": "events('source:zfs priority:normal tags:event_type:checksum_error').rollup('count').last('15m') > 2",
+    "message": "## ZFS Checksum Errors Detected\n\nMultiple checksum errors detected on ZFS pool.\n\n**Pool**: {{pool.name}}\n**Host**: {{host.name}}\n**Count**: {{value}} errors in 15 minutes\n\n### Investigation Required\n1. Check pool status: `zpool status -v {{pool.name}}`\n2. Review affected files/blocks\n3. Verify hardware health (RAM, disks, controllers)\n4. Consider scrub: `zpool scrub {{pool.name}}`\n\n**Note**: Checksum errors indicate data corruption - investigate immediately.\n\n@slack-ops",
+    "tags": ["service:zfs", "alert_type:data_integrity"],
+    "options": {
+      "notify_no_data": false,
+      "notify_audit": false,
+      "require_full_window": true,
+      "include_tags": true,
+      "thresholds": {
+        "critical": 10,
+        "warning": 2
+      },
+      "new_group_delay": 60
+    },
+    "priority": 2
+  },
+  {
+    "name": "ZFS I/O Errors Detected",
+    "type": "event alert",
+    "query": "events('source:zfs priority:normal tags:event_type:io_error').rollup('count').last('15m') > 5",
+    "message": "## ZFS I/O Errors Detected\n\nMultiple I/O errors detected on ZFS pool.\n\n**Pool**: {{pool.name}}\n**Host**: {{host.name}}\n**Count**: {{value}} errors in 15 minutes\n\n### Action Required\n1. Check pool status: `zpool status -v {{pool.name}}`\n2. Verify disk health: `smartctl -a /dev/sdX`\n3. Check system logs: `dmesg | grep -i error`\n4. Monitor for disk failures\n\n**Note**: I/O errors often precede disk failures.\n\n@slack-ops",
+    "tags": ["service:zfs", "alert_type:hardware"],
+    "options": {
+      "notify_no_data": false,
+      "notify_audit": false,
+      "require_full_window": true,
+      "include_tags": true,
+      "thresholds": {
+        "critical": 20,
+        "warning": 5
+      },
+      "new_group_delay": 60
+    },
+    "priority": 2
+  },
+  {
+    "name": "ZFS Scrub Failed",
+    "type": "event alert",
+    "query": "events('source:zfs priority:normal tags:(event_type:scrub_finish AND status:failed)').rollup('count').last('5m') > 0",
+    "message": "## ZFS Scrub Failed\n\nA ZFS scrub operation has failed.\n\n**Pool**: {{pool.name}}\n**Host**: {{host.name}}\n**Event**: {{event.text}}\n\n### Investigation Required\n1. Check pool status: `zpool status {{pool.name}}`\n2. Review ZED logs for details\n3. Retry scrub: `zpool scrub {{pool.name}}`\n4. If repeated failures, investigate pool health\n\n@slack-ops",
+    "tags": ["service:zfs", "alert_type:maintenance"],
+    "options": {
+      "notify_no_data": false,
+      "notify_audit": false,
+      "require_full_window": false,
+      "include_tags": true,
+      "thresholds": {
+        "critical": 0
+      },
+      "new_group_delay": 60
+    },
+    "priority": 3
+  },
+  {
+    "name": "ZFS Resilver Failed",
+    "type": "event alert",
+    "query": "events('source:zfs priority:normal tags:(event_type:resilver_finish AND status:failed)').rollup('count').last('5m') > 0",
+    "message": "## ZFS Resilver Failed\n\n⚠️ A ZFS resilver operation has failed!\n\n**Pool**: {{pool.name}}\n**Host**: {{host.name}}\n**Event**: {{event.text}}\n\n### Immediate Action Required\n1. Pool may be vulnerable (redundancy not restored)\n2. Check pool status: `zpool status {{pool.name}}`\n3. Identify cause of resilver failure\n4. Replace failed disk if necessary\n5. Restart resilver or clear errors\n\n**Warning**: Pool redundancy may be compromised until resilver completes successfully.\n\n@pagerduty-zfs @slack-ops",
+    "tags": ["service:zfs", "alert_type:maintenance", "severity:high"],
+    "options": {
+      "notify_no_data": false,
+      "notify_audit": true,
+      "require_full_window": false,
+      "include_tags": true,
+      "thresholds": {
+        "critical": 0
+      },
+      "new_group_delay": 0
+    },
+    "priority": 1
+  },
+  {
+    "name": "No ZFS Events Received",
+    "type": "event alert",
+    "query": "events('source:zfs').rollup('count').last('24h') < 1",
+    "message": "## No ZFS Events Received\n\nNo ZFS events have been received in the last 24 hours.\n\n**Possible Causes**:\n1. ZFS Event Daemon (ZED) not running\n2. Datadog zedlets not installed or misconfigured\n3. Network connectivity issues\n4. No ZFS activity (unusual for production systems)\n\n### Troubleshooting\n1. Check ZED status: `systemctl status zfs-zed` (Linux) or `service zfs status` (BSD)\n2. Validate configuration: `./scripts/validate-config.sh`\n3. Check ZED logs: `journalctl -u zfs-zed` or `/var/log/zed.log`\n4. Test manually: `zpool scrub <pool>` and verify event in Datadog\n\n@slack-ops",
+    "tags": ["service:zfs", "alert_type:monitoring"],
+    "options": {
+      "notify_no_data": true,
+      "notify_audit": false,
+      "require_full_window": true,
+      "include_tags": true,
+      "thresholds": {
+        "warning": 1
+      },
+      "new_group_delay": 300
+    },
+    "priority": 3
+  }
+]
