@@ -31,6 +31,9 @@ Sends ZFS events to Datadog:
 - Pool state changes
 - Checksum errors
 - I/O errors
+- Pool import/destroy
+- Device attach/remove
+- Configuration sync
 
 ## Supported Operating Systems
 
