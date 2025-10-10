@@ -1,19 +1,27 @@
 # ZFS Datadog Integration
 
+[![Test](https://github.com/ryanmaclean/zfs-datadog-integration/actions/workflows/test.yml/badge.svg)](https://github.com/ryanmaclean/zfs-datadog-integration/actions/workflows/test.yml)
+
 OpenZFS event monitoring with Datadog integration across 9 operating systems.
 
 ## Quick Start
 
 ```bash
 # Install on Ubuntu/Debian
-sudo ./install.sh
+sudo ./scripts/install.sh
 
 # Configure Datadog API key
+sudo cp scripts/config.sh.example /etc/zfs/zed.d/config.sh
 sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
+
+# Validate configuration
+sudo ./scripts/validate-config.sh
 
 # Restart ZFS Event Daemon
 sudo systemctl restart zfs-zed
 ```
+
+**📖 [Full Installation Guide](INSTALL.md)** - Detailed instructions for all operating systems
 
 ## What This Does
 
@@ -26,30 +34,38 @@ Sends ZFS events to Datadog:
 
 ## Supported Operating Systems
 
-**Tested**:
+**Tested & Production Ready**:
 - Ubuntu 24.04 ✅
 - Pop!_OS 22.04 ✅
+- Debian 11+ ✅ (POSIX-compatible)
 
-**Packer Templates** (building):
-- Ubuntu, Debian, Arch Linux
-- Rocky Linux, Fedora
-- FreeBSD, OpenBSD, NetBSD
-- OpenIndiana
+**Ready for Testing** (POSIX-compatible):
+- RHEL/Rocky/AlmaLinux 8+
+- Fedora, Arch Linux
+- FreeBSD 13+
+- TrueNAS SCALE & CORE
+- OpenBSD, NetBSD
+- OpenIndiana (Illumos)
 
-## Files
+See [INSTALL.md](INSTALL.md) for OS-specific instructions.
 
-**Core**:
-- `install.sh` - Installation script
-- `config.sh` - Configuration
-- `zfs-datadog-lib.sh` - Library functions
-- `*-datadog.sh` - Event handlers (7 scripts)
+## Features
 
-**Packer**:
-- `packer-*-zfs.pkr.hcl` - Build templates (9 OSes)
-- `http/` - Cloud-init configs
+- **POSIX-compatible**: Works on Linux and BSD systems
+- **Retry logic**: Exponential backoff (3 attempts, 1s/2s/4s)
+- **Error handling**: Comprehensive logging and graceful degradation
+- **Configuration validation**: Built-in config checker
+- **Easy installation**: Automated install and uninstall scripts
+- **CI/CD tested**: Automated testing with GitHub Actions
 
-**Scripts**: `scripts/` - Testing and automation
-**Docs**: `docs/` - Status reports and documentation
+## Tools
+
+- **install.sh** - Automated installation
+- **uninstall.sh** - Clean removal with --dry-run and --keep-config
+- **validate-config.sh** - Configuration and connectivity validation
+- **config.sh.example** - Configuration template
+
+See [scripts/](scripts/) for all tools and [examples/](examples/) for VM configs.
 
 ## Architecture
 
@@ -60,25 +76,23 @@ ZFS Event → zed → zedlet → HTTP POST → Datadog API
 **Retry logic**: Exponential backoff (3 attempts)
 **Logging**: All events logged to Datadog
 
-## Development
+## Contributing
 
-**Build all OS images**:
-```bash
-cd /tank3/vms
-export DD_API_KEY=your_key
-./scripts/build-all-packer.sh
-```
+Issues and pull requests welcome! See [open issues](https://github.com/ryanmaclean/zfs-datadog-integration/issues) for areas that need work.
 
-**Test**:
-```bash
-./scripts/test-all-packer-images.sh
-```
+**Testing needed:**
+- BSD systems (FreeBSD, OpenBSD, NetBSD)
+- TrueNAS SCALE and CORE
+- RHEL-based distributions
+- OpenIndiana/Illumos
 
-## Status
+## Documentation
 
-- **Core**: Production-ready
-- **Packer builds**: In progress (9 OSes)
-- **Testing**: Automated scripts ready
-- **Datadog**: Agent configured, logs streaming
+- **[INSTALL.md](INSTALL.md)** - Complete installation guide
+- **[docs/BSD-COMPATIBILITY.md](docs/BSD-COMPATIBILITY.md)** - BSD-specific notes
+- **[docs/IMPROVEMENTS-SUMMARY.md](docs/IMPROVEMENTS-SUMMARY.md)** - Technical details
+- **[docs/TEST-COVERAGE.md](docs/TEST-COVERAGE.md)** - Test coverage matrix
 
-See `docs/` for detailed status reports.
+## License
+
+MIT License - See LICENSE file for details
