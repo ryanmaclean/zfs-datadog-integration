@@ -1,0 +1,62 @@
+# Lima VM Configuration for Rocky Linux 9 with OpenZFS
+# ARM64 native support
+
+vmType: "vz"
+os: "Linux"
+arch: "aarch64"
+
+images:
+  - location: "https://dl.rockylinux.org/pub/rocky/9/images/aarch64/Rocky-9-GenericCloud-Base.latest.aarch64.qcow2"
+    arch: "aarch64"
+
+cpus: 2
+memory: "4GiB"
+disk: "20GiB"
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -eux
+      
+      # Enable EPEL and ZFS repos
+      dnf install -y epel-release
+      dnf install -y https://zfsonlinux.org/epel/zfs-release-2-3$(rpm --eval "%{dist}").noarch.rpm
+      
+      # Install kernel headers and development tools
+      dnf install -y kernel-devel kernel-headers
+      
+      # Install OpenZFS
+      dnf install -y zfs
+      
+      # Install utilities
+      dnf install -y curl nc python3 jq
+      
+      # Load ZFS module
+      modprobe zfs || true
+      
+      echo "Rocky Linux 9 with OpenZFS ready"
+      zfs version
+
+probes:
+  - description: "ZFS module loaded"
+    script: |
+      #!/bin/sh
+      lsmod | grep -q zfs
+    hint: "ZFS kernel module should be loaded"
+
+message: |
+  Rocky Linux 9 VM with OpenZFS ready!
+  
+  To access: limactl shell rocky-zfs
+  Check ZFS: zfs version

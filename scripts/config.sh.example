@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# ZFS Datadog Integration Configuration Template
+# Copy this file to config.sh and customize for your environment
+#
+# cp config.sh.example config.sh
+# vi config.sh
+#
+
+# Datadog API Configuration
+# Get your API key from: https://app.datadoghq.com/organization-settings/api-keys
+DD_API_KEY="your_api_key_here"
+
+# Datadog Site (default: datadoghq.com)
+# For EU: datadoghq.eu
+# For US3: us3.datadoghq.com
+# For US5: us5.datadoghq.com
+# For US1-FED: ddog-gov.com
+DD_SITE="${DD_SITE:-datadoghq.com}"
+
+# Datadog API URL (automatically constructed from DD_SITE)
+DD_API_URL="${DD_API_URL:-https://api.${DD_SITE}}"
+
+# DogStatsD Configuration
+# The Datadog Agent must be running for metrics to work
+DOGSTATSD_HOST="${DOGSTATSD_HOST:-localhost}"
+DOGSTATSD_PORT="${DOGSTATSD_PORT:-8125}"
+
+# Default tags for all events and metrics
+# Format: comma-separated key:value pairs
+# Example: env:production,service:zfs,datacenter:us-east-1
+DD_TAGS="${DD_TAGS:-env:production,service:zfs}"
+
+# Hostname override (optional)
+# If not set, will use system hostname
+# HOSTNAME="my-zfs-server"
+
+# Enable/disable specific monitoring
+MONITOR_POOL_HEALTH="${MONITOR_POOL_HEALTH:-true}"
+MONITOR_SCRUB="${MONITOR_SCRUB:-true}"
+MONITOR_RESILVER="${MONITOR_RESILVER:-true}"
+MONITOR_CHECKSUM_ERRORS="${MONITOR_CHECKSUM_ERRORS:-true}"
+MONITOR_IO_ERRORS="${MONITOR_IO_ERRORS:-true}"

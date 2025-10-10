@@ -1,0 +1,163 @@
+name: Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+      
+      - name: Run ShellCheck on scripts
+        run: |
+          echo "Checking shell scripts..."
+          find scripts/ -name "*.sh" -type f -exec shellcheck -x {} +
+      
+      - name: Check POSIX compliance
+        run: |
+          echo "Checking POSIX compliance..."
+          for script in scripts/*.sh; do
+            echo "Checking $script"
+            # Verify shebang is #!/bin/sh (POSIX)
+            if head -n 1 "$script" | grep -q "#!/bin/sh"; then
+              echo "  ✓ POSIX shebang"
+            else
+              echo "  ✗ Non-POSIX shebang in $script"
+              exit 1
+            fi
+          done
+
+  syntax-check:
+    name: Syntax Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Validate shell syntax
+        run: |
+          echo "Validating shell script syntax..."
+          for script in scripts/*.sh; do
+            echo "Checking $script"
+            sh -n "$script" || exit 1
+          done
+          echo "All scripts have valid syntax"
+
+  mock-server-test:
+    name: Mock Server Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Start mock Datadog server
+        run: |
+          python3 mock-datadog-server.py &
+          echo $! > mock-server.pid
+          sleep 2
+      
+      - name: Test config template
+        run: |
+          cp scripts/config.sh.example /tmp/config.sh
+          sed -i 's/your_api_key_here/test_key_12345678901234567890123/' /tmp/config.sh
+          
+      - name: Test zedlet syntax
+        run: |
+          echo "Testing zedlet scripts..."
+          for zedlet in scripts/*-datadog.sh; do
+            echo "Syntax check: $zedlet"
+            sh -n "$zedlet"
+          done
+      
+      - name: Stop mock server
+        if: always()
+        run: |
+          if [ -f mock-server.pid ]; then
+            kill $(cat mock-server.pid) || true
+          fi
+
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Check documentation files
+        run: |
+          echo "Checking required documentation..."
+          required_files="README.md INSTALL.md"
+          for file in $required_files; do
+            if [ -f "$file" ]; then
+              echo "  ✓ $file exists"
+            else
+              echo "  ✗ $file missing"
+              exit 1
+            fi
+          done
+      
+      - name: Check for broken links (basic)
+        run: |
+          echo "Checking for obvious broken links in README..."
+          if grep -r '\[.*\](.*\.md)' README.md | grep -v '^\s*#'; then
+            echo "Found markdown links, verifying..."
+            # Extract and check local .md links exist
+            grep -o '\[.*\]([^)]*\.md)' README.md | sed 's/.*(\([^)]*\)).*/\1/' | while read link; do
+              if [ ! -f "$link" ]; then
+                echo "  ✗ Broken link: $link"
+                exit 1
+              fi
+            done
+          fi
+          echo "  ✓ No broken links found"
+
+  integration-structure:
+    name: Integration Structure Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Verify required files
+        run: |
+          echo "Checking integration structure..."
+          required_scripts=(
+            "scripts/install.sh"
+            "scripts/uninstall.sh"
+            "scripts/config.sh.example"
+            "scripts/validate-config.sh"
+            "scripts/zfs-datadog-lib.sh"
+            "scripts/scrub_finish-datadog.sh"
+            "scripts/resilver_finish-datadog.sh"
+            "scripts/statechange-datadog.sh"
+          )
+          
+          for script in "${required_scripts[@]}"; do
+            if [ -f "$script" ]; then
+              echo "  ✓ $script"
+            else
+              echo "  ✗ $script missing"
+              exit 1
+            fi
+          done
+      
+      - name: Check script permissions
+        run: |
+          echo "Checking script executability..."
+          for script in scripts/*.sh; do
+            if [ -x "$script" ]; then
+              echo "  ✓ $script is executable"
+            else
+              echo "  ✗ $script is not executable"
+              exit 1
+            fi
+          done

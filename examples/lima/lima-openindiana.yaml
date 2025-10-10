@@ -1,0 +1,48 @@
+# Lima VM Configuration for OpenIndiana Hipster
+# Illumos-based OS with native ZFS support
+
+vmType: "qemu"
+os: "Linux"  # Lima treats it as generic
+arch: "x86_64"
+
+images:
+  # OpenIndiana doesn't provide cloud images, using ISO
+  - location: "https://dlc.openindiana.org/isos/hipster/20231030/OI-hipster-text-20231030.iso"
+    arch: "x86_64"
+
+cpus: 2
+memory: "4GiB"
+disk: "20GiB"
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+# Note: OpenIndiana requires manual installation from ISO
+# Lima doesn't fully support Illumos, but we can try QEMU mode
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      # OpenIndiana has native ZFS, no installation needed
+      echo "OpenIndiana with native ZFS"
+      zfs version || echo "ZFS check failed"
+
+message: |
+  OpenIndiana Hipster VM
+  
+  Note: OpenIndiana requires manual installation from ISO.
+  Lima has limited Illumos support. Consider using QEMU directly:
+  
+  ./qemu-openindiana.sh
+  
+  OpenIndiana has NATIVE ZFS (original Illumos implementation)
+  Zedlet path: /etc/zfs/zed.d/
+  Service: svcadm restart zfs-zed

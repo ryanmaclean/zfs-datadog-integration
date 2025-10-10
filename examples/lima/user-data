@@ -1,0 +1,12 @@
+#cloud-config
+users:
+  - name: root
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... # Add your SSH key
+    lock_passwd: false
+    passwd: $6$rounds=4096$saltsalt$hashedpassword
+packages:
+  - curl
+  - wget
+runcmd:
+  - echo "VM ready for testing"

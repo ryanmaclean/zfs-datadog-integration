@@ -1,0 +1,57 @@
+# Lima VM Configuration for FreeBSD with ZFS Testing
+# FreeBSD 14.0 with native ZFS support
+
+vmType: "vz"
+os: "Linux"  # Lima doesn't support FreeBSD directly, using Linux for now
+arch: "aarch64"
+
+# Note: FreeBSD support in Lima is limited
+# This configuration is a template for future FreeBSD support
+# For now, use TrueNAS SCALE (Debian-based) which is supported
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 2
+memory: "4GiB"
+disk: "20GiB"
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -eux
+      
+      # This is a placeholder for FreeBSD setup
+      # FreeBSD would use different package manager (pkg)
+      # and different paths (/usr/local/etc/zfs)
+      
+      echo "FreeBSD VM configuration placeholder"
+      echo "Lima does not currently support FreeBSD VMs"
+      echo "Use TrueNAS SCALE or native FreeBSD installation for testing"
+
+message: |
+  FreeBSD VM Configuration (Placeholder)
+  
+  Note: Lima does not currently support FreeBSD VMs.
+  
+  For BSD/TrueNAS testing:
+  1. Use TrueNAS SCALE (Debian-based, supported by Lima)
+  2. Use native FreeBSD installation
+  3. Use VirtualBox/VMware with FreeBSD
+  
+  The POSIX-compatible scripts should work on:
+  - FreeBSD with native ZFS
+  - TrueNAS CORE (FreeBSD-based)
+  - TrueNAS SCALE (Debian-based)

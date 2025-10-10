@@ -1,0 +1,64 @@
+# Lima VM Configuration for Debian 12 (Bookworm) with OpenZFS
+# ARM64 native support
+
+vmType: "vz"
+os: "Linux"
+arch: "aarch64"
+
+images:
+  - location: "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-arm64.qcow2"
+    arch: "aarch64"
+
+cpus: 2
+memory: "4GiB"
+disk: "20GiB"
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -eux -o pipefail
+      
+      export DEBIAN_FRONTEND=noninteractive
+      
+      # Update system
+      apt-get update -qq
+      
+      # Install OpenZFS
+      apt-get install -y -qq \
+        linux-headers-$(uname -r) \
+        zfsutils-linux \
+        zfs-dkms \
+        curl \
+        netcat-openbsd \
+        python3 \
+        jq
+      
+      # Load ZFS module
+      modprobe zfs || true
+      
+      echo "Debian 12 with OpenZFS ready"
+      zfs version
+
+probes:
+  - description: "ZFS module loaded"
+    script: |
+      #!/bin/sh
+      lsmod | grep -q zfs
+    hint: "ZFS kernel module should be loaded"
+
+message: |
+  Debian 12 (Bookworm) VM with OpenZFS ready!
+  
+  To access: limactl shell debian-zfs
+  Check ZFS: zfs version

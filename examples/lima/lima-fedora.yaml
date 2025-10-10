@@ -1,0 +1,61 @@
+# Lima VM Configuration for Fedora 40 with OpenZFS
+# ARM64 native support
+
+vmType: "vz"
+os: "Linux"
+arch: "aarch64"
+
+images:
+  - location: "https://download.fedoraproject.org/pub/fedora/linux/releases/40/Cloud/aarch64/images/Fedora-Cloud-Base-Generic.aarch64-40-1.14.qcow2"
+    arch: "aarch64"
+
+cpus: 2
+memory: "4GiB"
+disk: "20GiB"
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -eux
+      
+      # Install ZFS repo
+      dnf install -y https://zfsonlinux.org/fedora/zfs-release-2-5$(rpm --eval "%{dist}").noarch.rpm
+      
+      # Install kernel headers
+      dnf install -y kernel-devel kernel-headers
+      
+      # Install OpenZFS
+      dnf install -y zfs
+      
+      # Install utilities
+      dnf install -y curl nc python3 jq
+      
+      # Load ZFS module
+      modprobe zfs || true
+      
+      echo "Fedora 40 with OpenZFS ready"
+      zfs version
+
+probes:
+  - description: "ZFS module loaded"
+    script: |
+      #!/bin/sh
+      lsmod | grep -q zfs
+    hint: "ZFS kernel module should be loaded"
+
+message: |
+  Fedora 40 VM with OpenZFS ready!
+  
+  To access: limactl shell fedora-zfs
+  Check ZFS: zfs version

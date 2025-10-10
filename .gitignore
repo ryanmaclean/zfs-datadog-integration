@@ -1,0 +1,33 @@
+# Environment files with secrets
+.env.local
+.env
+
+# VM images and disks
+*.qcow2
+*.qcow2.xz
+*.iso
+*.img
+*.vmdk
+*.vdi
+
+# Test results and logs
+logs/
+test-results/
+parallel-test-results/
+*.log
+output-*/
+
+# Packer builds
+packer_cache/
+output-*/
+
+# Lima VM data
+.lima/
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.pid
+nohup.out

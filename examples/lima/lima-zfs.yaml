@@ -1,0 +1,65 @@
+# Lima VM Configuration for ZFS Testing
+# Minimal ARM64 Ubuntu VM with OpenZFS
+
+vmType: "vz"
+os: "Linux"
+arch: "aarch64"
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 2
+memory: "4GiB"
+disk: "20GiB"
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Update and install dependencies
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      
+      # Install OpenZFS from Ubuntu repos (latest stable)
+      apt-get install -y -qq \
+        zfsutils-linux \
+        zfs-dkms \
+        curl \
+        netcat-openbsd \
+        python3 \
+        python3-pip \
+        jq
+      
+      # Load ZFS module
+      modprobe zfs || true
+      
+      # Verify ZFS
+      zfs version || true
+      
+      echo "ZFS installation complete"
+
+probes:
+  - description: "ZFS module loaded"
+    script: |
+      #!/bin/bash
+      lsmod | grep -q zfs
+    hint: "ZFS kernel module should be loaded"
+
+message: |
+  ZFS test VM is ready!
+  
+  To access: limactl shell zfs-test
+  Check ZFS: zfs version

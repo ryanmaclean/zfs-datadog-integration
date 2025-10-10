@@ -1,0 +1,12 @@
+#cloud-config
+users:
+  - name: arch
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: $6$rounds=4096$saltsalt$IjcPjjFBs.GqHqKqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXqXq
+chpasswd:
+  expire: false
+  list: |
+    arch:arch
+ssh_pwauth: true
