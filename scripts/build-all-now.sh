@@ -20,12 +20,22 @@ build_kernel() {
     echo "[${VM}] Building kernel..."
     
     limactl shell $VM -- sudo bash -c '
-        # Install tools
+        set -e
+        
+        # Install tools (handle different distros)
         if command -v apt-get >/dev/null 2>&1; then
+            # Debian/Ubuntu
+            export DEBIAN_FRONTEND=noninteractive
             apt-get update
-            apt-get install -y build-essential bc bison flex libssl-dev libelf-dev git || true
+            apt-get install -y build-essential bc bison flex libssl-dev git curl wget
+            # Fix libelf-dev on Debian
+            apt-get install -y --fix-broken || true
+            apt-get install -y libelf-dev || apt-get install -y -t bookworm-backports libelf-dev || apt-get install -y -t noble-backports libelf-dev || true
         elif command -v dnf >/dev/null 2>&1; then
-            dnf install -y gcc make bc bison flex elfutils-libelf-devel openssl-devel git || true
+            # Rocky/RHEL
+            dnf install -y epel-release
+            dnf config-manager --set-enabled crb || dnf config-manager --set-enabled powertools || true
+            dnf install -y gcc make bc bison flex elfutils-libelf-devel openssl-devel git curl wget kernel-devel
         fi
         
         # Get kernel
@@ -35,13 +45,19 @@ build_kernel() {
         fi
         cd linux
         
+        # Clean any previous failed builds
+        make mrproper || true
+        
         # Configure for M-series
         make defconfig
         scripts/config --enable ARM64_CRYPTO
         scripts/config --enable CRYPTO_AES_ARM64_CE
         scripts/config --enable CRYPTO_SHA256_ARM64
         scripts/config --enable CRYPTO_CRC32_ARM64_CE
+        
+        # CRITICAL: Generate config files
         make olddefconfig
+        make prepare
         
         # Build
         make -j$(nproc) Image modules
@@ -68,8 +84,20 @@ build_freebsd_kernel() {
     
     echo "[${VM}] Building FreeBSD kernel..."
     
+    # Wait for FreeBSD to be accessible
+    for i in {1..10}; do
+        if limactl shell $VM -- echo "ready" >/dev/null 2>&1; then
+            break
+        fi
+        echo "[${VM}] Waiting for SSH... ($i/10)"
+        sleep 5
+    done
+    
     limactl shell $VM -- sudo sh -c '
+        set -e
+        
         # Install git if needed
+        pkg update || true
         pkg install -y git || true
         
         # Get source
