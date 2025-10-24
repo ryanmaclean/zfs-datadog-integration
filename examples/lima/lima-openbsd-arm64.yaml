@@ -10,7 +10,6 @@ images:
   # OpenBSD 7.6 ARM64 installation ISO
   - location: "https://cdn.openbsd.org/pub/OpenBSD/7.6/arm64/install76.img"
     arch: "aarch64"
-    digest: "sha256:placeholder"  # Will be updated
 
 cpus: 4
 memory: "8GiB"

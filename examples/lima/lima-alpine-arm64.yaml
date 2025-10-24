@@ -10,7 +10,6 @@ images:
   # Alpine Linux 3.19 ARM64 with virt kernel
   - location: "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-virt-3.19.0-aarch64.iso"
     arch: "aarch64"
-    digest: "sha256:placeholder"
 
 # Optimized for M-series chips
 cpus: 8  # M-series has performance + efficiency cores

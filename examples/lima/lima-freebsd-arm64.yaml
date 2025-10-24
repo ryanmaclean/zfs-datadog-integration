@@ -10,7 +10,6 @@ images:
   # FreeBSD 14.0 ARM64 cloud image
   - location: "https://download.freebsd.org/releases/VM-IMAGES/14.0-RELEASE/aarch64/Latest/FreeBSD-14.0-RELEASE-arm64-aarch64.qcow2.xz"
     arch: "aarch64"
-    digest: "sha256:placeholder"
 
 cpus: 4
 memory: "8GiB"
