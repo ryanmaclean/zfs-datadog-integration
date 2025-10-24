@@ -1,45 +1,51 @@
 # Makefile for M-series custom builds
-# Actually execute everything
 
-.PHONY: all kernel-live packer-alpine packer-freebsd verify clean
+.PHONY: all kernel-linux kernel-freebsd verify status monitor clean
 
-# Build everything
-all: kernel-live verify
+# Build both kernels
+all: kernel-linux kernel-freebsd
 
-# Build kernel in existing VM (LIVE)
-kernel-live:
-	@echo "Building M-series kernel in zfs-test VM..."
-	@./scripts/build-kernel-live.sh
+# Linux kernel (running now)
+kernel-linux:
+	@echo "Linux kernel building in zfs-test VM..."
+	@tail -20 kernel-build-live.log || echo "Check logs"
 
-# Build Alpine image with Packer
-packer-alpine:
-	@echo "Building Alpine M-series image with Packer..."
-	cd packer && packer build alpine-m-series.pkr.hcl
+# FreeBSD kernel (starting now)
+kernel-freebsd:
+	@echo "Starting FreeBSD kernel build..."
+	@./scripts/build-freebsd-kernel-now.sh
 
-# Build FreeBSD image with Packer
-packer-freebsd:
-	@echo "Building FreeBSD M-series image with Packer..."
-	cd packer && packer build freebsd-m-series.pkr.hcl
-
-# Verify everything works
+# Verify everything
 verify:
 	@echo "Verifying builds..."
 	@./scripts/verify-all.sh
 
-# Clean build artifacts
+# Status of all builds
+status:
+	@echo "=== VM Status ==="
+	@limactl list | grep -E '(zfs-test|freebsd-build)'
+	@echo ""
+	@echo "=== Linux Kernel ==="
+	@tail -5 kernel-build-live.log 2>/dev/null || echo "Not started"
+	@echo ""
+	@echo "=== FreeBSD Kernel ==="
+	@tail -5 freebsd-kernel-build.log 2>/dev/null || echo "Not started"
+
+# Monitor builds
+monitor-linux:
+	@tail -f kernel-build-live.log
+
+monitor-freebsd:
+	@tail -f freebsd-kernel-build.log
+
+monitor:
+	@echo "Linux kernel:"
+	@tail -10 kernel-build-live.log 2>/dev/null || echo "Not started"
+	@echo ""
+	@echo "FreeBSD kernel:"
+	@tail -10 freebsd-kernel-build.log 2>/dev/null || echo "Not started"
+
+# Clean
 clean:
-	rm -rf packer/output-*
 	rm -f *.log
 	rm -f baseline.txt verification.txt
-
-# Show status
-status:
-	@echo "=== Build Status ==="
-	@limactl list
-	@echo ""
-	@echo "=== Kernel Build Log ==="
-	@tail -20 kernel-build-live.log || echo "Not started"
-
-# Monitor kernel build
-monitor:
-	@tail -f kernel-build-live.log
