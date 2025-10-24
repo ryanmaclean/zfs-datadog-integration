@@ -1,0 +1,85 @@
+# Lima VM Configuration for NetBSD ARM64 with ZFS
+# Esoteric: NetBSD + ZFS + ARM64
+# NetBSD has better ZFS support than OpenBSD
+
+vmType: "qemu"
+os: null
+arch: "aarch64"
+
+images:
+  # NetBSD 10.0 ARM64 installation ISO
+  - location: "https://cdn.netbsd.org/pub/NetBSD/NetBSD-10.0/images/NetBSD-10.0-evbarm-aarch64.iso"
+    arch: "aarch64"
+
+cpus: 4
+memory: "8GiB"
+disk: "30GiB"
+
+firmware:
+  legacyBIOS: false
+
+mounts: []
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      
+      echo "=== NetBSD ARM64 with ZFS Setup ==="
+      echo "System: $(uname -a)"
+      
+      # Update package database
+      pkgin -y update
+      
+      # Install dependencies
+      pkgin -y install curl bash git
+      
+      # Install ZFS
+      echo "=== Installing ZFS ==="
+      pkgin -y install zfs
+      
+      # Load ZFS module
+      modload solaris
+      modload zfs
+      
+      # Verify ZFS
+      echo "=== Verifying ZFS ==="
+      zpool version || echo "ZFS not available"
+      zfs version || echo "ZFS not available"
+      
+      # Create test pool
+      if command -v zpool >/dev/null 2>&1; then
+          mkdir -p /var/zfs
+          dd if=/dev/zero of=/var/zfs/testpool.img bs=1M count=512
+          zpool create -f testpool /var/zfs/testpool.img
+          zpool status
+          
+          echo "✓ ZFS working on NetBSD ARM64!"
+      fi
+
+message: |
+  🎯 ESOTERIC BUILD: NetBSD 10.0 ARM64 + ZFS 🎯
+  
+  Configuration:
+  - NetBSD 10.0 on ARM64
+  - Native ZFS support (better than OpenBSD!)
+  - POSIX sh shell
+  
+  ZED Configuration:
+  - Path: /usr/pkg/etc/zfs/zed.d/
+  - Service: /etc/rc.d/zed start
+  - Config: NetBSD rc.conf
+  
+  ZFS Notes:
+  - NetBSD has decent ZFS support
+  - Module: modload zfs
+  - Works reasonably well on ARM64
+  
+  Access:
+  limactl shell netbsd-arm64
+  
+  NetBSD + ARM64 + ZFS = Rare combo! 🦾

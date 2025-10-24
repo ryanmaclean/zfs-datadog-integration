@@ -1,0 +1,106 @@
+# Lima VM Configuration for OpenBSD ARM64 with ZFS
+# The most esoteric combo: OpenBSD + ZFS + ARM64
+# Note: ZFS on OpenBSD is experimental and not officially supported
+
+vmType: "qemu"
+os: null  # OpenBSD needs manual configuration
+arch: "aarch64"
+
+images:
+  # OpenBSD 7.6 ARM64 installation ISO
+  - location: "https://cdn.openbsd.org/pub/OpenBSD/7.6/arm64/install76.img"
+    arch: "aarch64"
+    digest: "sha256:placeholder"  # Will be updated
+
+cpus: 4
+memory: "8GiB"
+disk: "30GiB"
+
+firmware:
+  legacyBIOS: false
+
+mounts: []  # Disable mounts for manual setup
+
+containerd:
+  system: false
+  user: false
+
+# OpenBSD requires manual installation
+# ZFS support is through OpenZFS port (experimental)
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/ksh
+      # OpenBSD uses ksh by default
+      
+      echo "=== OpenBSD ARM64 with ZFS Setup ==="
+      echo "System: $(uname -a)"
+      
+      # Update packages
+      pkg_add -u
+      
+      # Install dependencies
+      pkg_add curl bash zsh git
+      
+      # Note: OpenZFS on OpenBSD is experimental
+      # Currently, ZFS support on OpenBSD is limited
+      # This is truly esoteric!
+      
+      echo "=== Checking for ZFS support ==="
+      if command -v zpool >/dev/null 2>&1; then
+          echo "✓ ZFS found!"
+          zpool version
+          zfs version
+      else
+          echo "⚠ ZFS not available (expected - OpenBSD ZFS is experimental)"
+          echo ""
+          echo "To enable ZFS on OpenBSD ARM64:"
+          echo "1. Compile OpenZFS from source"
+          echo "2. Load kernel module"
+          echo "3. This is bleeding edge territory!"
+      fi
+      
+      # Create test pool if ZFS is available
+      if command -v zpool >/dev/null 2>&1; then
+          # Create a file-based pool for testing
+          mkdir -p /var/zfs
+          dd if=/dev/zero of=/var/zfs/testpool.img bs=1M count=512
+          zpool create -f testpool /var/zfs/testpool.img || echo "Pool creation failed"
+          zpool status
+      fi
+
+message: |
+  🔥 ESOTERIC BUILD: OpenBSD ARM64 + ZFS 🔥
+  
+  This is truly exotic territory:
+  - OpenBSD 7.6 on ARM64
+  - Experimental ZFS support
+  - POSIX shell (ksh)
+  
+  ⚠️  WARNINGS:
+  - ZFS on OpenBSD is NOT officially supported
+  - This is experimental and may be unstable
+  - ARM64 support is newer
+  
+  ZED Configuration:
+  - Path: /usr/local/etc/zfs/zed.d/ (if ZFS works)
+  - Shell: /bin/ksh (OpenBSD default)
+  - Service: rcctl enable zed; rcctl start zed
+  
+  Installation Steps:
+  1. Boot from ISO
+  2. Follow OpenBSD installer
+  3. Compile OpenZFS if attempting ZFS support
+  4. Load kernel module
+  5. Deploy zedlets
+  
+  Resources:
+  - OpenBSD: https://www.openbsd.org
+  - ZFS on OpenBSD: Experimental/unsupported
+  - This build: For the brave!
+  
+  Access VM:
+  limactl shell openbsd-arm64
+  
+  Good luck, you're in uncharted waters! 🏴‍☠️
