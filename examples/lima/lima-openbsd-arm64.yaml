@@ -8,7 +8,7 @@ arch: "aarch64"
 
 images:
   # OpenBSD 7.6 ARM64 installation ISO
-  - location: "https://cdn.openbsd.org/pub/OpenBSD/7.6/arm64/install76.img"
+  - location: "https://cdn.openbsd.org/pub/OpenBSD/7.6/arm64/install76.iso"
     arch: "aarch64"
 
 cpus: 4

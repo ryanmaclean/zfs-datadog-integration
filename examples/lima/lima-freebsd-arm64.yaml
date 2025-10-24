@@ -7,8 +7,8 @@ os: null
 arch: "aarch64"
 
 images:
-  # FreeBSD 14.0 ARM64 cloud image
-  - location: "https://download.freebsd.org/releases/VM-IMAGES/14.0-RELEASE/aarch64/Latest/FreeBSD-14.0-RELEASE-arm64-aarch64.qcow2.xz"
+  # FreeBSD 14.2 ARM64 cloud image (14.0 URL was broken)
+  - location: "https://download.freebsd.org/releases/VM-IMAGES/14.2-RELEASE/aarch64/Latest/FreeBSD-14.2-RELEASE-arm64-aarch64.qcow2.xz"
     arch: "aarch64"
 
 cpus: 4
