@@ -31,3 +31,16 @@ output-*/
 *.tmp
 *.pid
 nohup.out
+
+# Build artifacts
+build-logs/
+build-logs-*/
+*.log
+nohup.out
+
+# Packer outputs
+packer/output-*/
+
+# Temp files
+/tmp/
+*.tmp
