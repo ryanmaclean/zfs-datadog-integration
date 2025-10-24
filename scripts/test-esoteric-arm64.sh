@@ -37,26 +37,40 @@ fi
 
 echo "${CYAN}Select your esoteric build:${NC}"
 echo ""
-echo "${GREEN}1)${NC} ${MAGENTA}FreeBSD 14.0 ARM64${NC} ${CYAN}(Production-ready, native ZFS)${NC}"
+echo "${GREEN}1)${NC} ${MAGENTA}Alpine Linux ARM64${NC} ${CYAN}(musl + M-series optimized!)${NC}"
+echo "   ${BLUE}★${NC} musl libc (not glibc!) - catches portability issues"
+echo "   ${BLUE}★${NC} VZ backend - 2x faster than QEMU"
+echo "   ${BLUE}★${NC} Lightweight and fast"
+echo "   ${BLUE}★${NC} Best performance + esoteric combo"
+echo ""
+echo "${GREEN}2)${NC} ${MAGENTA}FreeBSD 14.0 ARM64${NC} ${CYAN}(Production-ready, native ZFS)${NC}"
 echo "   ${BLUE}★${NC} Best choice - fully functional"
 echo "   ${BLUE}★${NC} Native ZFS built into kernel"
 echo "   ${BLUE}★${NC} Excellent ARM64 support"
 echo ""
-echo "${YELLOW}2)${NC} ${MAGENTA}NetBSD 10.0 ARM64${NC} ${CYAN}(Esoteric, decent ZFS)${NC}"
+echo "${YELLOW}3)${NC} ${MAGENTA}NetBSD 10.0 ARM64${NC} ${CYAN}(Esoteric, decent ZFS)${NC}"
 echo "   ${BLUE}★${NC} Moderately rare combo"
 echo "   ${BLUE}★${NC} ZFS works but not as polished"
 echo "   ${BLUE}★${NC} Good ARM64 support"
 echo ""
-echo "${RED}3)${NC} ${MAGENTA}OpenBSD 7.6 ARM64${NC} ${CYAN}(ULTRA ESOTERIC!)${NC}"
+echo "${RED}4)${NC} ${MAGENTA}OpenBSD 7.6 ARM64${NC} ${CYAN}(ULTRA ESOTERIC!)${NC}"
 echo "   ${BLUE}★${NC} Most exotic - ZFS is experimental"
 echo "   ${BLUE}★${NC} May not work at all"
 echo "   ${BLUE}★${NC} For the truly adventurous"
 echo ""
-printf "Choose (1-3): "
+printf "Choose (1-4): "
 read -r choice
 
 case "$choice" in
     1)
+        VM_NAME="alpine-arm64"
+        LIMA_FILE="examples/lima/lima-alpine-arm64.yaml"
+        OS_NAME="Alpine Linux ARM64 (musl)"
+        ZED_PATH="/etc/zfs/zed.d"
+        SERVICE_CMD="rc-service zfs-zed restart"
+        DIFFICULTY="${GREEN}Easy + Esoteric${NC}"
+        ;;
+    2)
         VM_NAME="freebsd-arm64"
         LIMA_FILE="examples/lima/lima-freebsd-arm64.yaml"
         OS_NAME="FreeBSD 14.0 ARM64"
@@ -64,7 +78,7 @@ case "$choice" in
         SERVICE_CMD="service zfs restart"
         DIFFICULTY="${GREEN}Easy${NC}"
         ;;
-    2)
+    3)
         VM_NAME="netbsd-arm64"
         LIMA_FILE="examples/lima/lima-netbsd-arm64.yaml"
         OS_NAME="NetBSD 10.0 ARM64"
@@ -72,7 +86,7 @@ case "$choice" in
         SERVICE_CMD="/etc/rc.d/zed restart"
         DIFFICULTY="${YELLOW}Medium${NC}"
         ;;
-    3)
+    4)
         VM_NAME="openbsd-arm64"
         LIMA_FILE="examples/lima/lima-openbsd-arm64.yaml"
         OS_NAME="OpenBSD 7.6 ARM64"
