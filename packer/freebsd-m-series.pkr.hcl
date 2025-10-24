@@ -22,14 +22,15 @@ source "qemu" "freebsd-m-series" {
   vm_name          = "freebsd-m-series.qcow2"
   
   # M-series specific
+  # M-series optimized settings (see common-m-series.pkrvars.hcl)
   qemu_binary      = "qemu-system-aarch64"
   machine_type     = "virt"
-  cpu_model        = "cortex-a76"
-  cpus             = 8
-  memory           = 8192
+  cpu_model        = "cortex-a76"  # M1-M5 optimization
+  cpus             = 8              # Use P+E cores
+  memory           = 8192           # 8GB
   disk_size        = "30G"
   format           = "qcow2"
-  accelerator      = "hvf"
+  accelerator      = "hvf"  # macOS Hypervisor (2x faster than QEMU)
   
   # Network
   net_device       = "virtio-net"
@@ -61,8 +62,21 @@ build {
     destination = "/tmp/M-SERIES"
   }
   
+  # Build M-series optimized FreeBSD kernel
   provisioner "shell" {
-    script = "../kernels/build-freebsd-kernel.sh"
+    inline = [
+      "cd /usr/src",
+      "cat > sys/arm64/conf/M-SERIES << 'EOF'",
+      "include GENERIC",
+      "ident M-SERIES",
+      "options ZFS",
+      "nooptions INVARIANTS",
+      "nooptions WITNESS",
+      "nooptions DDB",
+      "EOF",
+      "make -j8 buildkernel KERNCONF=M-SERIES",
+      "make installkernel KERNCONF=M-SERIES"
+    ]
   }
   
   # Cleanup

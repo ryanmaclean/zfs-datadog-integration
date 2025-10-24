@@ -22,14 +22,15 @@ source "qemu" "alpine-m-series" {
   vm_name          = "alpine-m-series.qcow2"
   
   # M-series specific
+  # M-series optimized settings (see common-m-series.pkrvars.hcl)
   qemu_binary      = "qemu-system-aarch64"
   machine_type     = "virt"
-  cpu_model        = "cortex-a76"
-  cpus             = 8
-  memory           = 8192
+  cpu_model        = "cortex-a76"  # M1-M5 optimization
+  cpus             = 8              # Use P+E cores
+  memory           = 8192           # 8GB
   disk_size        = "20G"
   format           = "qcow2"
-  accelerator      = "hvf"  # macOS hypervisor
+  accelerator      = "hvf"  # macOS Hypervisor (2x faster than QEMU)  # macOS hypervisor
   
   # Boot config
   boot_wait        = "30s"
@@ -88,8 +89,21 @@ build {
     destination = "/tmp/kernel-config"
   }
   
+  # Build M-series optimized kernel
   provisioner "shell" {
-    script = "../kernels/build-alpine-kernel.sh"
+    inline = [
+      "cd /usr/src/linux",
+      "make defconfig",
+      "scripts/config --enable ARM64_CRYPTO",
+      "scripts/config --enable CRYPTO_AES_ARM64_CE",
+      "scripts/config --enable CRYPTO_SHA256_ARM64",
+      "scripts/config --enable CRYPTO_CRC32_ARM64_CE",
+      "scripts/config --set-val ARM64_PAGE_SHIFT 14",  # 16K pages
+      "make olddefconfig",
+      "make -j8 Image modules",
+      "make modules_install",
+      "cp arch/arm64/boot/Image /boot/vmlinuz-m-series"
+    ]
   }
   
   # Configure ZFS

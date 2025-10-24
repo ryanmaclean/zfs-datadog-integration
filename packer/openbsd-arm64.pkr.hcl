@@ -16,14 +16,15 @@ source "qemu" "openbsd-arm64" {
   output_directory = "output-openbsd-arm64"
   vm_name          = "openbsd-m-series.qcow2"
   
+  # M-series optimized settings (see common-m-series.pkrvars.hcl)
   qemu_binary      = "qemu-system-aarch64"
   machine_type     = "virt"
-  cpu_model        = "cortex-a76"
-  cpus             = 4
-  memory           = 8192
+  cpu_model        = "cortex-a76"  # M1-M5 optimization
+  cpus             = 8              # Use P+E cores (changed from 4)
+  memory           = 8192           # 8GB
   disk_size        = "30G"
   format           = "qcow2"
-  accelerator      = "hvf"
+  accelerator      = "hvf"  # macOS Hypervisor (2x faster than QEMU)
   
   boot_wait        = "45s"
   boot_command     = [
