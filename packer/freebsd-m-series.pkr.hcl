@@ -3,9 +3,9 @@
 
 packer {
   required_plugins {
-    qemu = {
-      version = ">= 1.0.0"
-      source  = "github.com/hashicorp/qemu"
+    limactl = {
+      version = ">= 0.1.0"
+      source  = "github.com/nofuturekid/limactl"
     }
   }
 }
@@ -15,38 +15,24 @@ variable "output_dir" {
   default = "output-freebsd-m-series"
 }
 
-source "qemu" "freebsd-m-series" {
-  iso_url          = "https://download.freebsd.org/releases/ISO-IMAGES/14.2/FreeBSD-14.2-RELEASE-arm64-aarch64-disc1.iso"
-  iso_checksum     = "file:https://download.freebsd.org/releases/ISO-IMAGES/14.2/CHECKSUM.SHA256-FreeBSD-14.2-RELEASE-arm64-aarch64"
-  output_directory = var.output_dir
-  vm_name          = "freebsd-m-series.qcow2"
+source "limactl" "freebsd-m-series" {
+  vm_name          = "freebsd-m-series"
+  lima_home        = "${env("HOME")}/.lima"
   
-  # M-series specific
-  # M-series optimized settings (see common-m-series.pkrvars.hcl)
-  qemu_binary      = "qemu-system-aarch64"
-  machine_type     = "virt"
-  cpu_model        = "cortex-a76"  # M1-M5 optimization
-  cpus             = 8              # Use P+E cores
-  memory           = 8192           # 8GB
-  disk_size        = "30G"
-  format           = "qcow2"
-  accelerator      = "hvf"  # macOS Hypervisor (2x faster than QEMU)
+  # Use existing Lima config
+  lima_yaml        = "../examples/lima/lima-freebsd-arm64.yaml"
   
-  # Network
-  net_device       = "virtio-net"
+  # M-series optimized (QEMU aarch64)
+  cpus             = 4
+  memory           = "8GiB"
+  disk             = "30GiB"
   
-  # Boot
-  boot_wait        = "45s"
-  
-  # SSH
-  ssh_username     = "root"
-  ssh_password     = "freebsd"
   ssh_timeout      = "30m"
-  shutdown_command = "shutdown -p now"
+  shutdown_command = "sudo shutdown -p now"
 }
 
 build {
-  sources = ["source.qemu.freebsd-m-series"]
+  sources = ["source.limactl.freebsd-m-series"]
   
   # Update system
   provisioner "shell" {

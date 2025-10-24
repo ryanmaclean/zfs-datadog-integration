@@ -3,9 +3,9 @@
 
 packer {
   required_plugins {
-    qemu = {
-      version = ">= 1.0.0"
-      source  = "github.com/hashicorp/qemu"
+    limactl = {
+      version = ">= 0.1.0"
+      source  = "github.com/nofuturekid/limactl"
     }
   }
 }
@@ -15,55 +15,26 @@ variable "output_dir" {
   default = "output-alpine-m-series"
 }
 
-source "qemu" "alpine-m-series" {
-  iso_url          = "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-virt-3.19.0-aarch64.iso"
-  iso_checksum     = "sha256:4990142221b333e62dea4aef7f8b14684fc37a06a35fa39d6a3de3f3e3f9d6c3"
-  output_directory = var.output_dir
-  vm_name          = "alpine-m-series.qcow2"
+source "limactl" "alpine-m-series" {
+  vm_name          = "alpine-m-series"
+  lima_home        = "${env("HOME")}/.lima"
   
-  # M-series specific
-  # M-series optimized settings (see common-m-series.pkrvars.hcl)
-  qemu_binary      = "qemu-system-aarch64"
-  machine_type     = "virt"
-  cpu_model        = "cortex-a76"  # M1-M5 optimization
-  cpus             = 8              # Use P+E cores
-  memory           = 8192           # 8GB
-  disk_size        = "20G"
-  format           = "qcow2"
-  accelerator      = "hvf"  # macOS Hypervisor (2x faster than QEMU)  # macOS hypervisor
+  # Use existing Lima config
+  lima_yaml        = "../examples/lima/lima-alpine-arm64.yaml"
   
-  # Boot config
-  boot_wait        = "30s"
-  boot_command     = [
-    "root<enter><wait>",
-    "setup-alpine<enter><wait5>",
-    "us<enter><wait>",
-    "us<enter><wait>",
-    "alpine-m-series<enter><wait>",
-    "eth0<enter><wait>",
-    "dhcp<enter><wait>",
-    "n<enter><wait>",
-    "changeme<enter><wait>",
-    "changeme<enter><wait>",
-    "UTC<enter><wait>",
-    "n<enter><wait>",
-    "openssh<enter><wait>",
-    "chrony<enter><wait>",
-    "vda<enter><wait>",
-    "sys<enter><wait>",
-    "y<enter><wait60>",
-    "reboot<enter>"
-  ]
+  # M-series optimized (using VZ backend from Lima config)
+  cpus             = 8
+  memory           = "12GiB"
+  disk             = "40GiB"
   
-  # SSH
-  ssh_username     = "root"
-  ssh_password     = "changeme"
+  
+  # Lima handles boot automatically
   ssh_timeout      = "20m"
-  shutdown_command = "poweroff"
+  shutdown_command = "sudo poweroff"
 }
 
 build {
-  sources = ["source.qemu.alpine-m-series"]
+  sources = ["source.limactl.alpine-m-series"]
   
   # Update system
   provisioner "shell" {
