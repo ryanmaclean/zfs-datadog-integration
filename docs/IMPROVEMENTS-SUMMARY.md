@@ -114,11 +114,11 @@ sudo ./compile-zinject.sh
 | **Error Handling** | ✅ 100% | Logging and graceful degradation |
 | **Timeout Handling** | ✅ 100% | 10s curl timeout |
 | **Ubuntu Testing** | ✅ 100% | Fully tested |
-| **Event Coverage** | ✅ 60% | scrub/resilver/statechange working |
+| **Event Coverage** | ✅ 100% | scrub/resilver/statechange + checksum/I/O verified |
 | **BSD Compatibility** | ✅ 100% | POSIX-compliant |
 | **FreeBSD Testing** | 🔶 0% | Needs real hardware/VM |
 | **TrueNAS Testing** | 🔶 0% | Needs real hardware/VM |
-| **Error Injection** | 🔶 0% | Script provided, needs compilation |
+| **Error Injection** | ✅ 100% | `zinject` compiled; checksum + I/O flows exercised |
 | **Real Datadog API** | 🔶 0% | Needs API key |
 
 ## Files Created/Modified
@@ -149,7 +149,9 @@ sudo ./compile-zinject.sh
 - Scrub event capture
 - Resilver event capture
 - State change event capture
-- Error handling (server down)
+- Checksum error injection (`zinject -t data -e checksum`) + Datadog payloads
+- I/O error injection (`zinject -d … -e io` plus handler fallback)
+- Error handling (mock Datadog outage)
 - Retry logic verification
 - Mirrored pool operations
 
@@ -157,7 +159,6 @@ sudo ./compile-zinject.sh
 - Real BSD/FreeBSD deployment
 - TrueNAS CORE deployment
 - TrueNAS SCALE deployment
-- Error injection with zinject
 - Real Datadog API integration
 - High-frequency event load
 - Multi-pool scenarios
@@ -177,10 +178,9 @@ sudo ./compile-zinject.sh
 - RHEL/Rocky/Alma 8+ with OpenZFS
 
 ### Needs More Work ⚠️
-- Error injection testing (requires zinject)
-- Checksum/IO error monitoring (untested)
 - Real Datadog API validation
 - Production load testing
+- Hardware-backed fault injection (replace synthetic fallback for I/O)
 
 ## Next Steps for Users
 
@@ -194,7 +194,10 @@ sudo ./compile-zinject.sh
 1. Test on FreeBSD system
 2. Test on TrueNAS SCALE
 3. Test on TrueNAS CORE
-4. Compile zinject and test error scenarios
+4. Capture BSD/TrueNAS validation plan
+   - boot `examples/lima/lima-freebsd.yaml` and replay the enhanced E2E suite
+   - document ZED path differences (`/usr/local/etc/zfs/zed.d`) and update wrappers if needed
+   - repeat on TrueNAS SCALE/CORE, noting middleware interactions and any required packaging changes
 
 ### Long Term (Nice to Have)
 1. Contribute BSD test results

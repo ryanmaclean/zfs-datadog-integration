@@ -6,7 +6,7 @@ os: "Linux"
 arch: "aarch64"
 
 images:
-  - location: "https://geo.mirror.pkgbuild.com/images/latest/Arch-Linux-aarch64-cloudimg.qcow2"
+  - location: "https://mirror.pkgbuild.com/images/latest/Arch-Linux-aarch64-cloudimg.qcow2"
     arch: "aarch64"
 
 cpus: 2
@@ -34,10 +34,7 @@ provision:
       
       # Install ZFS from archzfs repo
       # Add archzfs repository
-      cat >> /etc/pacman.conf <<'EOF'
-[archzfs]
-Server = https://archzfs.com/$repo/$arch
-EOF
+      printf '%s\n' '[archzfs]' 'Server = https://archzfs.com/$repo/$arch' >> /etc/pacman.conf
       # Import archzfs GPG key
       pacman-key -r DDF7DB817396A49B2A2723F7403BD972F75D9D76
       pacman-key --lsign-key DDF7DB817396A49B2A2723F7403BD972F75D9D76

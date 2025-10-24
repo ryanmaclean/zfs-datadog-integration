@@ -1,0 +1,13 @@
+# Add this patch to any Deployment/StatefulSet to disable Next.js telemetry
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          env:
+            - name: NEXT_TELEMETRY_DISABLED
+              value: "1"

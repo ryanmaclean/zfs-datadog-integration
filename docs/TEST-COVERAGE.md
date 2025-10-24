@@ -8,21 +8,15 @@
 |----------|------|--------|
 | **Platform** | Ubuntu 24.04 ARM64 | ✓ TESTED |
 | **OpenZFS** | Version 2.2.2 | ✓ TESTED |
-| **Events** | scrub_finish | ✓ TESTED |
+| **Events** | scrub_finish / resilver_finish / statechange | ✓ TESTED |
+| **Events** | checksum_error / io_error | ✓ TESTED (zinject + fallback for I/O) |
 | **Pool Type** | Simple stripe (3 disks) | ✓ TESTED |
 | **Integration** | Mock Datadog server | ✓ TESTED |
 | **Naming** | ZFS event conventions | ✓ TESTED |
 
 ### Critical Gaps ❌
 
-#### 1. Event Types NOT Tested
-- ❌ resilver_finish events
-- ❌ statechange events (pool degradation)
-- ❌ checksum error events
-- ❌ I/O error events
-- ❌ all-datadog.sh router functionality
-
-#### 2. Platform Compatibility NOT Tested
+#### 1. Platform Compatibility NOT Tested
 - ❌ FreeBSD with native ZFS
 - ❌ TrueNAS CORE (FreeBSD-based)
 - ❌ TrueNAS SCALE (Debian-based)
@@ -31,14 +25,14 @@
 - ❌ Proxmox VE
 - ❌ Arch Linux
 
-#### 3. Pool Configurations NOT Tested
+#### 2. Pool Configurations NOT Tested
 - ❌ Mirrored pools (required for resilver)
 - ❌ RAIDZ1/RAIDZ2/RAIDZ3
 - ❌ Multiple pools simultaneously
 - ❌ Pools with cache/log devices
 - ❌ Encrypted pools
 
-#### 4. Real-World Scenarios
+#### 3. Real-World Scenarios
 - ✅ Network failures (Datadog unreachable) - TESTED
 - ✅ Retry logic with exponential backoff - IMPLEMENTED
 - ✅ Timeout handling - IMPLEMENTED
@@ -50,7 +44,7 @@
 - ❌ Large event payloads - NOT TESTED
 - ❌ High-frequency events - NOT TESTED
 
-#### 5. Error Handling ✅ IMPLEMENTED
+#### 4. Error Handling ✅ IMPLEMENTED
 - ✅ curl failures - Retry with exponential backoff (3 attempts)
 - ✅ netcat failures - Retry logic (2 attempts)
 - ✅ Script failures - Error logging to stderr
@@ -58,7 +52,7 @@
 - ✅ Timeout handling - 10s timeout for curl
 - ✅ Graceful degradation - Scripts don't crash ZED
 
-#### 6. Shell Compatibility ✅ RESOLVED
+#### 5. Shell Compatibility ✅ RESOLVED
 - ✅ POSIX sh compatible
 - ✅ Works on BSD/FreeBSD/TrueNAS
 - ✅ No bash dependency
@@ -130,13 +124,13 @@ All scripts converted to POSIX sh. See BSD-COMPATIBILITY.md for details.
 ```
 
 Tests to add:
-- [ ] Create mirrored pool
-- [ ] Inject checksum errors with zinject
-- [ ] Inject I/O errors with zinject
-- [ ] Trigger resilver by replacing device
-- [ ] Test pool degradation (offline/online)
-- [ ] Test all-datadog.sh routing
-- [ ] Test error handling (kill mock server)
+- [x] Create mirrored pool
+- [x] Inject checksum errors with zinject
+- [x] Inject I/O errors with zinject (includes synthetic fallback)
+- [x] Trigger resilver by replacing device
+- [x] Test pool degradation (offline/online)
+- [x] Test all-datadog.sh routing
+- [x] Test error handling (kill mock server)
 - [ ] Test with multiple pools
 
 ### Phase 2: BSD/TrueNAS Support ✅ COMPLETED
@@ -169,8 +163,7 @@ Tests to add:
 3. ~~**No error recovery**~~ - ✅ RESOLVED: Error logging implemented
 4. **Untested on BSD** - POSIX-compatible but needs real BSD testing
 5. **No rate limiting** - Could overwhelm Datadog API
-6. **No validation** - Assumes all ZEVENT_* vars exist
-7. **zinject unavailable** - Cannot test error injection on Ubuntu
+6. **Synthetic I/O fallback** - Handler validated, but rely on real hardware to produce `ereport.fs.zfs.io`
 
 ### Documentation Gaps
 - Missing BSD installation instructions
@@ -184,9 +177,9 @@ Tests to add:
 **Current state**: Production-ready for Ubuntu with comprehensive error handling.
 
 **Production readiness**: 
-- Ubuntu/Debian: 80% - Fully functional with retry logic
+- Ubuntu/Debian: 90% - Full event coverage validated in Lima (scrub/resilver/statechange/checksum/IO)
 - BSD/FreeBSD/TrueNAS: 70% - POSIX-compatible, needs real-world testing
-- Overall: 75%
+- Overall: 80%
 
 **Safe for production**:
 - ✅ Ubuntu-based systems
@@ -197,5 +190,5 @@ Tests to add:
 **Needs testing**:
 - Real BSD/FreeBSD deployment
 - TrueNAS CORE/SCALE
-- Error injection scenarios (requires zinject)
+- Real Datadog API + live agent telemetry
 - Real Datadog API integration

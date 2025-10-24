@@ -37,6 +37,8 @@ apt-get install -y \
     libaio-dev \
     libattr1-dev \
     libelf-dev \
+    libtirpc-dev \
+    pkg-config \
     linux-headers-$(uname -r) \
     python3 \
     python3-dev \
@@ -46,10 +48,15 @@ apt-get install -y \
     git
 
 echo ""
-echo "Cloning OpenZFS repository..."
+OPENZFS_REF="${OPENZFS_REF:-master}"
+
+echo "Cloning OpenZFS repository (ref: ${OPENZFS_REF})..."
 cd /tmp
 rm -rf zfs
-git clone --depth 1 --branch zfs-2.2.2 https://github.com/openzfs/zfs.git
+if ! git clone --depth 1 --branch "$OPENZFS_REF" https://github.com/openzfs/zfs.git; then
+    echo "Falling back to master branch..."
+    git clone --depth 1 https://github.com/openzfs/zfs.git
+fi
 cd zfs
 
 echo ""
@@ -74,7 +81,7 @@ echo ""
 echo "Verifying zinject installation..."
 if command -v zinject >/dev/null 2>&1; then
     echo "✓ zinject successfully installed"
-    zinject --help | head -5
+    zinject -h 2>&1 | head -5
 else
     echo "✗ zinject not found in PATH"
     echo "Check /usr/local/sbin/zinject"

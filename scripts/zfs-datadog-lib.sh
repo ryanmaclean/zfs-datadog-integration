@@ -26,7 +26,12 @@ HOSTNAME="${HOSTNAME:-$(hostname)}"
 log_message() {
     local level="$1"
     local message="$2"
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] [$level] $message" >&2
+    local timestamp
+    timestamp=$(date +'%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] [$level] $message" >&2
+    if command -v logger >/dev/null 2>&1; then
+        logger -t zfs-datadog "[$level] $message"
+    fi
 }
 
 # Send event to Datadog Events API
@@ -125,7 +130,10 @@ send_metric() {
         tags="host:${HOSTNAME}"
     fi
     
-    local statsd_message="${metric_name}:${value}|${metric_type:0:1}|#${tags}"
+    # Extract first character of metric type in a POSIX-friendly way (gauge -> g, counter -> c, etc.)
+    local metric_short
+    metric_short=$(printf '%s' "$metric_type" | cut -c1)
+    local statsd_message="${metric_name}:${value}|${metric_short}|#${tags}"
     
     # Send via UDP to DogStatsD with retry
     local max_retries=2

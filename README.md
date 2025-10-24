@@ -60,6 +60,7 @@ See [INSTALL.md](INSTALL.md) for OS-specific instructions.
 - **Configuration validation**: Built-in config checker
 - **Easy installation**: Automated install and uninstall scripts
 - **CI/CD tested**: Automated testing with GitHub Actions
+- **Telemetry-safe**: Next.js telemetry disabled across Docker, Kubernetes, and VM workflows ([details](docs/NEXTJS-TELEMETRY.md))
 
 ## Tools
 

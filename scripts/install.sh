@@ -6,6 +6,9 @@
 
 set -e
 
+# Prevent Next.js from sending telemetry if invoked during install.
+export NEXT_TELEMETRY_DISABLED=1
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

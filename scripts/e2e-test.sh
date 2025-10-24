@@ -9,6 +9,9 @@ set -e
 VM_NAME="zfs-test"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Ensure any Next.js tooling inside the VM runs telemetry-free.
+export NEXT_TELEMETRY_DISABLED=1
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
