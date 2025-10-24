@@ -1,0 +1,54 @@
+# Lima VM Configuration for Debian ARM64 with vfkit
+# Uses Apple's Virtualization.framework via vfkit for native M-series performance
+
+vmType: "vz"
+os: "Linux"
+arch: "aarch64"
+
+images:
+  - location: "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-arm64.qcow2"
+    arch: "aarch64"
+
+cpus: 4
+memory: "8GiB"
+disk: "40GiB"
+
+rosetta:
+  enabled: false
+  binfmt: false
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      
+      export DEBIAN_FRONTEND=noninteractive
+      
+      # Update and install build tools
+      apt-get update
+      apt-get install -y \
+        build-essential \
+        bc bison flex \
+        libssl-dev libelf-dev \
+        git curl wget \
+        zfsutils-linux
+      
+      echo "Debian ARM64 ready for kernel builds with vfkit"
+
+message: |
+  Debian ARM64 VM with vfkit (Virtualization.framework)
+  
+  Native M-series performance via Apple's hypervisor
+  
+  Access: limactl shell debian-vfkit
