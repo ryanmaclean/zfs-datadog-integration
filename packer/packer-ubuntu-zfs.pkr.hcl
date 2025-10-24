@@ -30,7 +30,7 @@ source "qemu" "ubuntu-zfs" {
   iso_url                = var.iso_url
   iso_checksum           = var.iso_checksum
   disk_image             = true
-  output_directory       = "output-ubuntu-zfs"
+  output_directory       = "output-ubuntu-zfs-arm64"
   shutdown_command       = "echo 'ubuntu' | sudo -S shutdown -P now"
   disk_size              = "20G"
   format                 = "qcow2"
