@@ -1,0 +1,17 @@
+# M-Series Kernel Build Status
+
+## Current Build
+- VM: debian-zfs (VZ backend with vfkit)
+- Kernel: Latest mainline (git master)
+- Optimizations: ARM64_CRYPTO, AES_CE, SHA256, CRC32_CE, LSE_ATOMICS
+- Build: -j4 parallel compilation
+- Backend: vfkit 0.6.1 (Apple Virtualization.framework)
+
+## Environment
+- Disk: 94% used (61GB free)
+- Lima: 3.8GB storage
+- Active VMs: 1 (debian-zfs only)
+
+## Build Progress
+Started: $(date)
+Status: Compiling
