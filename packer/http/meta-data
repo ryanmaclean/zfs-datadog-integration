@@ -1,0 +1,2 @@
+instance-id: packer-ubuntu-zfs
+local-hostname: packer-ubuntu-zfs

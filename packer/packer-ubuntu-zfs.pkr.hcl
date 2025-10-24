@@ -17,7 +17,7 @@ variable "vm_name" {
 
 variable "iso_url" {
   type    = string
-  default = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+  default = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
 }
 
 variable "iso_checksum" {
@@ -34,7 +34,7 @@ source "qemu" "ubuntu-zfs" {
   shutdown_command       = "echo 'ubuntu' | sudo -S shutdown -P now"
   disk_size              = "20G"
   format                 = "qcow2"
-  accelerator            = "kvm"
+  accelerator            = "hvf"
   ssh_username           = "ubuntu"
   ssh_password           = "ubuntu"
   ssh_timeout            = "30m"
@@ -44,8 +44,11 @@ source "qemu" "ubuntu-zfs" {
   memory                 = 4096
   disk_interface         = "virtio"
   net_device             = "virtio-net"
-  qemu_binary            = "qemu-system-x86_64"
+  qemu_binary            = "qemu-system-aarch64"
+  machine_type           = "virt"
+  cpu_model              = "cortex-a57"
   headless               = true
+  firmware               = "/opt/homebrew/share/qemu/edk2-aarch64-code.fd"
 
   cd_files = ["http/user-data", "http/meta-data"]
   cd_label = "cidata"
@@ -63,25 +66,30 @@ build {
     ]
   }
 
-  # Copy zedlets
-  provisioner "file" {
-  }
-
-  provisioner "file" {
-    sources     = ["zfs-datadog-lib.sh", "config.sh", "scrub_finish-datadog.sh", "resilver_finish-datadog.sh", "statechange-datadog.sh", "all-datadog.sh", ".env.local"]
-    destination = "/tmp/"
-  }
-
   provisioner "file" {
     sources = [
-      "checksum-error.sh",
-      "io-error.sh"
+      "${path.root}/../scripts/zfs-datadog-lib.sh",
+      "${path.root}/../scripts/config.sh",
+      "${path.root}/../scripts/scrub_finish-datadog.sh",
+      "${path.root}/../scripts/resilver_finish-datadog.sh",
+      "${path.root}/../scripts/statechange-datadog.sh",
+      "${path.root}/../scripts/all-datadog.sh",
+      "${path.root}/../scripts/ereport.fs.zfs.checksum-datadog.sh",
+      "${path.root}/../scripts/ereport.fs.zfs.io-datadog.sh"
     ]
     destination = "/tmp/"
   }
 
   provisioner "file" {
-    source      = ".env.local"
+    sources = [
+      "${path.root}/../scripts/checksum-error.sh",
+      "${path.root}/../scripts/io-error.sh"
+    ]
+    destination = "/tmp/"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/../.env.local"
     destination = "/tmp/.env.local"
   }
 
