@@ -1,0 +1,4 @@
+sed: couldn't write 77 items to stdout: No space left on device
+make[2]: *** [scripts/mod/Makefile:12: scripts/mod/devicetable-offsets.h] Error 4
+make[1]: *** [/tmp/linux/Makefile:1279: prepare0] Error 2
+make: *** [Makefile:248: __sub-make] Error 2
