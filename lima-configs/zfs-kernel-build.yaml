@@ -1,0 +1,92 @@
+# Kernel Build VM - Minimum viable size for kernel compilation
+# Worst-case scenario: Smallest disk that can build a kernel
+#
+# Disk breakdown:
+# - Base OS: ~1.5GB
+# - Build tools: ~500MB (gcc, make, etc)
+# - Kernel source: ~2GB (Linux git repo)
+# - Build artifacts: ~6GB (compiled objects, modules)
+# - Installed kernel: ~200MB
+# - Headroom: ~1.8GB (for tmp files, cache)
+# Total minimum: ~12GB
+#
+# Setting to 15GB virtual to be safe (actual usage ~12-13GB during build)
+
+vmType: "vz"
+os: "Linux"
+arch: "aarch64"
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 4  # More CPUs for faster builds
+memory: "4GiB"
+
+# MINIMUM for kernel build: 15GB virtual (actual usage ~12-13GB)
+disk: "15GiB"  # Smallest safe size for kernel compilation
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Install ONLY kernel build essentials (no ZFS)
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get install -y -qq \
+        build-essential \
+        libncurses-dev \
+        bison \
+        flex \
+        libssl-dev \
+        libelf-dev \
+        bc \
+        git \
+        kmod \
+        wget \
+        curl \
+        dwarves \
+        pahole \
+        rsync \
+        cpio
+      
+      echo "Kernel build tools installed"
+      echo "Disk space available:"
+      df -h /
+
+probes:
+  - description: "Build tools installed"
+    script: |
+      #!/bin/bash
+      command -v gcc && command -v make
+    hint: "GCC and Make should be available"
+
+message: |
+  Kernel build VM is ready!
+  
+  Disk: 15GB virtual, ~12-13GB actual during build
+  CPUs: 4 cores for faster compilation
+  
+  To access: limactl shell kernel-build
+  
+  Build kernel:
+    cd /usr/src
+    git clone --depth 1 --branch linux-6.6.y https://github.com/torvalds/linux.git
+    cd linux
+    make ARCH=arm64 defconfig
+    make ARCH=arm64 -j4 Image modules
+  
+  WARNING: This VM is MINIMAL - only for kernel building!
+  Delete after extracting kernel to reclaim 12GB disk space.

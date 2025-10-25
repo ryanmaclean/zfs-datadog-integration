@@ -1,0 +1,70 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🚀 Build ARM64 Kernel",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/build-arm64-kernel-now.sh"],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "📋 List VMs",
+      "type": "shell",
+      "command": "limactl",
+      "args": ["list"],
+      "problemMatcher": []
+    },
+    {
+      "label": "▶️ Start Kernel Build VM",
+      "type": "shell",
+      "command": "limactl",
+      "args": ["start", "kernel-build"],
+      "problemMatcher": []
+    },
+    {
+      "label": "⏹️ Stop Kernel Build VM",
+      "type": "shell",
+      "command": "limactl",
+      "args": ["stop", "kernel-build"],
+      "problemMatcher": []
+    },
+    {
+      "label": "🔍 Check VM Disk Space",
+      "type": "shell",
+      "command": "limactl",
+      "args": ["shell", "kernel-build", "--", "df", "-h", "/"],
+      "problemMatcher": []
+    },
+    {
+      "label": "📊 Check Build Progress",
+      "type": "shell",
+      "command": "limactl",
+      "args": ["shell", "kernel-build", "--", "tail", "-f", "/tmp/kernel-build.log"],
+      "problemMatcher": [],
+      "isBackground": true
+    },
+    {
+      "label": "💾 Check Remote Storage",
+      "type": "shell",
+      "command": "du",
+      "args": ["-sh", "/Volumes/tank3/*"],
+      "problemMatcher": []
+    },
+    {
+      "label": "🧪 Run ZFS Tests",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/run-actual-zfs-build.sh"],
+      "problemMatcher": []
+    }
+  ]
+}

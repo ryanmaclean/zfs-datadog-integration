@@ -1,0 +1,90 @@
+{
+  "name": "mlcode-extension",
+  "displayName": "ML Code Assistant (On-Device)",
+  "description": "Local ML-powered code completion using Apple Neural Engine / Qualcomm Hexagon / Samsung NPU",
+  "version": "1.0.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Programming Languages",
+    "Snippets"
+  ],
+  "activationEvents": [
+    "onLanguage:bash",
+    "onLanguage:shellscript",
+    "onLanguage:rust",
+    "onLanguage:javascript",
+    "onLanguage:typescript"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "mlcode.initializeModel",
+        "title": "Initialize ML Model (On-Device)"
+      },
+      {
+        "command": "mlcode.explainCode",
+        "title": "Explain Code (ML)"
+      },
+      {
+        "command": "mlcode.ragSearch",
+        "title": "RAG Code Search"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mlcode.explainCode",
+        "key": "cmd+shift+e",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "mlcode.ragSearch",
+        "key": "cmd+shift+f",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "ML Code Assistant",
+      "properties": {
+        "mlcode.modelSize": {
+          "type": "string",
+          "default": "3B",
+          "enum": [
+            "1B",
+            "3B",
+            "7B"
+          ],
+          "description": "Model size (smaller = faster on mobile)"
+        },
+        "mlcode.useHardwareAcceleration": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use Neural Engine/Hexagon/NPU"
+        },
+        "mlcode.completionEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable ML-powered completions"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.79",
+    "@xenova/transformers": "^2.17.2"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.105.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,64 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "ZFS Dev Tools",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "fs": {
+        "all": true,
+        "scope": [
+          "$APPLOCALDATA/*",
+          "$DOCUMENT/*",
+          "~/Library/Mobile Documents/iCloud~com~zfsdev/*"
+        ]
+      },
+      "shell": {
+        "all": false,
+        "execute": false,
+        "sidecar": false,
+        "open": true
+      },
+      "http": {
+        "all": true,
+        "request": true,
+        "scope": ["http://*:8080", "http://*:22"]
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["ios"],
+      "identifier": "com.zfsdev.tools",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "iOS": {
+        "minimumSystemVersion": "13.0",
+        "frameworks": [],
+        "developmentTeam": "YOUR_TEAM_ID"
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "ZFS Dev Tools",
+        "width": 800,
+        "height": 600
+      }
+    ]
+  }
+}

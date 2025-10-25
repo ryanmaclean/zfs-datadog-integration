@@ -1,0 +1,108 @@
+# MINIMAL ZFS Test VM - Absolute minimum disk size
+# Worst-case scenario: Smallest possible virtual disk that works
+# 
+# Disk breakdown:
+# - Base OS: ~1.5GB (Ubuntu minimal)
+# - ZFS packages: ~200MB
+# - ZFS pool (loop): ~500MB (minimal test pool)
+# - Headroom: ~800MB (for operations)
+# Total minimum: ~3GB
+#
+# Setting to 4GB virtual to be safe (actual usage still ~2-3GB with lazy allocation)
+
+vmType: "vz"
+os: "Linux"
+arch: "aarch64"
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 2
+memory: "2GiB"  # Reduced from 4GiB
+
+# ABSOLUTE MINIMUM: 4GB virtual (actual usage ~2-3GB)
+disk: "4GiB"  # Smallest safe size for ZFS testing
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      # Install ZFS and build tools
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get install -y -qq \
+        zfsutils-linux \
+        zfs-dkms \
+        build-essential \
+        linux-headers-$(uname -r) \
+        curl \
+        jq
+      
+      # Load ZFS module
+      modprobe zfs || true
+      
+      # Create MINIMAL ZFS pool using loop devices
+      # Absolute minimum size for testing
+      if ! zpool status testpool 2>/dev/null; then
+        echo "Creating MINIMAL ZFS pool 'testpool' using loop devices"
+        
+        # Create TINY sparse files (256MB each = 512MB total pool)
+        mkdir -p /zfs-disks
+        truncate -s 256M /zfs-disks/disk1.img
+        truncate -s 256M /zfs-disks/disk2.img
+        
+        # Create ZFS mirror pool with minimal settings
+        zpool create -f testpool mirror /zfs-disks/disk1.img /zfs-disks/disk2.img
+        zfs set compression=lz4 testpool
+        zfs set atime=off testpool
+        zfs set recordsize=128k testpool  # Smaller record size
+        zfs set quota=200M testpool       # Hard limit to prevent growth
+        
+        echo "✅ MINIMAL ZFS pool created (256MB usable)"
+      else
+        echo "✅ ZFS pool 'testpool' already exists"
+      fi
+      
+      # Verify
+      zfs version
+      zpool status testpool
+      zfs list
+      
+      echo "ZFS installation complete"
+
+probes:
+  - description: "ZFS module loaded"
+    script: |
+      #!/bin/bash
+      lsmod | grep -q zfs
+    hint: "ZFS kernel module should be loaded"
+
+message: |
+  MINIMAL ZFS test VM is ready!
+  
+  Disk: 4GB virtual, ~2-3GB actual usage
+  ZFS Pool: 256MB usable (512MB mirrored)
+  
+  To access: limactl shell zfs-test
+  Check ZFS: zpool status testpool
+  
+  Test commands:
+    zfs create testpool/test
+    dd if=/dev/zero of=/testpool/test/file bs=1M count=50
+    zfs snapshot testpool/test@snap1
+    zfs list -t snapshot
+    
+  WARNING: Pool is TINY - only for basic ZFS testing!

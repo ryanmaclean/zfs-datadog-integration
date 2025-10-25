@@ -1,0 +1,78 @@
+# ARM64 Kernel Build VM - For M-series Macs
+# Needs more disk space for kernel source and build
+#
+# Disk breakdown:
+# - Base OS: ~2GB
+# - Kernel source: ~2GB
+# - Build artifacts: ~15GB
+# - Headroom: ~6GB
+# Total: ~25GB virtual (actual usage ~20GB with lazy allocation)
+
+vmType: "vz"
+os: "Linux"
+arch: "aarch64"
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 4  # More CPUs for faster builds
+memory: "4GiB"
+
+# Kernel build needs space
+disk: "30GiB"  # Virtual size, actual usage ~20GB
+
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      
+      echo "=== Setting up ARM64 Kernel Build Environment ==="
+      
+      # Install build dependencies
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get install -y -qq \
+        build-essential libncurses-dev bison flex \
+        libssl-dev libelf-dev bc git kmod \
+        wget curl ca-certificates \
+        dwarves pahole rsync cpio \
+        zstd lz4 \
+        linux-headers-$(uname -r)
+      
+      echo "✅ Build tools installed"
+      
+      # Verify
+      gcc --version
+      make --version
+      git --version
+      
+      echo "=== ARM64 Kernel Build VM Ready ==="
+      uname -a
+      nproc
+      free -h
+      df -h /
+
+message: |
+  ARM64 Kernel Build VM is ready!
+  
+  Disk: 30GB virtual, ~20GB actual usage
+  CPUs: 4 cores for faster builds
+  Memory: 4GB
+  
+  To build kernel:
+    limactl shell kernel-build
+    # Then run the build script
+  
+  Build will take 20-40 minutes on ARM64
