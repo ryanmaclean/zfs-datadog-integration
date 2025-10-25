@@ -6,6 +6,7 @@
     "ms-vscode-remote.remote-ssh",
     "eamodio.gitlens",
     "usernamehw.errorlens",
-    "streetsidesoftware.code-spell-checker"
+    "streetsidesoftware.code-spell-checker",
+    "local.mlcode-extension"
   ]
 }
