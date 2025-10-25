@@ -1,0 +1,8 @@
+***
+*** Configuration file ".config" not found!
+***
+*** Please run some configurator (e.g. "make oldconfig" or
+*** "make menuconfig" or "make xconfig").
+***
+make[1]: *** [/tmp/linux/Makefile:829: .config] Error 1
+make: *** [Makefile:248: __sub-make] Error 2
