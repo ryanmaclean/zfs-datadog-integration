@@ -1,0 +1,71 @@
+# ML Code Assistant - Test Cases
+# Use these to demo the extension
+
+# Bash Functions
+function build_kernel
+function test_connection
+function cleanup_temp
+
+# ZFS Commands
+zpool create
+zpool status
+zfs create
+zfs snapshot
+
+# Lima Commands
+limactl shell
+limactl list
+limactl start
+limactl stop
+
+# Control Structures
+for i in
+while read
+if [ -f
+case $1 in
+
+# Error Handling
+trap
+set -e
+|| exit
+
+# Variables
+export PATH
+local result
+readonly CONFIG
+
+# Common Patterns
+#!/bin/bash
+echo "
+cd /path/to
+sudo systemctl
+
+# Docker Commands
+docker run
+docker build
+docker ps
+docker exec
+
+# Git Commands
+git commit
+git push
+git pull
+git checkout
+
+# Network Commands
+ssh user@
+curl -X
+wget -O
+nc -l
+
+# File Operations
+cat file
+grep -r
+find . -name
+sed -i
+
+# System Commands
+ps aux
+df -h
+du -sh
+top -n
