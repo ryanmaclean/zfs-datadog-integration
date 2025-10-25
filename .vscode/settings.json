@@ -4,8 +4,14 @@
     "*.yaml": "yaml",
     "*.yml": "yaml"
   },
+  "shellcheck.executablePath": "/opt/homebrew/bin/shellcheck",
   "shellcheck.enable": true,
   "shellcheck.run": "onSave",
+  "extensions.ignoreRecommendations": false,
+  "mlcode.enabled": true,
+  "mlcode.autoComplete": true,
+  "mlcode.modelSize": "3B",
+  "mlcode.hardwareAcceleration": true,
   "terminal.integrated.defaultProfile.osx": "bash",
   "terminal.integrated.profiles.osx": {
     "bash": {
