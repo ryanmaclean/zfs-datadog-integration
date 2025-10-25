@@ -29,14 +29,32 @@ mkdir -p "$IPSW_DIR"
 
 # Determine IPSW URL based on architecture
 if [ "$ARCH" = "arm64" ]; then
-    echo -e "${GREEN}Downloading macOS IPSW for Apple Silicon...${NC}"
+    echo -e "${YELLOW}Note: IPSW URLs change frequently!${NC}"
     echo ""
-    echo "Note: IPSW files are large (13-15GB) and may take 10-30 minutes"
+    echo "This script will guide you to download the IPSW manually."
+    echo ""
+    echo "IPSW files are large (13-15GB) and may take 10-30 minutes"
     echo ""
     
-    # macOS Sonoma for M-series
-    IPSW_URL="https://updates.cdn-apple.com/2023FallFCS/fullrestores/042-59309/F4F6A788-E9A7-4456-9078-F5D6DC89D0E8/UniversalMac_14.0_23A344_Restore.ipsw"
-    IPSW_FILE="$IPSW_DIR/macOS-Sonoma-M-series.ipsw"
+    # Manual download instructions
+    echo -e "${BLUE}Manual Download Steps:${NC}"
+    echo ""
+    echo "1. Open: https://ipsw.me"
+    echo "2. Select: Mac"
+    echo "3. Choose your Mac model (M1/M2/M3)"
+    echo "4. Download latest macOS IPSW"
+    echo "5. Save to: $IPSW_DIR/"
+    echo ""
+    echo -e "${YELLOW}Opening ipsw.me in browser...${NC}"
+    sleep 2
+    open "https://ipsw.me" 2>/dev/null || echo "Visit: https://ipsw.me"
+    echo ""
+    echo "After downloading, move the IPSW file to:"
+    echo "  $IPSW_DIR/"
+    echo ""
+    echo "Then run this script again to verify."
+    echo ""
+    exit 0
     
 elif [ "$ARCH" = "x86_64" ]; then
     echo -e "${YELLOW}Intel Macs cannot run macOS VMs via Lima${NC}"
@@ -67,9 +85,9 @@ if [ -f "$IPSW_FILE" ]; then
     rm -f "$IPSW_FILE"
 fi
 
-# Check disk space
+# Check disk space (macOS compatible)
 REQUIRED_SPACE=20  # GB
-AVAILABLE_SPACE=$(df -BG "$IPSW_DIR" | awk 'NR==2 {print $4}' | sed 's/G//')
+AVAILABLE_SPACE=$(df -g "$IPSW_DIR" | awk 'NR==2 {print $4}')
 
 if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
     echo -e "${RED}Insufficient disk space!${NC}"
