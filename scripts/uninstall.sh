@@ -94,7 +94,9 @@ fi
 # List of zedlet files to remove
 ZEDLET_FILES="
 scrub_finish-datadog.sh
+scrub_start-datadog.sh
 resilver_finish-datadog.sh
+resilver_start-datadog.sh
 statechange-datadog.sh
 checksum-error-datadog.sh
 io-error-datadog.sh

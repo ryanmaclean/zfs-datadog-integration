@@ -56,6 +56,8 @@ send_metric "zfs.scrub.errors" "$ERRORS" "gauge" "$TAGS"
 if [ "$DURATION" -gt 0 ]; then
     send_metric "zfs.scrub.duration" "$DURATION" "gauge" "$TAGS"
 fi
+# Clear in-progress flag set by scrub_start-datadog.sh
+send_metric "zfs.scrub.in_progress" "0" "gauge" "$TAGS"
 
 log_message "INFO" "Scrub completion event processed: $POOL - $ERRORS errors"
 

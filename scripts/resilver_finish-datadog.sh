@@ -56,6 +56,8 @@ send_metric "zfs.resilver.errors" "$ERRORS" "gauge" "$TAGS"
 if [ "$DURATION" -gt 0 ]; then
     send_metric "zfs.resilver.duration" "$DURATION" "gauge" "$TAGS"
 fi
+# Clear in-progress flag set by resilver_start-datadog.sh
+send_metric "zfs.resilver.in_progress" "0" "gauge" "$TAGS"
 
 log_message "INFO" "Resilver completion event processed: $POOL - $ERRORS errors"
 
