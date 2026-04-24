@@ -27,7 +27,9 @@ sudo systemctl restart zfs-zed
 
 Sends ZFS events to Datadog:
 - Pool scrub completion
-- Resilver completion  
+- **scrub_start**: ZFS pool scrub started (counter + in_progress gauge, info event)
+- Resilver completion
+- **resilver_start**: ZFS pool resilver started (counter + in_progress gauge, warning event)
 - Pool state changes
 - Checksum errors
 - I/O errors
