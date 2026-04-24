@@ -38,6 +38,9 @@ fi
 send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS"
 
 # Send metrics
+# Always emit the canonical zfs.io.error counter (1 per ereport event)
+send_metric "zfs.io.error" "1" "counter" "$TAGS"
+
 if [ "$READ_ERRORS" -gt 0 ]; then
     send_metric "zfs.io.read_errors" "$READ_ERRORS" "counter" "$TAGS"
 fi
