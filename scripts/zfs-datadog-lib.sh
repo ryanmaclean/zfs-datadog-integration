@@ -35,18 +35,47 @@ log_message() {
 }
 
 # Send event to Datadog Events API
-# Usage: send_datadog_event "title" "text" "alert_type" "tags"
+# Usage: send_datadog_event "title" "text" "alert_type" "tags" "priority" "event_type"
+#
+#   title       required
+#   text        required
+#   alert_type  info | warning | error | success   (default: info)
+#   tags        comma-separated                    (default: $DD_TAGS)
+#   priority    normal | low                       (default: normal)
+#   event_type  ZFS event class, e.g. pool_import  (optional; added as a tag)
+#
+# tags stays in position 4 so existing four-argument callers are unaffected.
 send_datadog_event() {
     local title="$1"
     local text="$2"
     local alert_type="${3:-info}"  # info, warning, error, success
     local tags="${4:-$DD_TAGS}"
-    
+    local priority="${5:-normal}"
+    local event_type="${6:-}"
+
     if [ -z "$DD_API_KEY" ]; then
         log_message "ERROR" "DD_API_KEY not set, cannot send event"
         return 1
     fi
-    
+
+    # The Events API accepts only "normal" and "low".
+    case "$priority" in
+        normal|low) ;;
+        *)
+            log_message "WARN" "Unknown priority '$priority', falling back to normal"
+            priority="normal"
+            ;;
+    esac
+
+    # Surface the ZFS event class as a tag so it is queryable in Datadog.
+    if [ -n "$event_type" ]; then
+        if [ -n "$tags" ]; then
+            tags="${tags},event_type:${event_type}"
+        else
+            tags="event_type:${event_type}"
+        fi
+    fi
+
     local timestamp=$(date +%s)
     local tag_array=""
     
@@ -74,7 +103,7 @@ send_datadog_event() {
 {
   "title": "$title",
   "text": "$text",
-  "priority": "normal",
+  "priority": "$priority",
   "tags": $tag_array,
   "alert_type": "$alert_type",
   "source_type_name": "zfs",

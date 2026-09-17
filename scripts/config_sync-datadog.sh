@@ -19,6 +19,6 @@ ALERT_TYPE="info"
 PRIORITY="low"
 
 # Send event
-send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$PRIORITY" "$EVENT_TYPE"
+send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$(build_tags)" "$PRIORITY" "$EVENT_TYPE"
 
 exit 0
