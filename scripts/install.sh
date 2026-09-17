@@ -39,12 +39,26 @@ fi
 OS=$(uname -s)
 
 # --------------------------------------------------------------- ZED dir ----
-# Linux and FreeBSD base OpenZFS use /etc/zfs/zed.d.
-# FreeBSD's sysutils/openzfs port installs under /usr/local.
+# Linux distributions create /etc/zfs/zed.d as part of packaging ZED, so on
+# Linux an absent directory genuinely means ZED is not installed.
+#
+# FreeBSD is different: it ships zfsd(8) rather than ZED, and on FreeBSD 15
+# NEITHER /etc/zfs/zed.d nor /usr/local/etc/zfs/zed.d exists by default. The
+# directory is something you create. Refusing to install because it is missing
+# is wrong on the platform this script exists to support, so on FreeBSD we
+# create it when ZFS is actually present.
+ZED_DIR_CREATED=0
+
 if [ -n "${ZED_DIR}" ]; then
+    # Explicit override: trust the caller, but create it if needed.
     if [ ! -d "$ZED_DIR" ]; then
-        err "ZED_DIR was set to '$ZED_DIR' but that directory does not exist"
-        exit 1
+        if mkdir -p "$ZED_DIR" 2>/dev/null; then
+            ZED_DIR_CREATED=1
+            ok "Created $ZED_DIR (ZED_DIR was set explicitly)"
+        else
+            err "ZED_DIR was set to '$ZED_DIR' and it could not be created"
+            exit 1
+        fi
     fi
 else
     for candidate in /etc/zfs/zed.d /usr/local/etc/zfs/zed.d; do
@@ -55,13 +69,29 @@ else
     done
 fi
 
+if [ -z "${ZED_DIR}" ] && [ "$OS" = "FreeBSD" ]; then
+    # Gate on ZFS actually being present — never create a directory on a host
+    # that has no pools to report on.
+    if command -v zpool >/dev/null 2>&1; then
+        ZED_DIR=/usr/local/etc/zfs/zed.d
+        if mkdir -p "$ZED_DIR" 2>/dev/null; then
+            ZED_DIR_CREATED=1
+            ok "Created $ZED_DIR (FreeBSD ships no zedlet directory by default)"
+        else
+            err "Could not create $ZED_DIR"
+            exit 1
+        fi
+    else
+        err "No zedlet directory and no zpool(8) on this host"
+        printf 'ZFS does not appear to be installed. Nothing to monitor.\n'
+        exit 1
+    fi
+fi
+
 if [ -z "${ZED_DIR}" ]; then
     err "Could not find a zed.d directory"
     printf 'Looked in: /etc/zfs/zed.d, /usr/local/etc/zfs/zed.d\n'
-    case "$OS" in
-        FreeBSD) printf 'On FreeBSD, OpenZFS is in base on 13+; from ports install sysutils/openzfs.\n' ;;
-        *)       printf 'Please ensure OpenZFS (and ZED) is installed.\n' ;;
-    esac
+    printf 'Please ensure OpenZFS and ZED are installed.\n'
     printf 'If your zed.d lives elsewhere: ZED_DIR=/path/to/zed.d %s\n' "$0"
     exit 1
 fi
@@ -179,27 +209,40 @@ if ! grep -E '^[[:space:]]*(export[[:space:]]+)?DD_API_KEY=["'"'"']?[A-Za-z0-9]'
 fi
 
 # ----------------------------------------------------- FreeBSD: zfsd/zed ----
-# FreeBSD's traditional fault-management daemon is zfsd(8), not ZED. ZED ships
-# with OpenZFS but is not enabled by default, so zedlets will never fire unless
-# it is turned on. This is a deployment decision, not something to auto-change.
+# FreeBSD's fault-management daemon is zfsd(8). ZED is the OpenZFS daemon that
+# dispatches zedlets, and it is what Linux packaging installs and enables.
+# Whether zfsd consumes zedlets from this directory is NOT something this
+# script can verify, so it reports the state and names the alternative rather
+# than claiming the install is live.
 if [ "$OS" = "FreeBSD" ]; then
-    if command -v sysrc >/dev/null 2>&1; then
-        ZED_ENABLED=$(sysrc -n zed_enable 2>/dev/null || echo NO)
-        ZFSD_ENABLED=$(sysrc -n zfsd_enable 2>/dev/null || echo NO)
-        case "$ZED_ENABLED" in
-            [Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1) : ;;
-            *)
-                warn "zed is not enabled in rc.conf — zedlets will not fire"
-                printf '    Enable it with:  sysrc zed_enable=YES && service zed start\n'
-                ;;
-        esac
-        case "$ZFSD_ENABLED" in
-            [Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1)
-                warn "zfsd is also enabled. zfsd and zed both consume ZFS events."
-                printf '    That is supported, but decide deliberately which one owns\n'
-                printf '    fault handling on this host before relying on either.\n'
-                ;;
-        esac
+    ZED_RUNNING=0
+    ZFSD_RUNNING=0
+    command -v pgrep >/dev/null 2>&1 && {
+        pgrep -q '^zed$'  2>/dev/null && ZED_RUNNING=1
+        pgrep -q '^zfsd$' 2>/dev/null && ZFSD_RUNNING=1
+    }
+
+    if [ "$ZED_RUNNING" -eq 1 ]; then
+        ok "zed is running — zedlets in $ZED_DIR should dispatch"
+    elif [ "$ZFSD_RUNNING" -eq 1 ]; then
+        warn "zfsd is running but zed is not"
+        printf '    zfsd is FreeBSD'\''s own fault daemon. Whether it dispatches the\n'
+        printf '    zedlets in %s has not been verified by this script.\n' "$ZED_DIR"
+        printf '    If events do not arrive, poll instead of waiting on a daemon:\n'
+        printf '      zpool events        # full event log, no daemon required\n'
+    else
+        warn "Neither zed nor zfsd appears to be running — nothing will dispatch these zedlets"
+        printf '    FreeBSD ships zfsd:   sysrc zfsd_enable=YES && service zfsd start\n'
+        printf '    If your OpenZFS build provides zed:\n'
+        printf '                          sysrc zed_enable=YES  && service zed start\n'
+        printf '    Or skip the daemon entirely and poll: zpool events\n'
+    fi
+
+    if [ "$ZED_DIR_CREATED" -eq 1 ]; then
+        warn "This directory did not exist before now."
+        printf '    Nothing has been proven to read it. Trigger a real event\n'
+        printf '    (zpool scrub <pool>) and confirm the event reaches Datadog\n'
+        printf '    before treating this host as monitored.\n'
     fi
     printf '\n'
 fi
@@ -210,10 +253,13 @@ if [ -n "${SKIP_RESTART}" ]; then
 else
     printf 'Restarting ZFS Event Daemon...\n'
     if [ "$OS" = "FreeBSD" ] && command -v service >/dev/null 2>&1; then
+        # Try zed, then zfsd — whichever this host actually runs.
         if service zed restart >/dev/null 2>&1; then
-            ok "ZED restarted via service(8)"
+            ok "zed restarted via service(8)"
+        elif service zfsd restart >/dev/null 2>&1; then
+            ok "zfsd restarted via service(8)"
         else
-            warn "Could not restart zed via service(8) — start it manually"
+            warn "Could not restart zed or zfsd via service(8) — start one manually"
         fi
     elif command -v systemctl >/dev/null 2>&1; then
         if systemctl restart zfs-zed >/dev/null 2>&1; then
