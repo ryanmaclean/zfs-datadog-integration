@@ -91,7 +91,7 @@ if command -v parallel &> /dev/null; then
     log_info "Using GNU Parallel for maximum speed"
     
     # Build all images in parallel
-    printf '%s\n' "${BUILDS[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' build_image {1} {2}
+    printf '%s\n' "${BUILDS[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' build_image '{1}' '{2}'
     
 elif command -v xargs &> /dev/null; then
     log_info "Using xargs for parallel builds"

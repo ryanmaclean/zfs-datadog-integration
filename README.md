@@ -62,7 +62,7 @@ See [INSTALL.md](INSTALL.md) for OS-specific instructions.
 - **Configuration validation**: Built-in config checker
 - **Easy installation**: Automated install and uninstall scripts
 - **CI/CD tested**: Automated testing with GitHub Actions
-- **Telemetry-safe**: Next.js telemetry disabled across Docker, Kubernetes, and VM workflows ([details](docs/NEXTJS-TELEMETRY.md))
+- **Telemetry-safe**: Next.js telemetry disabled across Docker, Kubernetes, and VM workflows ([details](infrastructure/kubernetes/nextjs-telemetry-patch.yaml))
 
 ## Tools
 
@@ -95,9 +95,6 @@ Issues and pull requests welcome! See [open issues](https://github.com/ryanmacle
 ## Documentation
 
 - **[INSTALL.md](INSTALL.md)** - Complete installation guide
-- **[docs/BSD-COMPATIBILITY.md](docs/BSD-COMPATIBILITY.md)** - BSD-specific notes
-- **[docs/IMPROVEMENTS-SUMMARY.md](docs/IMPROVEMENTS-SUMMARY.md)** - Technical details
-- **[docs/TEST-COVERAGE.md](docs/TEST-COVERAGE.md)** - Test coverage matrix
 
 ## License
 

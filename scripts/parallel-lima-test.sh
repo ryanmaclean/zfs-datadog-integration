@@ -107,7 +107,7 @@ done
 # Run in parallel using GNU parallel
 if command -v parallel &> /dev/null; then
     log_info "Using GNU Parallel (${MAX_PARALLEL} jobs)"
-    printf '%s\n' "${TEST_ARGS[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_distro {1} {2}
+    printf '%s\n' "${TEST_ARGS[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_distro '{1}' '{2}'
 else
     log_info "Using xargs for parallel execution"
     printf '%s\n' "${TEST_ARGS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '

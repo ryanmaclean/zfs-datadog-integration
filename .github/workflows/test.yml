@@ -46,7 +46,10 @@ jobs:
           echo "Validating shell script syntax..."
           for script in scripts/*.sh; do
             echo "Checking $script"
-            sh -n "$script" || exit 1
+            case "$(head -n 1 "$script")" in
+              *bash*) bash -n "$script" || exit 1 ;;
+              *) sh -n "$script" || exit 1 ;;
+            esac
           done
           echo "All scripts have valid syntax"
 
