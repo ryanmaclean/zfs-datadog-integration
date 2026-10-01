@@ -123,7 +123,7 @@ echo ""
 # Test all images in parallel
 if command -v parallel &> /dev/null; then
     log_info "Using GNU Parallel for maximum speed"
-    printf '%s\n' "${IMAGES[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_image {1} {2}
+    printf '%s\n' "${IMAGES[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_image '{1}' '{2}'
 else
     log_info "Using xargs for parallel testing"
     printf '%s\n' "${IMAGES[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
