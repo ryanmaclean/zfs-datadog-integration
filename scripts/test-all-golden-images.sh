@@ -69,7 +69,7 @@ test_image() {
     if [ $ssh_ready -eq 0 ]; then
         echo "✗ $os_name: SSH timeout" | tee -a "$log_file"
         kill "$vm_pid" 2>/dev/null || true
-        echo '{"status":"FAIL","reason":"SSH timeout"}' > "$result_file"
+        echo '{"status":"SMOKE_FAIL","proof_level":"local_vm_smoke","datadog_intake_verified":false,"reason":"SSH timeout"}' > "$result_file"
         return 1
     fi
     
@@ -87,12 +87,12 @@ test_image() {
     local duration=$((end_time - start_time))
     
     if [ $test_result -eq 0 ]; then
-        echo "✓ $os_name: PASS (${duration}s)" | tee -a "$log_file"
-        echo "{\"status\":\"PASS\",\"duration\":${duration}}" > "$result_file"
+        echo "✓ $os_name: SMOKE PASS (${duration}s)" | tee -a "$log_file"
+        echo "{\"status\":\"SMOKE_PASS\",\"proof_level\":\"local_vm_smoke\",\"datadog_intake_verified\":false,\"duration\":${duration}}" > "$result_file"
         return 0
     else
-        echo "✗ $os_name: FAIL (${duration}s)" | tee -a "$log_file"
-        echo "{\"status\":\"FAIL\",\"duration\":${duration}}" > "$result_file"
+        echo "✗ $os_name: SMOKE FAIL (${duration}s)" | tee -a "$log_file"
+        echo "{\"status\":\"SMOKE_FAIL\",\"proof_level\":\"local_vm_smoke\",\"datadog_intake_verified\":false,\"duration\":${duration}}" > "$result_file"
         return 1
     fi
 }
@@ -155,13 +155,13 @@ for result_file in "$RESULTS_DIR"/*.json; do
         status=$(jq -r '.status' "$result_file" 2>/dev/null || echo "UNKNOWN")
         os_name=$(basename "$result_file" .json)
         
-        if [ "$status" = "PASS" ]; then
+        if [ "$status" = "SMOKE_PASS" ]; then
             PASSED=$((PASSED + 1))
             duration=$(jq -r '.duration' "$result_file")
-            echo -e "${GREEN}✓${NC} $os_name: PASS (${duration}s)"
+            echo -e "${GREEN}✓${NC} $os_name: SMOKE PASS (${duration}s)"
         else
             FAILED=$((FAILED + 1))
-            echo -e "${RED}✗${NC} $os_name: FAIL"
+            echo -e "${RED}✗${NC} $os_name: SMOKE FAIL"
         fi
     fi
 done
@@ -211,10 +211,10 @@ for result_file in "$RESULTS_DIR"/*.json; do
         status=$(jq -r '.status' "$result_file" 2>/dev/null || echo "UNKNOWN")
         duration=$(jq -r '.duration // 0' "$result_file" 2>/dev/null)
         
-        if [ "$status" = "PASS" ]; then
-            echo "<tr><td>$os_name</td><td class='pass'>✓ PASS</td><td>${duration}s</td></tr>" >> "${RESULTS_DIR}/report.html"
+        if [ "$status" = "SMOKE_PASS" ]; then
+            echo "<tr><td>$os_name</td><td class='pass'>✓ SMOKE PASS</td><td>${duration}s</td></tr>" >> "${RESULTS_DIR}/report.html"
         else
-            echo "<tr><td>$os_name</td><td class='fail'>✗ FAIL</td><td>${duration}s</td></tr>" >> "${RESULTS_DIR}/report.html"
+            echo "<tr><td>$os_name</td><td class='fail'>✗ SMOKE FAIL</td><td>${duration}s</td></tr>" >> "${RESULTS_DIR}/report.html"
         fi
     fi
 done
