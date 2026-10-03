@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Parallel Image Building with Packer
-# Builds golden images for all 11 OSes simultaneously
+# Builds golden images for ten operating systems; FreeBSD ZED route is disabled
 #
 
 set -e
@@ -24,7 +24,7 @@ echo "========================================"
 echo "Parallel Packer Image Building"
 echo "========================================"
 echo ""
-echo "Building golden images for 11 operating systems"
+echo "Building golden images for 10 operating systems (FreeBSD route disabled)"
 echo "Max parallel builds: $MAX_PARALLEL"
 echo "CPU cores available: $(sysctl -n hw.ncpu)"
 echo ""
@@ -48,7 +48,6 @@ declare -a BUILDS=(
     "rocky:packer-rocky-zfs.pkr.hcl"
     "fedora:packer-fedora-zfs.pkr.hcl"
     "arch:packer-arch-zfs.pkr.hcl"
-    "freebsd:packer-freebsd-zfs.pkr.hcl"
     "truenas-scale:packer-truenas-scale.pkr.hcl"
     "truenas-core:packer-truenas-core.pkr.hcl"
     "openbsd:packer-openbsd-zfs.pkr.hcl"

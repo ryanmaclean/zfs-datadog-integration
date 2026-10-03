@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Parallel Testing of Golden Images
-# Tests all built images simultaneously
+# Tests eligible images as local VM smoke only
 #
 
 set -e
@@ -27,7 +27,7 @@ echo "========================================"
 echo "Parallel Golden Image Testing"
 echo "========================================"
 echo ""
-echo "Testing all built golden images"
+echo "Testing eligible built images (local VM smoke only)"
 echo "Max parallel tests: $MAX_PARALLEL"
 echo "Results directory: $RESULTS_DIR"
 echo ""
@@ -100,11 +100,17 @@ test_image() {
 export -f test_image
 export RESULTS_DIR
 
-# Find all built images
+# Find eligible images for local VM smoke testing
 declare -a IMAGES=()
 for output_dir in output-*/; do
     if [ -d "$output_dir" ]; then
         os_name=$(basename "$output_dir" | sed 's/^output-//')
+        case "$os_name" in
+            freebsd*|truenas-core*)
+                log_info "Skipping $os_name: native FreeBSD/CORE ZFS event delivery is unverified"
+                continue
+                ;;
+        esac
         image_file=$(find "$output_dir" -name "*.qcow2" -type f | head -1)
         if [ -n "$image_file" ]; then
             IMAGES+=("${os_name}:${image_file}")
@@ -113,14 +119,14 @@ for output_dir in output-*/; do
 done
 
 if [ ${#IMAGES[@]} -eq 0 ]; then
-    log_error "No golden images found. Run ./build-all-images.sh first."
+    log_error "No eligible smoke-test images found. FreeBSD/CORE require native event delivery proof."
     exit 1
 fi
 
 log_info "Found ${#IMAGES[@]} images to test"
 echo ""
 
-# Test all images in parallel
+# Smoke-test all eligible images in parallel
 if command -v parallel &> /dev/null; then
     log_info "Using GNU Parallel for maximum speed"
     printf '%s\n' "${IMAGES[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_image '{1}' '{2}'
@@ -168,10 +174,9 @@ echo "Success Rate: $((PASSED * 100 / TOTAL))%"
 echo ""
 
 if [ $PASSED -eq $TOTAL ]; then
-    log_success "All tests passed! 🎉"
+    log_success "All eligible VM smoke tests passed."
     echo ""
-    echo "✅ ZFS Datadog integration validated across all platforms"
-    echo "✅ Production-ready for deployment"
+    echo "Datadog event intake and production readiness remain unverified."
 else
     log_error "$FAILED tests failed. Review logs in $RESULTS_DIR"
 fi
@@ -181,7 +186,7 @@ cat > "${RESULTS_DIR}/report.html" <<EOF
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Multi-OS Test Results</title>
+    <title>Local VM Smoke Test Results</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .pass { color: green; }
@@ -192,7 +197,8 @@ cat > "${RESULTS_DIR}/report.html" <<EOF
     </style>
 </head>
 <body>
-    <h1>Multi-OS Test Results</h1>
+    <h1>Local VM Smoke Test Results</h1>
+    <p>These results do not verify Datadog event intake or production readiness.</p>
     <p>Date: $(date)</p>
     <p>Total: $TOTAL | Passed: $PASSED | Failed: $FAILED | Success Rate: $((PASSED * 100 / TOTAL))%</p>
     <table>

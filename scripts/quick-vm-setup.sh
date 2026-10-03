@@ -74,5 +74,5 @@ REMOTE_SCRIPT
 echo ""
 echo "✅ VMs created on i9-zfs-pop.local"
 echo ""
-echo "Next: Complete installations via VNC, then run:"
-echo "  ./parallel-vm-test.sh"
+echo "VM setup is not Datadog event validation."
+echo "FreeBSD and TrueNAS CORE ZED delivery tests are disabled pending a native route."
