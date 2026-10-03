@@ -9,7 +9,6 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m'
@@ -77,7 +76,7 @@ limactl shell alpine-kernel-build -- sudo tar -czf /tmp/alpine-kernel.tar.gz \
 
 if [ -f "$ARTIFACTS_DIR/alpine/vmlinuz-m-series" ]; then
     echo "${GREEN}✓ Alpine kernel built successfully!${NC}"
-    echo "${CYAN}Size: $(du -h $ARTIFACTS_DIR/alpine/vmlinuz-m-series | cut -f1)${NC}"
+    echo "${CYAN}Size: $(du -h "$ARTIFACTS_DIR"/alpine/vmlinuz-m-series | cut -f1)${NC}"
 else
     echo "${RED}✗ Alpine kernel artifacts not found${NC}"
 fi
@@ -127,7 +126,7 @@ limactl copy freebsd-kernel-build:/boot/loader.conf "$ARTIFACTS_DIR/freebsd/" ||
 
 if [ -f "$ARTIFACTS_DIR/freebsd/kernel" ]; then
     echo "${GREEN}✓ FreeBSD kernel built successfully!${NC}"
-    echo "${CYAN}Size: $(du -h $ARTIFACTS_DIR/freebsd/kernel | cut -f1)${NC}"
+    echo "${CYAN}Size: $(du -h "$ARTIFACTS_DIR"/freebsd/kernel | cut -f1)${NC}"
 else
     echo "${RED}✗ FreeBSD kernel artifacts not found${NC}"
 fi
@@ -178,7 +177,7 @@ limactl copy netbsd-kernel-build:/netbsd "$ARTIFACTS_DIR/netbsd/netbsd.m-series"
 
 if [ -f "$ARTIFACTS_DIR/netbsd/netbsd.m-series" ]; then
     echo "${GREEN}✓ NetBSD kernel built successfully!${NC}"
-    echo "${CYAN}Size: $(du -h $ARTIFACTS_DIR/netbsd/netbsd.m-series | cut -f1)${NC}"
+    echo "${CYAN}Size: $(du -h "$ARTIFACTS_DIR"/netbsd/netbsd.m-series | cut -f1)${NC}"
 else
     echo "${YELLOW}⚠ NetBSD kernel build incomplete (this is normal)${NC}"
 fi
@@ -232,7 +231,7 @@ limactl copy openbsd-kernel-build:/bsd "$ARTIFACTS_DIR/openbsd/bsd.m-series" || 
 
 if [ -f "$ARTIFACTS_DIR/openbsd/bsd.m-series" ]; then
     echo "${GREEN}✓ OpenBSD kernel built successfully!${NC}"
-    echo "${CYAN}Size: $(du -h $ARTIFACTS_DIR/openbsd/bsd.m-series | cut -f1)${NC}"
+    echo "${CYAN}Size: $(du -h "$ARTIFACTS_DIR"/openbsd/bsd.m-series | cut -f1)${NC}"
 else
     echo "${YELLOW}⚠ OpenBSD kernel build incomplete (expected)${NC}"
 fi
@@ -259,28 +258,28 @@ OPENBSD_OK=0
 
 if [ -f "$ARTIFACTS_DIR/alpine/vmlinuz-m-series" ]; then
     ALPINE_OK=1
-    echo "${GREEN}✓ Alpine kernel:  $(du -h $ARTIFACTS_DIR/alpine/vmlinuz-m-series | cut -f1)${NC}"
+    echo "${GREEN}✓ Alpine kernel:  $(du -h "$ARTIFACTS_DIR"/alpine/vmlinuz-m-series | cut -f1)${NC}"
 else
     echo "${RED}✗ Alpine kernel:  FAILED${NC}"
 fi
 
 if [ -f "$ARTIFACTS_DIR/freebsd/kernel" ]; then
     FREEBSD_OK=1
-    echo "${GREEN}✓ FreeBSD kernel: $(du -h $ARTIFACTS_DIR/freebsd/kernel | cut -f1)${NC}"
+    echo "${GREEN}✓ FreeBSD kernel: $(du -h "$ARTIFACTS_DIR"/freebsd/kernel | cut -f1)${NC}"
 else
     echo "${RED}✗ FreeBSD kernel: FAILED${NC}"
 fi
 
 if [ -f "$ARTIFACTS_DIR/netbsd/netbsd.m-series" ]; then
     NETBSD_OK=1
-    echo "${GREEN}✓ NetBSD kernel:  $(du -h $ARTIFACTS_DIR/netbsd/netbsd.m-series | cut -f1)${NC}"
+    echo "${GREEN}✓ NetBSD kernel:  $(du -h "$ARTIFACTS_DIR"/netbsd/netbsd.m-series | cut -f1)${NC}"
 else
     echo "${YELLOW}⚠ NetBSD kernel:  INCOMPLETE${NC}"
 fi
 
 if [ -f "$ARTIFACTS_DIR/openbsd/bsd.m-series" ]; then
     OPENBSD_OK=1
-    echo "${GREEN}✓ OpenBSD kernel: $(du -h $ARTIFACTS_DIR/openbsd/bsd.m-series | cut -f1)${NC}"
+    echo "${GREEN}✓ OpenBSD kernel: $(du -h "$ARTIFACTS_DIR"/openbsd/bsd.m-series | cut -f1)${NC}"
 else
     echo "${YELLOW}⚠ OpenBSD kernel: INCOMPLETE${NC}"
 fi

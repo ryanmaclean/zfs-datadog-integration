@@ -6,8 +6,6 @@
 
 set -e
 
-REMOTE="studio@i9-zfs-pop.local"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # VM configurations
 declare -A VMS=(
@@ -26,7 +24,6 @@ echo ""
 # Function to test a single VM
 test_vm() {
     local vm_name=$1
-    local vnc_port=$2
     local ssh_port=$3
     local os_type=$4
     local log_file="vm-test-${vm_name}.log"
@@ -35,6 +32,7 @@ test_vm() {
     
     # Wait for SSH (after manual installation)
     echo "[${vm_name}] Waiting for SSH on localhost:${ssh_port}..." | tee -a "$log_file"
+    # shellcheck disable=SC2034  # loop counter required by the range syntax, not used in the body
     for i in {1..60}; do
         if nc -z localhost "$ssh_port" 2>/dev/null; then
             echo "[${vm_name}] SSH ready!" | tee -a "$log_file"
@@ -46,7 +44,7 @@ test_vm() {
     # Copy zedlets
     echo "[${vm_name}] Copying zedlets..." | tee -a "$log_file"
     scp -P "$ssh_port" -o StrictHostKeyChecking=no \
-        .env.local config.sh zfs-datadog-lib.sh *-datadog.sh *-error.sh \
+        .env.local config.sh zfs-datadog-lib.sh ./*-datadog.sh ./*-error.sh \
         root@localhost:/tmp/ >> "$log_file" 2>&1
     
     # Install based on OS type

@@ -6,7 +6,6 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SSH_PORT=2222
 SSH_HOST=localhost
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -38,7 +37,7 @@ echo ""
 
 # Copy zedlets
 log_info "Copying zedlets to TrueNAS SCALE..."
-scp $SSH_OPTS -P $SSH_PORT \
+scp "$SSH_OPTS" -P $SSH_PORT \
     zfs-datadog-lib.sh \
     config.sh \
     statechange-datadog.sh \
@@ -55,7 +54,7 @@ echo ""
 
 # Install zedlets
 log_info "Installing zedlets..."
-ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'INSTALL'
+ssh "$SSH_OPTS" -p $SSH_PORT root@${SSH_HOST} bash <<'INSTALL'
 set -e
 cd /tmp
 
@@ -98,7 +97,7 @@ echo ""
 
 # Start mock Datadog server
 log_info "Starting mock Datadog server..."
-ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'START_MOCK'
+ssh "$SSH_OPTS" -p $SSH_PORT root@${SSH_HOST} bash <<'START_MOCK'
 pkill -f mock-datadog-server.py 2>/dev/null || true
 nohup python3 /tmp/mock-datadog-server.py > /tmp/mock-datadog.log 2>&1 &
 sleep 3
@@ -109,7 +108,7 @@ echo ""
 
 # Create test pool
 log_info "Creating test pool..."
-ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'CREATE_POOL'
+ssh "$SSH_OPTS" -p $SSH_PORT root@${SSH_HOST} bash <<'CREATE_POOL'
 set -e
 
 # Create disk images
@@ -129,7 +128,7 @@ echo ""
 
 # Trigger scrub
 log_info "Triggering scrub event..."
-ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'SCRUB'
+ssh "$SSH_OPTS" -p $SSH_PORT root@${SSH_HOST} bash <<'SCRUB'
 zpool scrub testpool
 while zpool status testpool | grep -q "scan: scrub in progress"; do
     sleep 1
@@ -143,11 +142,11 @@ echo ""
 
 # Check results
 log_info "Checking captured events..."
-EVENTS=$(ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.events_received')
+EVENTS=$(ssh "$SSH_OPTS" -p $SSH_PORT root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.events_received')
 
 if [ "$EVENTS" -gt 0 ]; then
     log_success "Events captured: $EVENTS"
-    ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.'
+    ssh "$SSH_OPTS" -p $SSH_PORT root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.'
 else
     log_error "No events captured"
     exit 1

@@ -19,7 +19,8 @@ build_kernel() {
     
     echo "[${VM}] Building kernel..."
     
-    limactl shell $VM -- sudo bash -c '
+    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
+    limactl shell "$VM" -- sudo bash -c '
         set -e
         
         # Install tools (handle different distros)
@@ -72,7 +73,7 @@ build_kernel() {
         fi
         
         echo "KERNEL BUILT: $(ls -lh /boot/vmlinuz-m-series)"
-    ' > $LOG 2>&1 &
+    ' > "$LOG" 2>&1 &
     
     echo "[${VM}] Building in background (log: $LOG)"
 }
@@ -86,14 +87,15 @@ build_freebsd_kernel() {
     
     # Wait for FreeBSD to be accessible
     for i in {1..10}; do
-        if limactl shell $VM -- echo "ready" >/dev/null 2>&1; then
+        if limactl shell "$VM" -- echo "ready" >/dev/null 2>&1; then
             break
         fi
         echo "[${VM}] Waiting for SSH... ($i/10)"
         sleep 5
     done
     
-    limactl shell $VM -- sudo sh -c '
+    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
+    limactl shell "$VM" -- sudo sh -c '
         set -e
         
         # Install git if needed
@@ -121,7 +123,7 @@ EOF
         make installkernel KERNCONF=M-SERIES
         
         echo "FREEBSD KERNEL BUILT"
-    ' > $LOG 2>&1 &
+    ' > "$LOG" 2>&1 &
     
     echo "[${VM}] Building in background (log: $LOG)"
 }
@@ -153,7 +155,7 @@ echo "Monitor with:"
 echo "  tail -f $LOGS_DIR/*.log"
 echo ""
 echo "Or check individual:"
-for LOG in $LOGS_DIR/*-kernel.log; do
+for LOG in "$LOGS_DIR"/*-kernel.log; do
     [ -f "$LOG" ] && echo "  tail -f $LOG"
 done
 

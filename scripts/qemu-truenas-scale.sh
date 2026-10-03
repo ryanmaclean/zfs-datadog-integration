@@ -7,7 +7,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VM_NAME="truenas-scale"
 ISO_URL="https://download.sys.truenas.net/TrueNAS-SCALE-Dragonfish/24.04.2.2/TrueNAS-SCALE-24.04.2.2.iso"
 ISO_FILE="${SCRIPT_DIR}/truenas-scale.iso"
 DISK_IMG="${SCRIPT_DIR}/truenas-scale-disk.qcow2"
@@ -80,7 +79,7 @@ echo ""
 
 # Run QEMU
 $QEMU_CMD \
-    $QEMU_ACCEL \
+    "$QEMU_ACCEL" \
     -machine $QEMU_MACHINE \
     -cpu $QEMU_CPU \
     -smp 2 \

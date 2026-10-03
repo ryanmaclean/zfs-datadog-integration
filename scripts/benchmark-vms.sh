@@ -10,9 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RESULTS_FILE="${SCRIPT_DIR}/vm-benchmark-results.txt"
 
 # Colors
-RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
@@ -38,7 +36,8 @@ benchmark_vm() {
     log_info "Benchmarking $vm_name..."
     
     # Record start time
-    local start_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
     
     # Start VM in background
     log_info "Starting $script..."
@@ -70,7 +69,8 @@ benchmark_vm() {
     # Wait for download/setup
     wait $pid 2>/dev/null || true
     
-    local end_time=$(date +%s)
+    local end_time
+    end_time=$(date +%s)
     local duration=$((end_time - start_time))
     
     log_benchmark "$vm_name setup completed in ${duration}s"

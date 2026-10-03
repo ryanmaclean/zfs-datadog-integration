@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # ZFS Datadog Integration Configuration
 # 
@@ -6,8 +6,10 @@
 
 # Source .env.local if it exists (for local development/testing)
 if [ -f "$(dirname "$0")/.env.local" ]; then
+    # shellcheck disable=SC1091  # optional local-dev override file, not part of the repo
     . "$(dirname "$0")/.env.local"
 elif [ -f "/etc/zfs/zed.d/.env.local" ]; then
+    # shellcheck disable=SC1091  # optional local-dev override file, not part of the repo
     . "/etc/zfs/zed.d/.env.local"
 fi
 

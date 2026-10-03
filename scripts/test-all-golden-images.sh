@@ -16,7 +16,6 @@ mkdir -p "$RESULTS_DIR"
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
-CYAN='\033[0;36m'
 NC='\033[0m'
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
@@ -41,7 +40,8 @@ test_image() {
     local log_file="${RESULTS_DIR}/${os_name}.log"
     
     echo "🧪 Testing $os_name on port $ssh_port..." | tee -a "$log_file"
-    local start_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
     
     # Start VM
     qemu-system-x86_64 \
@@ -54,10 +54,12 @@ test_image() {
         -pidfile "${RESULTS_DIR}/${os_name}.pid" \
         >> "$log_file" 2>&1
     
-    local vm_pid=$(cat "${RESULTS_DIR}/${os_name}.pid")
+    local vm_pid
+    vm_pid=$(cat "${RESULTS_DIR}/${os_name}.pid")
     
     # Wait for SSH
     local ssh_ready=0
+    # shellcheck disable=SC2034  # loop counter required by the range syntax, not used in the body
     for i in {1..60}; do
         if nc -z localhost "$ssh_port" 2>/dev/null; then
             ssh_ready=1
@@ -83,7 +85,8 @@ test_image() {
     # Shutdown VM
     kill "$vm_pid" 2>/dev/null || true
     
-    local end_time=$(date +%s)
+    local end_time
+    end_time=$(date +%s)
     local duration=$((end_time - start_time))
     
     if [ $test_result -eq 0 ]; then
@@ -126,6 +129,7 @@ if command -v parallel &> /dev/null; then
     printf '%s\n' "${IMAGES[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_image '{1}' '{2}'
 else
     log_info "Using xargs for parallel testing"
+    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
     printf '%s\n' "${IMAGES[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
         IFS=: read -r name image <<< "{}"
         test_image "$name" "$image"

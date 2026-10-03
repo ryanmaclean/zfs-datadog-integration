@@ -5,9 +5,6 @@
 #
 
 REMOTE="studio@i9-zfs-pop.local"
-VM_PATH="/tank3/vms"
-ISO_PATH="${VM_PATH}/isos"
-
 echo "Creating all test VMs on i9-zfs-pop..."
 echo ""
 

@@ -17,7 +17,8 @@ build_kernel_in_vm() {
     
     case $OS_TYPE in
         "linux")
-            limactl shell $VM -- sudo bash -c '
+    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
+            limactl shell "$VM" -- sudo bash -c '
                 apt-get update
                 apt-get install -y build-essential bc bison flex libssl-dev libelf-dev git
                 cd /usr/src
@@ -37,7 +38,8 @@ build_kernel_in_vm() {
             '
             ;;
         "freebsd")
-            limactl shell $VM -- sudo sh -c '
+    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
+            limactl shell "$VM" -- sudo sh -c '
                 pkg install -y git
                 cd /usr/src
                 [ ! -d .git ] && git clone --depth 1 --branch releng/14.2 https://git.freebsd.org/src.git .
@@ -49,11 +51,11 @@ build_kernel_in_vm() {
     esac
     
     echo "[$VM] Rebooting..."
-    limactl shell $VM -- sudo reboot || true
+    limactl shell "$VM" -- sudo reboot || true
     sleep 30
     
     echo "[$VM] Verifying..."
-    limactl shell $VM -- uname -r
+    limactl shell "$VM" -- uname -r
 }
 
 # 1. Linux VMs

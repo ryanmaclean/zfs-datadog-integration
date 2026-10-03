@@ -33,12 +33,15 @@ usermod -aG libvirt,kvm ${REMOTE_USER}
 # Create ZFS dataset for VMs
 echo ""
 echo "Step 2: Creating ZFS dataset for VMs..."
+# shellcheck disable=SC2029  # intentional: these local variables must be substituted client-side before reaching the remote shell
 ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo zfs create -o mountpoint=${VM_PATH} ${VM_DATASET} 2>/dev/null || echo 'Dataset may already exist'"
+# shellcheck disable=SC2029  # intentional: these local variables must be substituted client-side before reaching the remote shell
 ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo chown -R ${REMOTE_USER}:${REMOTE_USER} ${VM_PATH}"
 
 # Configure libvirt to use ZFS storage
 echo ""
 echo "Step 3: Configuring libvirt storage pool..."
+# shellcheck disable=SC2029  # intentional: these local variables must be substituted client-side before reaching the remote shell
 ssh ${REMOTE_USER}@${REMOTE_HOST} "
 virsh pool-define-as zfs-vms dir --target ${VM_PATH} 2>/dev/null || true
 virsh pool-start zfs-vms 2>/dev/null || true
@@ -49,6 +52,7 @@ virsh pool-list
 # Download ISOs to ZFS
 echo ""
 echo "Step 4: Downloading OS ISOs to ZFS storage..."
+# shellcheck disable=SC2029  # intentional: these local variables must be substituted client-side before reaching the remote shell
 ssh ${REMOTE_USER}@${REMOTE_HOST} "mkdir -p ${VM_PATH}/isos"
 
 # Copy already downloaded ISOs from Mac
@@ -57,6 +61,7 @@ echo "Step 5: Copying ISOs from local machine..."
 scp truenas-scale.iso truenas-core.iso ${REMOTE_USER}@${REMOTE_HOST}:${VM_PATH}/isos/ 2>/dev/null || echo "ISOs not found locally, will download on remote"
 
 # Download remaining ISOs on remote
+# shellcheck disable=SC2029  # intentional: these local variables must be substituted client-side before reaching the remote shell
 ssh ${REMOTE_USER}@${REMOTE_HOST} "cd ${VM_PATH}/isos && bash" <<'DOWNLOAD_ISOS'
 # FreeBSD
 if [ ! -f FreeBSD-14.3-RELEASE-amd64-disc1.iso ]; then
@@ -90,6 +95,7 @@ echo ""
 echo "Step 6: Creating VM definitions..."
 
 # Create VM creation script on remote
+# shellcheck disable=SC2029  # intentional: these local variables must be substituted client-side before reaching the remote shell
 ssh ${REMOTE_USER}@${REMOTE_HOST} "cat > ${VM_PATH}/create-vms.sh" <<'CREATE_VMS'
 #!/bin/bash
 VM_PATH="/tank3/vms"
@@ -171,6 +177,7 @@ echo "VMs created. List:"
 virsh list --all
 CREATE_VMS
 
+# shellcheck disable=SC2029  # intentional: these local variables must be substituted client-side before reaching the remote shell
 ssh ${REMOTE_USER}@${REMOTE_HOST} "chmod +x ${VM_PATH}/create-vms.sh"
 
 echo ""

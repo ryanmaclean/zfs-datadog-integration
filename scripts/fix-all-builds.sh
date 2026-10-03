@@ -30,7 +30,7 @@ echo "✓ FreeBSD kernel built"
 # 3. Build Arch ISO - direct method
 echo "[3/7] Building Arch ISO (direct)..."
 docker run --platform linux/arm64 --rm \
-  -v $(pwd):/work \
+  -v "$(pwd)":/work \
   archlinux:latest \
   /bin/bash -c '
   pacman -Syu --noconfirm
@@ -46,7 +46,7 @@ docker run --platform linux/arm64 --rm \
 # 4. Build Gentoo - stage3 only (skip full compilation for now)
 echo "[4/7] Creating Gentoo stage3..."
 docker run --platform linux/arm64 --rm \
-  -v $(pwd):/work \
+  -v "$(pwd)":/work \
   gentoo/stage3:arm64 \
   /bin/bash -c '
   cd /work
@@ -76,6 +76,6 @@ wait
 
 echo ""
 echo "=== COMPLETE - CHECKING ARTIFACTS ==="
-ls -lh *m-series* || echo "Some builds still running"
+ls -lh ./*m-series* || echo "Some builds still running"
 echo ""
 echo "✓ ALL BUILDS EXECUTING OR COMPLETE"

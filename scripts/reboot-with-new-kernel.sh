@@ -23,6 +23,7 @@ sleep 5
 
 # Wait for VM to come back up
 echo "Waiting for VM to restart..."
+# shellcheck disable=SC2034  # loop counter required by the range syntax, not used in the body
 for i in {1..30}; do
   if limactl shell $VM -- echo "alive" >/dev/null 2>&1; then
     echo "VM is back online!"

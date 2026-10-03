@@ -37,16 +37,19 @@ test_os() {
     
     log_section "Testing $os_name"
     
-    local start_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
     
     if eval "$test_command" > "$result_file" 2>&1; then
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         TEST_RESULTS[$os_name]="PASS"
         TEST_TIMES[$os_name]=$duration
         log_success "$os_name: PASSED (${duration}s)"
     else
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         TEST_RESULTS[$os_name]="FAIL"
         TEST_TIMES[$os_name]=$duration

@@ -77,7 +77,7 @@ $QEMU_CMD \
     -accel hvf \
     -machine $QEMU_MACHINE \
     -cpu $QEMU_CPU \
-    $QEMU_BIOS \
+    "$QEMU_BIOS" \
     -smp 2 \
     -m 4G \
     -drive file="$QCOW_FILE",if=virtio,format=qcow2 \

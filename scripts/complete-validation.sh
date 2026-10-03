@@ -6,9 +6,9 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load API key
+# shellcheck disable=SC1091  # local-dev override file, not part of the repo
 source .env.local
 
 # VM configurations: name:ssh_port:os_type
@@ -39,6 +39,7 @@ complete_vm_test() {
     
     # Wait for SSH
     echo "[${vm_name}] Waiting for SSH on localhost:${ssh_port}..." | tee -a "$log"
+    # shellcheck disable=SC2034  # loop counter required by the range syntax, not used in the body
     for i in {1..120}; do
         if nc -z localhost "$ssh_port" 2>/dev/null; then
             echo "[${vm_name}] SSH ready!" | tee -a "$log"
@@ -51,6 +52,7 @@ complete_vm_test() {
     echo "[${vm_name}] Installing Datadog Agent..." | tee -a "$log"
     case "$os_type" in
         TrueNAS-SCALE)
+        # shellcheck disable=SC2087  # intentional: DD_API_KEY is a local variable and must be expanded client-side before being sent over ssh
             ssh -p "$ssh_port" root@localhost "bash -s" >> "$log" 2>&1 <<EOF
 DD_API_KEY=${DD_API_KEY} DD_SITE="datadoghq.com" bash -c "\$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script_agent7.sh)"
 systemctl enable datadog-agent
@@ -58,6 +60,7 @@ systemctl start datadog-agent
 EOF
             ;;
         FreeBSD|TrueNAS-CORE)
+        # shellcheck disable=SC2087  # intentional: DD_API_KEY is a local variable and must be expanded client-side before being sent over ssh
             ssh -p "$ssh_port" root@localhost "bash -s" >> "$log" 2>&1 <<EOF
 pkg install -y datadog-agent
 echo 'datadog_enable="YES"' >> /etc/rc.conf
@@ -77,7 +80,7 @@ EOF
     # Deploy zedlets
     echo "[${vm_name}] Deploying zedlets..." | tee -a "$log"
     scp -P "$ssh_port" -o StrictHostKeyChecking=no \
-        .env.local config.sh zfs-datadog-lib.sh *-datadog.sh *-error.sh \
+        .env.local config.sh zfs-datadog-lib.sh ./*-datadog.sh ./*-error.sh \
         root@localhost:/tmp/ >> "$log" 2>&1
     
     # Install zedlets

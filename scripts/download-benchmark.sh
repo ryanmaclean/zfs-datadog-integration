@@ -13,7 +13,6 @@ RESULTS_FILE="${SCRIPT_DIR}/download-benchmark-results.md"
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Start results file
@@ -37,22 +36,28 @@ benchmark_download() {
     echo "URL: $url"
     
     if [ -f "$file" ]; then
-        local size=$(ls -lh "$file" | awk '{print $5}')
+        local size
+        size=$(find "$file" -maxdepth 0 -exec ls -lh {} \; | awk '{print $5}')
         echo -e "${GREEN}✓ Already downloaded ($size)${NC}"
         echo "| $name | Cached | $size | - |" >> "$RESULTS_FILE"
         return 0
     fi
     
-    local start=$(date +%s)
+    local start
+    start=$(date +%s)
     
     # Download with progress
     curl -L --progress-bar -o "$file" "$url"
     
-    local end=$(date +%s)
+    local end
+    end=$(date +%s)
     local duration=$((end - start))
-    local size=$(ls -lh "$file" | awk '{print $5}')
-    local size_bytes=$(ls -l "$file" | awk '{print $5}')
-    local speed_mbps=$(echo "scale=2; $size_bytes / $duration / 1024 / 1024" | bc)
+    local size
+    size=$(find "$file" -maxdepth 0 -exec ls -lh {} \; | awk '{print $5}')
+    local size_bytes
+    size_bytes=$(find "$file" -maxdepth 0 -exec ls -l {} \; | awk '{print $5}')
+    local speed_mbps
+    speed_mbps=$(echo "scale=2; $size_bytes / $duration / 1024 / 1024" | bc)
     
     echo -e "${GREEN}✓ Downloaded in ${duration}s ($size, ${speed_mbps} MB/s)${NC}"
     echo "| $name | ${duration}s | $size | ${speed_mbps} MB/s |" >> "$RESULTS_FILE"

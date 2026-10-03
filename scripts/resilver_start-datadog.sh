@@ -8,6 +8,7 @@
 #
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091  # resolved at runtime relative to the installed zedlet dir, not this checkout
 . "${SCRIPT_DIR}/zfs-datadog-lib.sh"
 
 # Check if monitoring is enabled

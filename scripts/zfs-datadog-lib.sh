@@ -4,12 +4,17 @@
 # Common functions for sending ZFS events and metrics to Datadog
 # POSIX-compatible for BSD/FreeBSD/TrueNAS
 #
+# shellcheck disable=SC3043
+# 'local' is unused by generic POSIX sh but is supported as a standard
+# extension by every shell these zedlets actually run under (FreeBSD sh/ash,
+# dash, bash); it is used throughout this file for function-scoped variables.
 
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/config.sh"
 
 if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090  # path is computed from $0 at runtime, not a constant shellcheck can follow
     . "$CONFIG_FILE"
 fi
 
@@ -76,9 +81,10 @@ send_datadog_event() {
         fi
     fi
 
-    local timestamp=$(date +%s)
+    local timestamp
+    timestamp=$(date +%s)
     local tag_array=""
-    
+
     # Convert comma-separated tags to JSON array
     if [ -n "$tags" ]; then
         tag_array="["
@@ -98,8 +104,9 @@ send_datadog_event() {
     else
         tag_array="[]"
     fi
-    
-    local json_payload=$(cat <<EOF
+
+    local json_payload
+    json_payload=$(cat <<EOF2
 {
   "title": "$title",
   "text": "$text",
@@ -109,28 +116,24 @@ send_datadog_event() {
   "source_type_name": "zfs",
   "host": "$HOSTNAME"
 }
-EOF
+EOF2
 )
-    
+
     # Retry logic with exponential backoff
     local max_retries=3
     local retry=0
     local wait_time=1
     local response
-    local exit_code
-    
+
     while [ $retry -lt $max_retries ]; do
-        response=$(curl -s -m 10 -X POST "${DD_API_URL}/api/v1/events" \
+        if response=$(curl -s -m 10 -X POST "${DD_API_URL}/api/v1/events" \
             -H "Content-Type: application/json" \
             -H "DD-API-KEY: ${DD_API_KEY}" \
-            -d "$json_payload" 2>&1)
-        exit_code=$?
-        
-        if [ $exit_code -eq 0 ]; then
+            -d "$json_payload" 2>&1); then
             log_message "INFO" "Event sent to Datadog: $title"
             return 0
         fi
-        
+
         retry=$((retry + 1))
         if [ $retry -lt $max_retries ]; then
             log_message "WARN" "Failed to send event (attempt $retry/$max_retries), retrying in ${wait_time}s..."
@@ -138,7 +141,7 @@ EOF
             wait_time=$((wait_time * 2))
         fi
     done
-    
+
     log_message "ERROR" "Failed to send event after $max_retries attempts: $response"
     return 1
 }
@@ -151,35 +154,33 @@ send_metric() {
     local value="$2"
     local metric_type="${3:-gauge}"
     local tags="${4:-$DD_TAGS}"
-    
+
     # Add hostname tag
     if [ -n "$tags" ]; then
         tags="${tags},host:${HOSTNAME}"
     else
         tags="host:${HOSTNAME}"
     fi
-    
+
     # Extract first character of metric type in a POSIX-friendly way (gauge -> g, counter -> c, etc.)
     local metric_short
     metric_short=$(printf '%s' "$metric_type" | cut -c1)
     local statsd_message="${metric_name}:${value}|${metric_short}|#${tags}"
-    
+
     # Send via UDP to DogStatsD with retry
     local max_retries=2
     local retry=0
-    
+
     while [ $retry -lt $max_retries ]; do
-        printf "%s" "$statsd_message" | nc -u -w1 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" 2>/dev/null
-        
-        if [ $? -eq 0 ]; then
+        if printf '%s' "$statsd_message" | nc -u -w1 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" 2>/dev/null; then
             log_message "DEBUG" "Metric sent: $statsd_message"
             return 0
         fi
-        
+
         retry=$((retry + 1))
         [ $retry -lt $max_retries ] && sleep 1
     done
-    
+
     log_message "ERROR" "Failed to send metric after $max_retries attempts: $statsd_message"
     return 1
 }
@@ -219,19 +220,20 @@ build_tags() {
     local base_tags="$DD_TAGS"
     local pool="${ZEVENT_POOL:-unknown}"
     local vdev="${ZEVENT_VDEV_PATH:-}"
-    
+
     local tags="$base_tags,pool:${pool}"
-    
+
     if [ -n "$vdev" ]; then
         # Extract device name from path
-        local vdev_name=$(basename "$vdev")
+        local vdev_name
+        vdev_name=$(basename "$vdev")
         tags="${tags},vdev:${vdev_name}"
     fi
-    
+
     if [ -n "${ZEVENT_VDEV_STATE}" ]; then
         tags="${tags},vdev_state:${ZEVENT_VDEV_STATE}"
     fi
-    
+
     echo "$tags"
 }
 

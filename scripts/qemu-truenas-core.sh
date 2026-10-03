@@ -7,7 +7,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VM_NAME="truenas-core"
 ISO_URL="https://download-core.sys.truenas.net/13.3/STABLE/RELEASE/x64/TrueNAS-13.3-RELEASE.iso"
 ISO_FILE="${SCRIPT_DIR}/truenas-core.iso"
 DISK_IMG="${SCRIPT_DIR}/truenas-core-disk.qcow2"

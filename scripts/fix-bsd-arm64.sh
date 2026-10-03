@@ -11,6 +11,7 @@ echo "=== FIXING BSD BUILDS FOR ARM64 ==="
 # 1. FreeBSD ARM64 - Build kernel NOW
 echo "[1/3] FreeBSD ARM64..."
 if limactl shell freebsd-build -- echo "ready" >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
     limactl shell freebsd-build -- sh -c '
         uname -m
         pkg install -y git

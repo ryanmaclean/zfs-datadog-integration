@@ -16,7 +16,6 @@ mkdir -p "$RESULTS_DIR"
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
-CYAN='\033[0;36m'
 NC='\033[0m'
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
@@ -54,7 +53,8 @@ test_distro() {
     local log_file="${RESULTS_DIR}/${name}.log"
     
     echo "🧪 Testing $name..." | tee -a "$log_file"
-    local start_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
     
     # Check if VM already exists
     if limactl list | grep -q "^${name}-zfs"; then
@@ -75,13 +75,15 @@ test_distro() {
     # Run comprehensive tests
     echo "Running tests on $name..." | tee -a "$log_file"
     if VM_NAME="${name}-zfs" timeout 300 ./comprehensive-validation-test.sh >> "$log_file" 2>&1; then
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         echo "✓ $name: PASS (${duration}s)" | tee -a "$log_file"
         echo "{\"status\":\"PASS\",\"duration\":${duration}}" > "$result_file"
         return 0
     else
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         echo "✗ $name: FAIL (${duration}s)" | tee -a "$log_file"
         echo "{\"status\":\"FAIL\",\"duration\":${duration}}" > "$result_file"
@@ -110,6 +112,7 @@ if command -v parallel &> /dev/null; then
     printf '%s\n' "${TEST_ARGS[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_distro '{1}' '{2}'
 else
     log_info "Using xargs for parallel execution"
+    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
     printf '%s\n' "${TEST_ARGS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
         IFS=: read -r name config <<< "{}"
         test_distro "$name" "$config"

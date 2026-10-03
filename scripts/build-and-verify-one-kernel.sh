@@ -20,6 +20,7 @@ echo ""
 
 # Baseline
 echo "${CYAN}[1/8] Capturing baseline...${NC}"
+# shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM
 limactl shell $VM -- sh -c '
 echo "Current kernel: $(uname -r)"
 echo "ZFS version: $(zfs version | head -1)"
@@ -58,6 +59,7 @@ sudo make ARCH=arm64 olddefconfig
 # Build kernel
 echo ""
 echo "${CYAN}[5/8] Building kernel (20-30 minutes)...${NC}"
+# shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM
 limactl shell $VM -- sh -c '
 cd /usr/src/linux
 sudo make ARCH=arm64 -j$(nproc) Image.gz modules
@@ -87,6 +89,7 @@ echo ""
 echo "${CYAN}[8/8] Verifying custom kernel...${NC}"
 sleep 10
 
+# shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM
 limactl shell $VM -- sh -c '
 echo "✓ Booted with: $(uname -r)"
 echo ""

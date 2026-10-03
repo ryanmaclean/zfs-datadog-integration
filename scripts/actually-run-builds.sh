@@ -31,7 +31,7 @@ if [ ! -f "freebsd-14.2-arm64.qcow2" ]; then
     exit 1
 fi
 
-echo "✅ FreeBSD image ready: $(ls -lh freebsd-14.2-arm64.qcow2 | awk '{print $5}')"
+echo "✅ FreeBSD image ready: $(find freebsd-14.2-arm64.qcow2 -maxdepth 0 -exec ls -lh {} \; | awk '{print $5}')"
 echo ""
 
 echo "=== Step 2: Create FreeBSD VM Disk ==="

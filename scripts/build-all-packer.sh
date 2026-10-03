@@ -7,7 +7,6 @@
 set -e
 
 REMOTE="studio@i9-zfs-pop.local"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "========================================"
 echo "🚀 Packer Automated Build - ALL OSes"
@@ -16,7 +15,7 @@ echo ""
 
 # Copy Packer templates to i9-zfs-pop
 echo "Copying Packer templates to i9-zfs-pop..."
-scp *.pkr.hcl *.sh .env.local $REMOTE:/tank3/vms/
+scp ./*.pkr.hcl ./*.sh .env.local $REMOTE:/tank3/vms/
 
 # Build on i9-zfs-pop
 ssh $REMOTE "bash -s" <<'REMOTE_BUILD'

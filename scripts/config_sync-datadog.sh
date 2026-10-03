@@ -6,8 +6,15 @@
 
 # Source the library
 ZED_DIR="$(dirname "$0")"
+# shellcheck disable=SC1091  # resolved at runtime relative to the installed zedlet dir, not this checkout
 . "${ZED_DIR}/zfs-datadog-lib.sh" || exit 1
+# shellcheck disable=SC1091  # resolved at runtime relative to the installed zedlet dir, not this checkout
 . "${ZED_DIR}/config.sh" || exit 1
+
+# zfs-datadog-lib.sh sets HOSTNAME, but restate the POSIX-portable default
+# here so this handler does not depend on HOSTNAME being exported by the
+# caller or by a future version of the sourced library.
+HOSTNAME="${HOSTNAME:-$(hostname)}"
 
 # Build event details
 EVENT_TYPE="config_sync"

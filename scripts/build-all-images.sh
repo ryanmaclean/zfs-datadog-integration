@@ -68,15 +68,18 @@ build_image() {
     fi
     
     echo "🔨 Building $os_name..." | tee -a "$log_file"
-    local start_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
     
     if packer build "$template" >> "$log_file" 2>&1; then
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         echo "✓ $os_name: SUCCESS (${duration}s)" | tee -a "$log_file"
         return 0
     else
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         echo "✗ $os_name: FAILED (${duration}s)" | tee -a "$log_file"
         return 1
@@ -97,6 +100,7 @@ elif command -v xargs &> /dev/null; then
     log_info "Using xargs for parallel builds"
     
     # Build using xargs
+    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
     printf '%s\n' "${BUILDS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
         IFS=: read -r name template <<< "{}"
         build_image "$name" "$template"

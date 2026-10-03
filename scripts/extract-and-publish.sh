@@ -111,7 +111,7 @@ echo ""
 echo "${CYAN}Creating checksums...${NC}"
 
 cd "$ARTIFACTS_DIR"
-shasum -a 256 *.tar.gz > SHA256SUMS 2>/dev/null || echo "# No tarballs found" > SHA256SUMS
+shasum -a 256 ./*.tar.gz > SHA256SUMS 2>/dev/null || echo "# No tarballs found" > SHA256SUMS
 cd ..
 
 echo "${GREEN}✓ Checksums created${NC}"
@@ -198,7 +198,7 @@ EOF
     gh release create v1.0.0-m-series-kernels \
         --title "M-series Optimized Kernels" \
         --notes-file RELEASE_NOTES.md \
-        *.tar.gz SHA256SUMS || {
+        ./*.tar.gz SHA256SUMS || {
         echo "${YELLOW}Release creation failed, try manually${NC}"
     }
     

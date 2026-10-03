@@ -14,7 +14,6 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
 NC='\033[0m'
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
@@ -28,6 +27,7 @@ if [ ! -f ".env.local" ]; then
     exit 1
 fi
 
+# shellcheck disable=SC1091  # local-dev override file, checked above and required before this point
 . .env.local
 
 if [ -z "$DD_API_KEY" ] || [ "$DD_API_KEY" = "test-key-replace-with-real" ]; then
@@ -65,9 +65,11 @@ else
     echo "- ⚠️ Datadog API: Could not validate (test key or network issue)" >> "$RESULTS_FILE"
 fi
 
-echo "" >> "$RESULTS_FILE"
-echo "## Lima VMs (Linux Distributions)" >> "$RESULTS_FILE"
-echo "" >> "$RESULTS_FILE"
+{
+    echo ""
+    echo "## Lima VMs (Linux Distributions)"
+    echo ""
+} >> "$RESULTS_FILE"
 
 # Check Lima VMs
 log_info "Checking Lima VMs..."
@@ -98,15 +100,17 @@ for vm in "${LIMA_VMS[@]}"; do
     fi
 done
 
-echo "" >> "$RESULTS_FILE"
-echo "## QEMU VMs (BSD/TrueNAS/Illumos)" >> "$RESULTS_FILE"
-echo "" >> "$RESULTS_FILE"
+{
+    echo ""
+    echo "## QEMU VMs (BSD/TrueNAS/Illumos)"
+    echo ""
+} >> "$RESULTS_FILE"
 
 # Check QEMU processes
 log_info "Checking QEMU VMs..."
 echo ""
 
-QEMU_PROCS=$(ps aux | grep qemu-system | grep -v grep || true)
+QEMU_PROCS=$(pgrep -fl qemu-system 2>/dev/null || true)
 
 if [ -n "$QEMU_PROCS" ]; then
     log_success "QEMU VMs running:"
@@ -122,9 +126,11 @@ else
     echo "- ℹ️ No QEMU VMs running" >> "$RESULTS_FILE"
 fi
 
-echo "" >> "$RESULTS_FILE"
-echo "## Available VM Scripts" >> "$RESULTS_FILE"
-echo "" >> "$RESULTS_FILE"
+{
+    echo ""
+    echo "## Available VM Scripts"
+    echo ""
+} >> "$RESULTS_FILE"
 
 # List available scripts
 log_info "Available VM scripts:"
@@ -138,25 +144,27 @@ for script in qemu-*.sh; do
     fi
 done
 
-echo "" >> "$RESULTS_FILE"
-echo "## Quick Start Commands" >> "$RESULTS_FILE"
-echo "" >> "$RESULTS_FILE"
-echo "\`\`\`bash" >> "$RESULTS_FILE"
-echo "# Start Lima VMs" >> "$RESULTS_FILE"
-echo "limactl start --name=ubuntu-zfs lima-zfs.yaml" >> "$RESULTS_FILE"
-echo "limactl start --name=debian-zfs lima-debian.yaml" >> "$RESULTS_FILE"
-echo "" >> "$RESULTS_FILE"
-echo "# Start QEMU VMs" >> "$RESULTS_FILE"
-echo "./qemu-truenas-scale.sh  # TrueNAS SCALE" >> "$RESULTS_FILE"
-echo "./qemu-truenas-core.sh   # TrueNAS CORE" >> "$RESULTS_FILE"
-echo "./qemu-freebsd.sh        # FreeBSD" >> "$RESULTS_FILE"
-echo "./qemu-openbsd.sh        # OpenBSD" >> "$RESULTS_FILE"
-echo "./qemu-netbsd.sh         # NetBSD" >> "$RESULTS_FILE"
-echo "./qemu-openindiana.sh    # OpenIndiana" >> "$RESULTS_FILE"
-echo "" >> "$RESULTS_FILE"
-echo "# Test with real Datadog API" >> "$RESULTS_FILE"
-echo "VM_NAME=ubuntu-zfs ./comprehensive-validation-test.sh" >> "$RESULTS_FILE"
-echo "\`\`\`" >> "$RESULTS_FILE"
+{
+    echo ""
+    echo "## Quick Start Commands"
+    echo ""
+    echo "\`\`\`bash"
+    echo "# Start Lima VMs"
+    echo "limactl start --name=ubuntu-zfs lima-zfs.yaml"
+    echo "limactl start --name=debian-zfs lima-debian.yaml"
+    echo ""
+    echo "# Start QEMU VMs"
+    echo "./qemu-truenas-scale.sh  # TrueNAS SCALE"
+    echo "./qemu-truenas-core.sh   # TrueNAS CORE"
+    echo "./qemu-freebsd.sh        # FreeBSD"
+    echo "./qemu-openbsd.sh        # OpenBSD"
+    echo "./qemu-netbsd.sh         # NetBSD"
+    echo "./qemu-openindiana.sh    # OpenIndiana"
+    echo ""
+    echo "# Test with real Datadog API"
+    echo "VM_NAME=ubuntu-zfs ./comprehensive-validation-test.sh"
+    echo "\`\`\`"
+} >> "$RESULTS_FILE"
 
 echo ""
 echo "========================================"
@@ -166,7 +174,7 @@ echo ""
 
 # Count running VMs
 RUNNING_LIMA=$(limactl list | grep -c "Running" || echo "0")
-RUNNING_QEMU=$(ps aux | grep qemu-system | grep -v grep | wc -l | tr -d ' ')
+RUNNING_QEMU=$(pgrep -f qemu-system 2>/dev/null | wc -l | tr -d ' ')
 
 log_info "Lima VMs running: $RUNNING_LIMA"
 log_info "QEMU VMs running: $RUNNING_QEMU"

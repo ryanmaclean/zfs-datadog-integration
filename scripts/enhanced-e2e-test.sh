@@ -475,7 +475,7 @@ echo "  checksum-error.sh: $([ $CHECKSUM_CAPTURED -gt 0 ] && echo '✓ WORKING' 
 echo "  io-error.sh: $([ $IO_CAPTURED -gt 0 ] && echo '✓ WORKING' || echo '✗ NOT TRIGGERED')"
 echo ""
 
-if [ $TESTS_FAILED -eq 0 ] && [ $TOTAL_EVENTS -gt 5 ]; then
+if [ $TESTS_FAILED -eq 0 ] && [ "$TOTAL_EVENTS" -gt 5 ]; then
     log_success "All tests passed! Integration is working correctly."
     exit 0
 else

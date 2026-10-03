@@ -7,7 +7,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VM_NAME="freebsd"
 
 # Determine architecture
 # Use x86_64 for better compatibility (works on both ARM64 and x86_64)
@@ -120,7 +119,7 @@ $QEMU_CMD \
     -accel hvf \
     -machine $QEMU_MACHINE \
     -cpu $QEMU_CPU \
-    $QEMU_BIOS \
+    "$QEMU_BIOS" \
     -smp 2 \
     -m 4G \
     -drive file="$QCOW_FILE",if=virtio,format=qcow2 \

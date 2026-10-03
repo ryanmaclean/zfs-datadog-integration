@@ -24,7 +24,14 @@ jobs:
       - name: Check POSIX compliance
         run: |
           echo "Checking POSIX compliance..."
-          for script in scripts/*.sh; do
+          # Only the zedlets ZED actually invokes, plus the shared
+          # library/config they source and the installer scripts, need a
+          # POSIX /bin/sh shebang (ZED runs them directly under /bin/sh on
+          # FreeBSD/TrueNAS). scripts/ also holds many developer-only
+          # VM/build/benchmark helper scripts that are run by hand under
+          # bash and were never meant to run under ZED; those are exempt.
+          posix_scripts="scripts/install.sh scripts/uninstall.sh scripts/validate-config.sh scripts/zfs-datadog-lib.sh scripts/config.sh scripts/checksum-error.sh scripts/io-error.sh scripts/all-datadog.sh scripts/config_sync-datadog.sh scripts/pool_destroy-datadog.sh scripts/pool_import-datadog.sh scripts/resilver_finish-datadog.sh scripts/resilver_start-datadog.sh scripts/scrub_finish-datadog.sh scripts/scrub_start-datadog.sh scripts/statechange-datadog.sh scripts/vdev_attach-datadog.sh scripts/vdev_remove-datadog.sh scripts/ereport.fs.zfs.checksum-datadog.sh scripts/ereport.fs.zfs.io-datadog.sh"
+          for script in $posix_scripts; do
             echo "Checking $script"
             # Verify shebang is #!/bin/sh (POSIX)
             if head -n 1 "$script" | grep -q "#!/bin/sh"; then
