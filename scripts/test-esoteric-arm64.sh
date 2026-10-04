@@ -43,8 +43,8 @@ echo "   ${BLUE}★${NC} VZ backend - 2x faster than QEMU"
 echo "   ${BLUE}★${NC} Lightweight and fast"
 echo "   ${BLUE}★${NC} Best performance + esoteric combo"
 echo ""
-echo "${GREEN}2)${NC} ${MAGENTA}FreeBSD 14.0 ARM64${NC} ${CYAN}(Production-ready, native ZFS)${NC}"
-echo "   ${BLUE}★${NC} Best choice - fully functional"
+echo "${GREEN}2)${NC} ${MAGENTA}FreeBSD 14.0 ARM64${NC} ${CYAN}(ZED integration unavailable here)${NC}"
+echo "   ${BLUE}★${NC} Base FreeBSD uses zfsd/devd; this helper cannot deploy native event delivery"
 echo "   ${BLUE}★${NC} Native ZFS built into kernel"
 echo "   ${BLUE}★${NC} Excellent ARM64 support"
 echo ""
@@ -71,12 +71,9 @@ case "$choice" in
         DIFFICULTY="${GREEN}Easy + Esoteric${NC}"
         ;;
     2)
-        VM_NAME="freebsd-arm64"
-        LIMA_FILE="examples/lima/lima-freebsd-arm64.yaml"
-        OS_NAME="FreeBSD 14.0 ARM64"
-        ZED_PATH="/usr/local/etc/zfs/zed.d"
-        SERVICE_CMD="service zfs restart"
-        DIFFICULTY="${GREEN}Easy${NC}"
+        printf 'Error: FreeBSD native ZFS event delivery is not installed by this ZED test helper.\n' >&2
+        printf 'No VM, ZED files, or ZFS services were changed.\n' >&2
+        exit 1
         ;;
     3)
         VM_NAME="netbsd-arm64"

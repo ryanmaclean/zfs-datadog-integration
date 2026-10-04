@@ -59,6 +59,24 @@ EOF
     shift
 done
 
+# Base FreeBSD uses zfsd/devd; this ZED uninstaller must not remove files or
+# restart a ZFS service when the native event route is not yet verified.
+HOST_OS=$(uname -s) || {
+    printf 'Error: Could not determine the host operating system.\n' >&2
+    printf 'No ZED files or ZFS services were changed.\n' >&2
+    exit 1
+}
+if [ -z "$HOST_OS" ]; then
+    printf 'Error: Host operating system was empty.\n' >&2
+    printf 'No ZED files or ZFS services were changed.\n' >&2
+    exit 1
+fi
+if [ "$HOST_OS" = "FreeBSD" ]; then
+    printf 'Error: FreeBSD native ZFS event delivery is not managed by this ZED uninstaller\n' >&2
+    printf 'No ZED files or ZFS services were changed.\n' >&2
+    exit 1
+fi
+
 # Check if running as root
 if [ "$(id -u)" -ne 0 ] && [ "$DRY_RUN" -eq 0 ]; then
     printf "${RED}Error: This script must be run as root${NC}\n" >&2
