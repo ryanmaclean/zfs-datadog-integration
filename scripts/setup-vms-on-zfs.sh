@@ -14,20 +14,28 @@ ZFS_POOL="tank3"
 VM_DATASET="${ZFS_POOL}/vms"
 VM_PATH="/tank3/vms"
 
+# i9-zfs-pop's array is failing. Refuse this hard-coded target before the
+# helper can issue any remote command or mutate its storage. An off-i9
+# destination needs a separately reviewed capacity and ownership gate.
+if [[ "$REMOTE_HOST" == "i9-zfs-pop.local" ]]; then
+    printf '%s\n' 'Refusing VM setup: i9-zfs-pop storage is failing.' >&2
+    exit 1
+fi
+
 # Run one command on the remote host. ssh joins its arguments into a single
 # string that the remote shell re-parses, so every word is quoted locally
 # with printf %q: the remote side sees exactly these words, with no word
-# splitting, globbing or injection from the values. '--' stops ssh from
-# treating a leading '-' in the command as one of its own options.
+# splitting, globbing or injection from the values. Words after the ssh
+# destination form the remote command; no local '--' belongs there.
 # %q renders newlines as bash $'...' quoting, so the remote login shell
 # must be bash/zsh/ksh93 (it is bash on this Linux target).
 remote() {
-    ssh "$REMOTE" -- "$(printf '%q ' "$@")"
+    ssh "$REMOTE" "$(printf '%q ' "$@")"
 }
 
 # Same, with a tty (sudo may need to prompt for a password).
 remote_tty() {
-    ssh -t "$REMOTE" -- "$(printf '%q ' "$@")"
+    ssh -t "$REMOTE" "$(printf '%q ' "$@")"
 }
 
 echo "========================================"
