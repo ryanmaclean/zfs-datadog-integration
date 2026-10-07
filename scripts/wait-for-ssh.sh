@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Wait for SSH to become available on VM
 #
@@ -30,6 +30,6 @@ while true; do
         exit 1
     fi
     
-    echo -n "."
+    printf '%s' "."
     sleep 5
 done

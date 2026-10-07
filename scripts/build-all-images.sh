@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>, declare, arrays, local, export -f, here-strings
 #
 # Parallel Image Building with Packer
 # Builds golden images for all 11 OSes simultaneously

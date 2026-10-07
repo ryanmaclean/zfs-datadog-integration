@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, &>, read -p, [[ ]], =~ regex matching
 #
 # Create macOS VM using Lima and IPSW
 #

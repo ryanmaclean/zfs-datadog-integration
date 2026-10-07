@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # COMPLETE ALL KERNELS - Install what's compiled, verify what works
 #

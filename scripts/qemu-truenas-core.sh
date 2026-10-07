@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>
 #
 # QEMU-based TrueNAS CORE Testing
 # Downloads and runs TrueNAS CORE (FreeBSD-based) in QEMU for zedlet testing

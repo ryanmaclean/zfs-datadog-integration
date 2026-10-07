@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build OpenBSD M-series kernel NOW
 # Most experimental - ZFS unsupported on OpenBSD

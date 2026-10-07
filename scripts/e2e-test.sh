@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>, arrays
 #
 # End-to-End Test Suite for ZFS Datadog Integration
 # Fully automated testing in Lima VM

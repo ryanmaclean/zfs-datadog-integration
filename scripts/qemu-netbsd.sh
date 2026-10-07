@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>
 #
 # QEMU-based NetBSD Testing
 # Downloads and runs NetBSD 10.0 with ZFS support

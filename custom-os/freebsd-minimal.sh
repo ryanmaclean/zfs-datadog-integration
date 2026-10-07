@@ -106,30 +106,30 @@ truncate -s 1G freebsd-minimal.img
 mddev=$(mdconfig -a -t vnode -f freebsd-minimal.img)
 
 # Partition
-gpart create -s gpt $mddev
-gpart add -t freebsd-boot -s 512K $mddev
-gpart add -t freebsd-ufs -l rootfs $mddev
+gpart create -s gpt "$mddev"
+gpart add -t freebsd-boot -s 512K "$mddev"
+gpart add -t freebsd-ufs -l rootfs "$mddev"
 
 # Format
-newfs -U /dev/${mddev}p2
+newfs -U "/dev/${mddev}p2"
 
 # Mount and copy
 mkdir -p mnt
-mount /dev/${mddev}p2 mnt
+mount "/dev/${mddev}p2" mnt
 cp -a rootfs/* mnt/
 umount mnt
 
 # Install bootloader
-gpart bootcode -b rootfs/boot/pmbr -p rootfs/boot/gptboot -i 1 $mddev
+gpart bootcode -b rootfs/boot/pmbr -p rootfs/boot/gptboot -i 1 "$mddev"
 
 # Detach
-mdconfig -d -u $mddev
+mdconfig -d -u "$mddev"
 
 echo ""
 echo "✓ ZFS-Minimal FreeBSD built!"
 echo ""
 echo "Image: $OUTDIR/freebsd-minimal.img"
-echo "Size: $(du -h $OUTDIR/freebsd-minimal.img | cut -f1)"
+echo "Size: $(du -h "$OUTDIR/freebsd-minimal.img" | cut -f1)"
 echo ""
 echo "Includes:"
 echo "  - FreeBSD base"

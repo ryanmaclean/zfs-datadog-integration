@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Test ZFS Datadog Integration in Lima VM
 # This script runs inside the Lima VM to test the zedlets

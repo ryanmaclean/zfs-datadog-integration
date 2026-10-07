@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>
 #
 # QEMU-based OpenIndiana Testing
 # Downloads and runs OpenIndiana Hipster with native ZFS

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: local
 #
 # MAKE ALL ARM64 LIMA BUILDS WORK WITH CUSTOM KERNELS
 # No excuses - everything must work

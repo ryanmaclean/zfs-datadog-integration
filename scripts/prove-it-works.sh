@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: shopt
 #
 # PROVE IT WORKS - Comprehensive test of all VM configurations
 # This script actually runs the tests and verifies results

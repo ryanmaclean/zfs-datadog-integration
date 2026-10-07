@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: arrays, array references
 #
 # Verify extension build
 #

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, declare, local, indirect expansion, array key expansion
 #
 # Automated Multi-OS Testing Orchestrator
 # Tests ZFS Datadog integration across all 11 operating systems

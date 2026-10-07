@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, local, read -n, [[ ]], =~ regex matching, read -p
 #
 # Test Suite for Esoteric Operating Systems
 # Tests each VM boots correctly with code-server access
@@ -31,7 +32,7 @@ test_os() {
     
     # Boot VM
     echo "1. Booting VM..."
-    if ./boot-esoteric.sh ${OS_NAME} 2>&1 | tee /tmp/${OS_NAME}-boot.log; then
+    if ./boot-esoteric.sh "${OS_NAME}" 2>&1 | tee "/tmp/${OS_NAME}-boot.log"; then
         echo -e "${GREEN}✓ VM booted${NC}"
     else
         echo -e "${RED}✗ VM failed to boot${NC}"
@@ -50,18 +51,18 @@ test_os() {
     else
         echo -e "${RED}✗ VM not running${NC}"
         FAILED=$((FAILED + 1))
-        limactl stop ${OS_NAME} 2>/dev/null || true
+        limactl stop "${OS_NAME}" 2>/dev/null || true
         return 1
     fi
     
     # Get VM IP
-    VM_IP=$(limactl shell ${OS_NAME} hostname -I 2>/dev/null | awk '{print $1}')
+    VM_IP=$(limactl shell "${OS_NAME}" hostname -I 2>/dev/null | awk '{print $1}')
     echo "VM IP: ${VM_IP}"
     
     # Test code-server
     echo "4. Testing code-server..."
     sleep 5
-    if curl -s -o /dev/null -w "%{http_code}" http://${VM_IP}:8080 | grep -q "200\|302"; then
+    if curl -s -o /dev/null -w "%{http_code}" "http://${VM_IP}:8080" | grep -q "200\|302"; then
         echo -e "${GREEN}✓ code-server accessible${NC}"
     else
         echo -e "${YELLOW}⚠ code-server not yet ready (may need manual start)${NC}"
@@ -69,19 +70,19 @@ test_os() {
     
     # Test QEMU
     echo "5. Testing QEMU availability..."
-    if limactl shell ${OS_NAME} -- which qemu-system-x86_64 >/dev/null 2>&1; then
+    if limactl shell "${OS_NAME}" -- which qemu-system-x86_64 >/dev/null 2>&1; then
         echo -e "${GREEN}✓ QEMU installed${NC}"
     else
         echo -e "${RED}✗ QEMU not found${NC}"
         FAILED=$((FAILED + 1))
-        limactl stop ${OS_NAME}
+        limactl stop "${OS_NAME}"
         return 1
     fi
     
     # Check ISO downloaded
     echo "6. Checking ISO..."
-    if limactl shell ${OS_NAME} -- ls /opt/${OS_NAME}/*.iso >/dev/null 2>&1; then
-        ISO_SIZE=$(limactl shell ${OS_NAME} -- du -h /opt/${OS_NAME}/*.iso | awk '{print $1}')
+    if limactl shell "${OS_NAME}" -- ls /opt/"${OS_NAME}"/*.iso >/dev/null 2>&1; then
+        ISO_SIZE=$(limactl shell "${OS_NAME}" -- du -h /opt/"${OS_NAME}"/*.iso | awk '{print $1}')
         echo -e "${GREEN}✓ ISO downloaded (${ISO_SIZE})${NC}"
     else
         echo -e "${YELLOW}⚠ ISO not found (may still be downloading)${NC}"
@@ -89,12 +90,12 @@ test_os() {
     
     # Test start script
     echo "7. Testing start script..."
-    if limactl shell ${OS_NAME} -- test -x ~/start-${OS_NAME}.sh; then
+    if limactl shell "${OS_NAME}" -- test -x ~/start-"${OS_NAME}".sh; then
         echo -e "${GREEN}✓ Start script exists${NC}"
     else
         echo -e "${RED}✗ Start script not found${NC}"
         FAILED=$((FAILED + 1))
-        limactl stop ${OS_NAME}
+        limactl stop "${OS_NAME}"
         return 1
     fi
     
@@ -108,7 +109,7 @@ test_os() {
     read -r -n 1 -t 5 STOP_VM || STOP_VM="n"
     echo ""
     if [[ $STOP_VM =~ ^[Yy]$ ]]; then
-        limactl stop ${OS_NAME}
+        limactl stop "${OS_NAME}"
         echo -e "${YELLOW}VM stopped${NC}"
     else
         echo -e "${YELLOW}VM left running${NC}"
@@ -128,7 +129,7 @@ echo "5. TempleOS"
 echo "6. All of the above"
 echo "7. Quick test (Plan 9 only)"
 echo ""
-read -p "Choice (1-7): " CHOICE
+read -r -p "Choice (1-7): " CHOICE
 
 case $CHOICE in
     1)

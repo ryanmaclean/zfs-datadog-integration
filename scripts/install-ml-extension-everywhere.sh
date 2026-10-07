@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Install ML Code Assistant Everywhere
 # - macOS (local)

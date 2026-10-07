@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: local
 #
 # Fix failed builds by accessing VMs directly (bypassing SSH)
 #

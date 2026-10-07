@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #
 # Quick VM Setup - Creates VMs with cloud-init for automation
 # Uses cloud images where available for faster setup

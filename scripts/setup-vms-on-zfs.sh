@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
+# bash-required: printf %q
 #
 # Setup VMs on ZFS Pool for Multi-OS Testing
 # Target: i9-zfs-pop.local with tank3 ZFS pool
 #
-# bash-required: uses printf %q to quote remote command words.
 
 set -e
 

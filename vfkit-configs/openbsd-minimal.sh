@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # OpenBSD 7.6 ARM64 using vfkit
 # Minimal: 6GB disk, 2GB RAM, 2 CPUs
@@ -10,7 +10,8 @@ set -e
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f "$SCRIPT_DIR/../.env" ]; then
-    source "$SCRIPT_DIR/../.env"
+    # shellcheck source=../.env.example  # untracked .env is created from this template
+    . "$SCRIPT_DIR/../.env"
 fi
 
 VM_NAME="openbsd"

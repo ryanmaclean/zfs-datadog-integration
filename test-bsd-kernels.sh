@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, read -p
 #
 # Test BSD Kernel Builds and VMs
 #
@@ -40,7 +41,7 @@ echo "4. Set up FreeBSD kernel build"
 echo "5. Test BSD support in ML extension"
 echo "6. All of the above"
 echo ""
-read -p "Choice (1-6): " CHOICE
+read -r -p "Choice (1-6): " CHOICE
 
 case $CHOICE in
     1|6)

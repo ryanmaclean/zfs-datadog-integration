@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #
 # Create VMs with sudo (fixes permission issues)
 #

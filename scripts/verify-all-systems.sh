@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, string indexing, declare, arrays
 #
 # Comprehensive System Verification
 # Verifies all operating systems can start and zedlets work with real Datadog API

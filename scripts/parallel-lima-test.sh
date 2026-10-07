@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, BASH_VERSINFO, declare, arrays, local, export -f, indirect expansion, array key expansion, +=, &>
 #
 # Parallel Lima VM Testing
 # Tests all Linux distributions simultaneously using existing Lima infrastructure

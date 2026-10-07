@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build custom Gentoo ARM64 ISO with M-series optimizations
 # For Gentoo maintainers who know the process
@@ -8,7 +8,6 @@ set -e
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 MAGENTA='\033[0;35m'
 NC='\033[0m'
 

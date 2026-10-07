@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Mock Datadog Server for Testing
 # Runs the repository's mock Datadog server (Events API on :8080,

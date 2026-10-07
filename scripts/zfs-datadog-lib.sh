@@ -4,7 +4,7 @@
 # Common functions for sending ZFS events and metrics to Datadog
 # POSIX-compatible for BSD/FreeBSD/TrueNAS
 #
-# Strictly POSIX: no 'local'. Function-scoped variables use a per-function
+# Strictly POSIX: no local. Function-scoped variables use a per-function
 # prefix (_lm_, _ev_, _sm_, _ph_, _at_, _bt_) so they cannot collide with
 # the sourcing zedlet's variables or with each other across nested calls.
 

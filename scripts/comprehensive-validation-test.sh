@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Comprehensive Validation Test Suite
 # Tests: POSIX compatibility, retry logic, error handling, real Datadog integration
@@ -22,17 +22,17 @@ PASSED_TESTS=0
 FAILED_TESTS=0
 SKIPPED_TESTS=0
 
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
-log_error() { echo -e "${RED}[✗]${NC} $1"; }
-log_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
-log_test() { echo -e "${CYAN}[TEST]${NC} $1"; }
+log_info() { printf '%b\n' "${BLUE}[INFO]${NC} $1"; }
+log_success() { printf '%b\n' "${GREEN}[✓]${NC} $1"; }
+log_error() { printf '%b\n' "${RED}[✗]${NC} $1"; }
+log_warning() { printf '%b\n' "${YELLOW}[!]${NC} $1"; }
+log_test() { printf '%b\n' "${CYAN}[TEST]${NC} $1"; }
 
 section() {
     echo ""
-    echo -e "${GREEN}======================================================================${NC}"
-    echo -e "${GREEN}$1${NC}"
-    echo -e "${GREEN}======================================================================${NC}"
+    printf '%b\n' "${GREEN}======================================================================${NC}"
+    printf '%b\n' "${GREEN}$1${NC}"
+    printf '%b\n' "${GREEN}======================================================================${NC}"
     echo ""
 }
 

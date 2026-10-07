@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: brace expansion, echo flags, [[ ]], == in place of =
 #
 # Reboot VM with new kernel and verify
 #

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Test ML Code Assistant on BSD VMs
 #

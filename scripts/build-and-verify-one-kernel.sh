@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build ONE custom kernel and VERIFY it works
 # Use existing zfs-test VM that already works

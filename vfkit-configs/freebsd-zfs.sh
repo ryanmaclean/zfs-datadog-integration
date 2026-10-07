@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # FreeBSD 14.2 ARM64 with Native ZFS using vfkit
 # Minimal: 8GB disk, 4GB RAM, 2 CPUs
@@ -9,7 +9,8 @@ set -e
 # Load configuration
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f "$SCRIPT_DIR/../.env" ]; then
-    source "$SCRIPT_DIR/../.env"
+    # shellcheck source=../.env.example  # untracked .env is created from this template
+    . "$SCRIPT_DIR/../.env"
 fi
 
 VM_NAME="freebsd-zfs"

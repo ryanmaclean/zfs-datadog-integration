@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # FIX ALL BSD BUILDS - ARM64 NATIVE ONLY
 # No x86_64 QEMU - real ARM64

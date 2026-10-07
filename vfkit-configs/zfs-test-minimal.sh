@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Minimal ZFS Test VM using vfkit
 # 4GB disk, 2GB RAM, 2 CPUs

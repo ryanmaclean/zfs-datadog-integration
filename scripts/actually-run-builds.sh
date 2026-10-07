@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # ACTUALLY RUN THE BUILDS - Not just test infrastructure
 # This script launches VMs and runs actual builds

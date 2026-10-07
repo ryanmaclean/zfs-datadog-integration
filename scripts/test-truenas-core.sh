@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Automated TrueNAS CORE Testing
 # Deploys and tests POSIX-compatible zedlets on FreeBSD
@@ -16,9 +16,9 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
-log_error() { echo -e "${RED}[✗]${NC} $1"; }
+log_info() { printf '%b\n' "${BLUE}[INFO]${NC} $1"; }
+log_success() { printf '%b\n' "${GREEN}[✓]${NC} $1"; }
+log_error() { printf '%b\n' "${RED}[✗]${NC} $1"; }
 
 echo "========================================"
 echo "TrueNAS CORE Zedlet Testing"

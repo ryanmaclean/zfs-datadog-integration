@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build custom Arch Linux ARM64 ISO with M-series optimizations
 # Fast, rolling-release, optimized for Apple Silicon
@@ -8,7 +8,6 @@ set -e
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 MAGENTA='\033[0;35m'
 NC='\033[0m'
 

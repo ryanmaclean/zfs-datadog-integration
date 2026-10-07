@@ -72,3 +72,9 @@ EOF
 
 echo "${CYAN}[3/4] Creating ISO...${NC}"
 # Create ISO with auto-install
+
+cd "$WORK_DIR"
+makefs -t cd9660 -o rockridge "$ISO_NAME" rootfs/
+
+echo "${GREEN}✓ ISO created: $ISO_NAME${NC}"
+echo "  Size: $(du -h "$ISO_NAME" | cut -f1)"

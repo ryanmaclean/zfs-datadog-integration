@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: declare, arrays, local, brace expansion, export -f, indirect expansion, array key expansion, here-strings, array references
 #
 # Parallel VM Testing - All OSes Simultaneously
 # Installs Datadog, ZFS, zedlets, creates test pools, runs scrubs

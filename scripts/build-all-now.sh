@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: local, brace expansion
 #
 # BUILD ALL ARM64 IMAGES AND KERNELS AT ONCE
 # Parallel execution across all platforms

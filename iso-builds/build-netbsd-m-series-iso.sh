@@ -8,7 +8,6 @@ set -e
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo "${CYAN}═══════════════════════════════════════${NC}"
@@ -41,7 +40,7 @@ mkdir -p "$WORK_DIR/rootfs"
 cd "$WORK_DIR/rootfs"
 
 for set in ../sets/*.tar.xz; do
-    echo "Extracting $(basename $set)..."
+    echo "Extracting $(basename "$set")..."
     tar xpf "$set"
 done
 

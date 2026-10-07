@@ -31,7 +31,7 @@ cd /usr/src
 echo "Building kernel (this will take 30-60 minutes)..."
 
 # NetBSD uses build.sh
-./build.sh -U -u -j$(sysctl -n hw.ncpu) kernel=M-SERIES
+./build.sh -U -u -j"$(sysctl -n hw.ncpu)" kernel=M-SERIES
 
 # Install kernel
 echo "Installing kernel..."

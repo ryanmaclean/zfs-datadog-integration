@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build Arch ISO using Docker (no sudo needed!)
 #
@@ -17,7 +17,7 @@ docker build --platform linux/arm64 \
 echo "Building ISO in container..."
 docker run --platform linux/arm64 \
     --rm \
-    -v $(pwd):/workspace \
+    -v "$(pwd)":/workspace \
     -w /workspace \
     arch-m-series-builder \
     /bin/bash -c '

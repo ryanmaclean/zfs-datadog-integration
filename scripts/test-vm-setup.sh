@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Test Environment Setup Script
 # Sets up Lima VM with ZFS for testing Datadog integration
@@ -7,7 +7,7 @@
 set -e
 
 echo "Installing Lima (if not already installed)..."
-if ! command -v limactl &> /dev/null; then
+if ! command -v limactl > /dev/null 2>&1; then
     echo "Installing Lima via Homebrew..."
     brew install lima
 else

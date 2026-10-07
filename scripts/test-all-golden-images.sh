@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, local, RANDOM, brace expansion, export -f, declare, arrays, +=, &>
 #
 # Parallel Testing of Golden Images
 # Tests all built images simultaneously

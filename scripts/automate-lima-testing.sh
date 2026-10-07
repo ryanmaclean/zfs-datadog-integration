@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Automate Lima VM testing for all OSes
 
 set -e

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, read -p, brace expansion
 #
 # ML Code Assistant - Interactive Demo Scaffold
 # Shows off the extension with real-time completions
@@ -33,7 +34,7 @@ RESULT=$(echo "function build_kernel" | node "$CLI" complete 2>&1 | grep -v "Run
 echo -e "${GREEN}Output:${NC}"
 echo "$RESULT"
 echo ""
-read -p "Press Enter for next demo..."
+read -r -p "Press Enter for next demo..."
 echo ""
 
 # Demo 2: ZFS command completion
@@ -46,7 +47,7 @@ RESULT=$(echo "zpool create" | node "$CLI" complete 2>&1 | grep -v "Running on")
 echo -e "${GREEN}Output:${NC}"
 echo "$RESULT"
 echo ""
-read -p "Press Enter for next demo..."
+read -r -p "Press Enter for next demo..."
 echo ""
 
 # Demo 3: Lima command completion
@@ -59,7 +60,7 @@ RESULT=$(echo "limactl shell" | node "$CLI" complete 2>&1 | grep -v "Running on"
 echo -e "${GREEN}Output:${NC}"
 echo "$RESULT"
 echo ""
-read -p "Press Enter for next demo..."
+read -r -p "Press Enter for next demo..."
 echo ""
 
 # Demo 4: Loop completion
@@ -72,7 +73,7 @@ RESULT=$(echo "for i in" | node "$CLI" complete 2>&1 | grep -v "Running on")
 echo -e "${GREEN}Output:${NC}"
 echo "$RESULT"
 echo ""
-read -p "Press Enter for next demo..."
+read -r -p "Press Enter for next demo..."
 echo ""
 
 # Demo 5: Error handling
@@ -85,7 +86,7 @@ RESULT=$(echo "if [ -f" | node "$CLI" complete 2>&1 | grep -v "Running on")
 echo -e "${GREEN}Output:${NC}"
 echo "$RESULT"
 echo ""
-read -p "Press Enter for performance test..."
+read -r -p "Press Enter for performance test..."
 echo ""
 
 # Performance test
@@ -99,13 +100,13 @@ for i in {1..10}; do
 done
 END=$(date +%s%N)
 
-TOTAL_MS=$(( ($END - $START) / 1000000 ))
-AVG_MS=$(( $TOTAL_MS / 10 ))
+TOTAL_MS=$(( (END - START) / 1000000 ))
+AVG_MS=$(( TOTAL_MS / 10 ))
 
 echo -e "${GREEN}Results:${NC}"
 echo "  Total time: ${TOTAL_MS}ms"
 echo "  Average per completion: ${AVG_MS}ms"
-echo "  Completions per second: $(( 1000 / $AVG_MS ))"
+echo "  Completions per second: $(( 1000 / AVG_MS ))"
 echo ""
 
 # Summary

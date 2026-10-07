@@ -39,7 +39,7 @@ case "$OS" in
     elif command -v apk >/dev/null 2>&1; then
       PKG_CMD="apk add"
     else
-      PKG_CMD="echo 'Install manually:'"
+      PKG_CMD="<your package manager>"
     fi
     ;;
   Darwin)
@@ -48,7 +48,7 @@ case "$OS" in
     ;;
   *)
     echo "Unknown OS: $OS (will try generic install)"
-    PKG_CMD="echo 'Install manually:'"
+    PKG_CMD="<your package manager>"
     ;;
 esac
 
@@ -67,6 +67,9 @@ if ! command -v node >/dev/null 2>&1; then
       ;;
     SunOS)
       sudo pkg install nodejs
+      ;;
+    *)
+      echo "Install Node.js with: $PKG_CMD node (the package name varies by OS)"
       ;;
   esac
 else

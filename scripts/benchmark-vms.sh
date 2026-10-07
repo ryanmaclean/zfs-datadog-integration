@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, local, [[ ]], == in place of =
 #
 # Benchmark VM Startup Times
 # Tests FreeBSD, TrueNAS SCALE, and TrueNAS CORE

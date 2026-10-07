@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: local
 #
 # BUILD ALL - ROBUST VERSION
 # Handles errors, retries, and actually completes

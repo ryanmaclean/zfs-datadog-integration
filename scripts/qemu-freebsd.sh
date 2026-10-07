@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>
 #
 # QEMU-based FreeBSD Testing
 # Downloads and runs FreeBSD 14.2 in QEMU for zedlet testing

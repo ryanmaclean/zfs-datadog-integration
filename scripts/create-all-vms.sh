@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #
 # Create All Test VMs on i9-zfs-pop
 # Fast testing with small pools instead of waiting for 87TB scrub

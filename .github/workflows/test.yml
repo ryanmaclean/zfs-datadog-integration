@@ -12,35 +12,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Install ShellCheck
-        run: sudo apt-get install -y shellcheck
-      
-      - name: Run ShellCheck on scripts
+
+      # Pinned release binary (same version used for local runs), verified
+      # by checksum. ShellCheck is only used as a CI tool, never vendored.
+      - name: Install ShellCheck v0.11.0
         run: |
-          echo "Checking shell scripts..."
-          find scripts/ -name "*.sh" -type f -exec shellcheck -x {} +
-      
-      - name: Check POSIX compliance
+          v=v0.11.0
+          curl -fsSL -o /tmp/shellcheck.tar.xz \
+            "https://github.com/koalaman/shellcheck/releases/download/${v}/shellcheck-${v}.linux.x86_64.tar.xz"
+          echo "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  /tmp/shellcheck.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/shellcheck.tar.xz -C /tmp
+          sudo install -m 0755 "/tmp/shellcheck-${v}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version
+
+      # Every tracked shell script, not just scripts/. Sourced files are
+      # followed via .shellcheckrc (source-path=SCRIPTDIR).
+      - name: Run ShellCheck on all shell scripts
         run: |
-          echo "Checking POSIX compliance..."
-          # Only the zedlets ZED actually invokes, plus the shared
-          # library/config they source and the installer scripts, need a
-          # POSIX /bin/sh shebang (ZED runs them directly under /bin/sh on
-          # FreeBSD/TrueNAS). scripts/ also holds many developer-only
-          # VM/build/benchmark helper scripts that are run by hand under
-          # bash and were never meant to run under ZED; those are exempt.
-          posix_scripts="scripts/install.sh scripts/uninstall.sh scripts/validate-config.sh scripts/zfs-datadog-lib.sh scripts/config.sh scripts/checksum-error.sh scripts/io-error.sh scripts/all-datadog.sh scripts/config_sync-datadog.sh scripts/pool_destroy-datadog.sh scripts/pool_import-datadog.sh scripts/resilver_finish-datadog.sh scripts/resilver_start-datadog.sh scripts/scrub_finish-datadog.sh scripts/scrub_start-datadog.sh scripts/statechange-datadog.sh scripts/vdev_attach-datadog.sh scripts/vdev_remove-datadog.sh scripts/ereport.fs.zfs.checksum-datadog.sh scripts/ereport.fs.zfs.io-datadog.sh"
-          for script in $posix_scripts; do
-            echo "Checking $script"
-            # Verify shebang is #!/bin/sh (POSIX)
-            if head -n 1 "$script" | grep -q "#!/bin/sh"; then
-              echo "  ✓ POSIX shebang"
-            else
-              echo "  ✗ Non-POSIX shebang in $script"
-              exit 1
-            fi
-          done
+          .github/scripts/shell-scripts.sh | tr '\n' '\0' | xargs -0 shellcheck
+
+      - name: No ShellCheck suppressions
+        run: |
+          # Findings get fixed, not suppressed.
+          if .github/scripts/shell-scripts.sh | tr '\n' '\0' | xargs -0 grep -n 'shellcheck disable='; then
+            echo "Found '# shellcheck disable=' directives above; fix the code instead"
+            exit 1
+          fi
+          echo "No suppressions"
+
+      # Every shell script: #!/bin/sh, or #!/usr/bin/env bash with a
+      # '# bash-required:' line and real bash-only usage. See the script.
+      - name: Check shebang policy (POSIX sh unless bash is required)
+        run: .github/scripts/check-shebangs.sh
 
   syntax-check:
     name: Syntax Validation
@@ -51,13 +54,14 @@ jobs:
       - name: Validate shell syntax
         run: |
           echo "Validating shell script syntax..."
-          for script in scripts/*.sh; do
+          .github/scripts/shell-scripts.sh > /tmp/shell-scripts.txt
+          while IFS= read -r script; do
             echo "Checking $script"
             case "$(head -n 1 "$script")" in
               *bash*) bash -n "$script" || exit 1 ;;
               *) sh -n "$script" || exit 1 ;;
             esac
-          done
+          done < /tmp/shell-scripts.txt
           echo "All scripts have valid syntax"
 
   mock-server-test:

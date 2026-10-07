@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, EUID, &>
 #
 # Install code-server on OmniOS/Solaris (illumos)
 # Tested on: OmniOS r151048+

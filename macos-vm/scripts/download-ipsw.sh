@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, read -p, [[ ]], =~ regex matching
 #
 # Download macOS IPSW for VM creation
 # Detects architecture and downloads appropriate IPSW
@@ -27,35 +28,57 @@ echo ""
 IPSW_DIR="$(dirname "$0")/../ipsw"
 mkdir -p "$IPSW_DIR"
 
+# IPSW_URL (optional) lets the script download a specific IPSW itself.
+# Without it, the user downloads manually and re-runs this script, which
+# then finds the file in $IPSW_DIR and verifies it.
+IPSW_URL="${IPSW_URL:-}"
+if [ -z "${IPSW_FILE:-}" ]; then
+    if [ -n "$IPSW_URL" ]; then
+        IPSW_FILE="$IPSW_DIR/$(basename "$IPSW_URL")"
+    else
+        IPSW_FILE=""
+        for candidate in "$IPSW_DIR"/*.ipsw; do
+            if [ -f "$candidate" ]; then
+                IPSW_FILE="$candidate"
+                break
+            fi
+        done
+    fi
+fi
+
 # Determine IPSW URL based on architecture
 if [ "$ARCH" = "arm64" ]; then
-    echo -e "${YELLOW}Note: IPSW URLs change frequently!${NC}"
-    echo ""
-    echo "This script will guide you to download the IPSW manually."
-    echo ""
-    echo "IPSW files are large (13-15GB) and may take 10-30 minutes"
-    echo ""
-    
-    # Manual download instructions
-    echo -e "${BLUE}Manual Download Steps:${NC}"
-    echo ""
-    echo "1. Open: https://ipsw.me"
-    echo "2. Select: Mac"
-    echo "3. Choose your Mac model (M1/M2/M3)"
-    echo "4. Download latest macOS IPSW"
-    echo "5. Save to: $IPSW_DIR/"
-    echo ""
-    echo -e "${YELLOW}Opening ipsw.me in browser...${NC}"
-    sleep 2
-    open "https://ipsw.me" 2>/dev/null || echo "Visit: https://ipsw.me"
-    echo ""
-    echo "After downloading, move the IPSW file to:"
-    echo "  $IPSW_DIR/"
-    echo ""
-    echo "Then run this script again to verify."
-    echo ""
-    exit 0
-    
+    if [ -z "$IPSW_URL" ] && [ -z "$IPSW_FILE" ]; then
+        echo -e "${YELLOW}Note: IPSW URLs change frequently!${NC}"
+        echo ""
+        echo "This script will guide you to download the IPSW manually."
+        echo ""
+        echo "IPSW files are large (13-15GB) and may take 10-30 minutes"
+        echo ""
+
+        # Manual download instructions
+        echo -e "${BLUE}Manual Download Steps:${NC}"
+        echo ""
+        echo "1. Open: https://ipsw.me"
+        echo "2. Select: Mac"
+        echo "3. Choose your Mac model (M1/M2/M3)"
+        echo "4. Download latest macOS IPSW"
+        echo "5. Save to: $IPSW_DIR/"
+        echo ""
+        echo "(Or re-run with IPSW_URL=<url> to download it directly.)"
+        echo ""
+        echo -e "${YELLOW}Opening ipsw.me in browser...${NC}"
+        sleep 2
+        open "https://ipsw.me" 2>/dev/null || echo "Visit: https://ipsw.me"
+        echo ""
+        echo "After downloading, move the IPSW file to:"
+        echo "  $IPSW_DIR/"
+        echo ""
+        echo "Then run this script again to verify."
+        echo ""
+        exit 0
+    fi
+
 elif [ "$ARCH" = "x86_64" ]; then
     echo -e "${YELLOW}Intel Macs cannot run macOS VMs via Lima${NC}"
     echo ""
@@ -71,59 +94,67 @@ else
 fi
 
 # Check if already downloaded
+DOWNLOAD=1
 if [ -f "$IPSW_FILE" ]; then
     echo -e "${YELLOW}IPSW already exists:${NC} $IPSW_FILE"
     echo ""
-    read -p "Re-download? (y/N): " -n 1 -r
-    echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${GREEN}Using existing IPSW${NC}"
+    if [ -z "$IPSW_URL" ]; then
+        DOWNLOAD=0
+    else
+        read -p "Re-download? (y/N): " -n 1 -r
         echo ""
-        ls -lh "$IPSW_FILE"
-        exit 0
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${GREEN}Using existing IPSW${NC}"
+            echo ""
+            DOWNLOAD=0
+        else
+            rm -f "$IPSW_FILE"
+        fi
     fi
-    rm -f "$IPSW_FILE"
 fi
 
-# Check disk space (macOS compatible)
-REQUIRED_SPACE=20  # GB
-AVAILABLE_SPACE=$(df -g "$IPSW_DIR" | awk 'NR==2 {print $4}')
+if [ "$DOWNLOAD" -eq 1 ]; then
+    # Check disk space (macOS compatible)
+    REQUIRED_SPACE=20  # GB
+    AVAILABLE_SPACE=$(df -g "$IPSW_DIR" | awk 'NR==2 {print $4}')
 
-if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
-    echo -e "${RED}Insufficient disk space!${NC}"
-    echo "Required: ${REQUIRED_SPACE}GB"
-    echo "Available: ${AVAILABLE_SPACE}GB"
-    exit 1
-fi
+    if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
+        echo -e "${RED}Insufficient disk space!${NC}"
+        echo "Required: ${REQUIRED_SPACE}GB"
+        echo "Available: ${AVAILABLE_SPACE}GB"
+        exit 1
+    fi
 
-echo -e "${GREEN}Disk space check:${NC} OK (${AVAILABLE_SPACE}GB available)"
-echo ""
-
-# Download IPSW
-echo -e "${BLUE}Downloading IPSW...${NC}"
-echo "URL: $IPSW_URL"
-echo "Destination: $IPSW_FILE"
-echo ""
-echo "This will take 10-30 minutes depending on your connection..."
-echo ""
-
-# Use curl with progress bar
-if ! curl -# -L -o "$IPSW_FILE" "$IPSW_URL"; then
-    echo -e "${RED}Download failed!${NC}"
+    echo -e "${GREEN}Disk space check:${NC} OK (${AVAILABLE_SPACE}GB available)"
     echo ""
-    echo "Possible reasons:"
-    echo "1. Network connection issue"
-    echo "2. Apple changed the URL"
-    echo "3. Disk space ran out"
+
+    # Download IPSW
+    echo -e "${BLUE}Downloading IPSW...${NC}"
+    echo "URL: $IPSW_URL"
+    echo "Destination: $IPSW_FILE"
     echo ""
-    echo "Try manual download from: https://ipsw.me"
-    rm -f "$IPSW_FILE"
-    exit 1
+    echo "This will take 10-30 minutes depending on your connection..."
+    echo ""
+
+    # Use curl with progress bar
+    if ! curl -# -L -o "$IPSW_FILE" "$IPSW_URL"; then
+        echo -e "${RED}Download failed!${NC}"
+        echo ""
+        echo "Possible reasons:"
+        echo "1. Network connection issue"
+        echo "2. Apple changed the URL"
+        echo "3. Disk space ran out"
+        echo ""
+        echo "Try manual download from: https://ipsw.me"
+        rm -f "$IPSW_FILE"
+        exit 1
+    fi
+
+    echo ""
+    echo -e "${GREEN}Download complete!${NC}"
+    echo ""
 fi
 
-echo ""
-echo -e "${GREEN}Download complete!${NC}"
-echo ""
 
 # Verify file
 if [ ! -f "$IPSW_FILE" ]; then

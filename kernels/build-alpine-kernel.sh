@@ -70,7 +70,7 @@ echo "Updating bootloader..."
 apk add mkinitfs
 
 # Create initramfs
-mkinitfs -o /boot/initramfs-m-series $(make kernelrelease)
+mkinitfs -o /boot/initramfs-m-series "$(make kernelrelease)"
 
 # Update extlinux config
 cat > /boot/extlinux/extlinux.conf << EOF

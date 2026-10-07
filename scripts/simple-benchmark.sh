@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Simple Download Benchmark - TrueNAS Images Only
 # Focuses on what we can actually test

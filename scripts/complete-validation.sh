@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: declare, arrays, local, brace expansion, export -f, indirect expansion, array key expansion, here-strings, array references
 #
 # Complete Validation - ALL VMs with Datadog Agent + Metrics
 # Does NOT stop until everything is validated

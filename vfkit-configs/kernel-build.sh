@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Kernel Build VM using vfkit
 # 15GB disk, 4GB RAM, 4 CPUs

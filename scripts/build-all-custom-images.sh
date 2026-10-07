@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build ALL custom images for M-series
 # Arch, Gentoo, NetBSD, OpenBSD

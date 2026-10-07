@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # VERIFY ALL VMs ARE ARM64
 #

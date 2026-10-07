@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>
 #
 # QEMU-based TrueNAS SCALE Testing
 # Downloads and runs TrueNAS SCALE in QEMU for zedlet testing

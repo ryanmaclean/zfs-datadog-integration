@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Check VM Status and Provide Next Steps
 #
@@ -27,7 +27,7 @@ echo "SSH Connectivity:"
 echo ""
 
 # TrueNAS SCALE
-echo -n "  TrueNAS SCALE (port 2222): "
+printf '%s' "  TrueNAS SCALE (port 2222): "
 if nc -z -w 1 localhost 2222 2>/dev/null; then
     if ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 2222 root@localhost "echo test" 2>/dev/null; then
         echo "✓ Ready"
@@ -40,7 +40,7 @@ else
 fi
 
 # TrueNAS CORE
-echo -n "  TrueNAS CORE (port 2223): "
+printf '%s' "  TrueNAS CORE (port 2223): "
 if nc -z -w 1 localhost 2223 2>/dev/null; then
     if ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 2223 root@localhost "echo test" 2>/dev/null; then
         echo "✓ Ready"

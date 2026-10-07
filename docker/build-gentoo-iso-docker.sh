@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build Gentoo ISO using Docker (no sudo needed!)
 #
@@ -17,7 +17,7 @@ docker build --platform linux/arm64 \
 echo "Building ISO in container (this takes 2-3 hours)..."
 docker run --platform linux/arm64 \
     --rm \
-    -v $(pwd):/workspace \
+    -v "$(pwd)":/workspace \
     -w /workspace \
     gentoo-m-series-builder \
     /bin/bash -c '

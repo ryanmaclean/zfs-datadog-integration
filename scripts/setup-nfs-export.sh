@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Setup NFS export on i9-zfs-pop.local for tank3
 # Run this ON the remote server

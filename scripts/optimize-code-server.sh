@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, &>, ulimit -n, read -n, [[ ]], =~ regex matching, OSTYPE, == in place of =
 #
 # Optimize code-server for maximum performance
 #

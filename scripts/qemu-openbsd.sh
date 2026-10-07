@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>
 #
 # QEMU-based OpenBSD Testing
 # Downloads and runs OpenBSD 7.6 with ZFS support

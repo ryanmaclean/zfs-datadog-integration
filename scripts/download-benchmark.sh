@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, local, echo flags
 #
 # Download and Benchmark VM Images
 # Measures actual download times and sizes

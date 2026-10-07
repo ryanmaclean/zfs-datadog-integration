@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, declare, local, arrays, array references
 #
 # Test ZFS Datadog Integration on Multiple Distributions
 # Tests: Ubuntu, Debian, Rocky, Fedora, Arch
