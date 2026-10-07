@@ -128,6 +128,7 @@ START_MOCK
 
 log_test "2.1: Successful request (no retry needed)"
 limactl shell "$VM_NAME" sudo bash <<'TEST_SUCCESS'
+set -e
 cd /tmp
 systemctl stop zfs-zed
 if systemctl is-active --quiet zfs-zed; then exit 1; fi
@@ -139,7 +140,10 @@ DOGSTATSD_PORT="8125"
 DD_TAGS="env:test"
 CONFIG
 
-. /tmp/zfs-datadog-upload/zfs-datadog-lib.sh
+# Test the installed, root-owned postimage. The provisioning user's /tmp
+# upload is deliberately outside the trust boundary of this root shell.
+. /etc/zfs/zed.d/config.sh
+. /etc/zfs/zed.d/zfs-datadog-lib.sh
 START_TIME=$(date +%s)
 send_datadog_event "Test Event" "Test successful request" "info" "test:success"
 END_TIME=$(date +%s)
