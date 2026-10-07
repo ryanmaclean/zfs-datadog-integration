@@ -69,6 +69,24 @@ jobs:
       - name: Argument and colour regression test
         run: .github/scripts/test-argv-regressions.sh
 
+  shipped-zedlets:
+    name: Shipped Zedlet Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # Everything install.sh ships must be plain #!/bin/sh: no bash-required
+      # exception, unlike the developer tooling under scripts/.
+      - name: Shipped scripts are POSIX sh
+        run: .github/scripts/check-shipped-posix.sh
+
+      # Run every shipped zedlet against fixed ZEVENT_* inputs with recording
+      # stubs for curl/nc/logger, under sh, dash and bash, and compare the
+      # exact Events API payloads and DogStatsD lines with the golden file
+      # generated from the pre-cleanup scripts.
+      - name: Zedlet payload regression test
+        run: .github/scripts/test-zedlet-payloads.sh
+
   mock-server-test:
     name: Mock Server Tests
     runs-on: ubuntu-latest
