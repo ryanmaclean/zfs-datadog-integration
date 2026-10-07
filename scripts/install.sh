@@ -208,7 +208,7 @@ if [ -n "$MISSING_SRC" ]; then
 fi
 ok "All source files found"
 printf '\n'
-for f in install.sh $LIB $ZEDLETS $HANDLERS config.sh config.sh.example; do
+for f in install.sh payload.sha256 $LIB $ZEDLETS $HANDLERS config.sh config.sh.example; do
     [ -f "$SCRIPT_DIR/$f" ] || continue
     [ ! -L "$SCRIPT_DIR/$f" ] || { err "Symlinked source file: $f"; exit 1; }
     src_meta=$(stat -c '%u:%a' "$SCRIPT_DIR/$f") || exit 1
@@ -217,6 +217,51 @@ for f in install.sh $LIB $ZEDLETS $HANDLERS config.sh config.sh.example; do
     src_bits=$((0$src_mode))
     [ "$((src_bits & 0022))" -eq 0 ] || { err "Writable source file: $f"; exit 1; }
 done
+
+# Callers must pin the reviewed manifest digest outside this uploaded script.
+# The caller verifies install.sh itself before root execution. Once running,
+# this check binds every payload byte to that reviewed manifest before service
+# or destination changes.
+case "${ZFS_DD_EXPECTED_MANIFEST_SHA:-}" in
+    ????????????????????????????????????????????????????????????????) ;;
+    *) err "Expected payload manifest SHA-256 is required"; exit 1 ;;
+esac
+case "$ZFS_DD_EXPECTED_MANIFEST_SHA" in
+    *[!0-9a-f]*) err "Invalid payload manifest SHA-256"; exit 1 ;;
+esac
+manifest="$SCRIPT_DIR/payload.sha256"
+command -v openssl >/dev/null 2>&1 || { err "openssl is required"; exit 1; }
+manifest_digest=$(openssl dgst -sha256 "$manifest") || exit 1
+[ "${manifest_digest##*= }" = "$ZFS_DD_EXPECTED_MANIFEST_SHA" ] || {
+    err "Payload manifest differs from reviewed digest"; exit 1;
+}
+payload_count=0
+payload_seen=' '
+while read -r expected name extra; do
+    [ -z "${extra:-}" ] || { err "Malformed payload manifest"; exit 1; }
+    case "$expected" in
+        ????????????????????????????????????????????????????????????????) ;;
+        *) err "Malformed payload hash"; exit 1 ;;
+    esac
+    case "$expected" in *[!0-9a-f]*) err "Malformed payload hash"; exit 1 ;; esac
+    case "$name" in
+        install.sh|config.sh|zfs-datadog-lib.sh|checksum-error.sh|io-error.sh|\
+        statechange-datadog.sh|scrub_start-datadog.sh|scrub_finish-datadog.sh|\
+        resilver_start-datadog.sh|resilver_finish-datadog.sh|\
+        config_sync-datadog.sh|pool_import-datadog.sh|pool_destroy-datadog.sh|\
+        vdev_attach-datadog.sh|vdev_remove-datadog.sh|\
+        ereport.fs.zfs.checksum-datadog.sh|ereport.fs.zfs.io-datadog.sh) ;;
+        *) err "Unknown payload name: $name"; exit 1 ;;
+    esac
+    case "$payload_seen" in *" $name "*) err "Duplicate payload name: $name"; exit 1 ;; esac
+    payload_seen="$payload_seen$name "
+    file_digest=$(openssl dgst -sha256 "$SCRIPT_DIR/$name") || exit 1
+    [ "${file_digest##*= }" = "$expected" ] || {
+        err "Payload differs from reviewed manifest: $name"; exit 1;
+    }
+    payload_count=$((payload_count + 1))
+done < "$manifest"
+[ "$payload_count" -eq 17 ] || { err "Incomplete payload manifest"; exit 1; }
 
 # Refuse old and partial installations before touching a configuration or
 # ZED. An unknown or modified old route cannot be retired by filename alone.

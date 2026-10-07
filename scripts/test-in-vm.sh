@@ -5,6 +5,7 @@
 #
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 VM_NAME="zfs-test"
 
@@ -59,21 +60,17 @@ INSTALL_SCRIPT
 echo ""
 echo "Copying zedlets to VM..."
 
-# Copy all necessary files to VM
-limactl copy install.sh config.sh zfs-datadog-lib.sh \
-    statechange-datadog.sh scrub_start-datadog.sh scrub_finish-datadog.sh \
-    resilver_start-datadog.sh resilver_finish-datadog.sh \
-    config_sync-datadog.sh pool_import-datadog.sh pool_destroy-datadog.sh \
-    vdev_attach-datadog.sh vdev_remove-datadog.sh \
-    ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh \
-    checksum-error.sh io-error.sh "$VM_NAME:/tmp/"
+bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$VM_NAME"
 
 echo "Installing zedlets..."
 limactl shell "$VM_NAME" sudo bash <<'INSTALL_ZEDLETS'
 set -e
 
-# Configure source for testing before the guarded activation.
-cat > /tmp/config.sh <<'CONFIG'
+# Test-only mock config is written by this trusted driver after sealed install.
+# Quiesce ZED before changing an active sourced config.
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
+cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 #!/bin/bash
 # Test configuration - logs to file instead of Datadog
 DD_API_KEY="test-key-12345"
@@ -88,10 +85,8 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-install -d -m 700 /root/zfs-datadog-src
-cp /tmp/*.sh /root/zfs-datadog-src/
-chmod go-w /root/zfs-datadog-src/*.sh
-sh /root/zfs-datadog-src/install.sh
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 systemctl status zfs-zed --no-pager
 
 echo ""

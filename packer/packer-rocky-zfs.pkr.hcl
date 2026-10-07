@@ -41,6 +41,11 @@ build {
     ]
   }
 
+  # Upload into a private directory owned by the provisioning account.
+  provisioner "shell" {
+    inline = ["install -d -m 700 /tmp/zfs-datadog-upload"]
+  }
+
   provisioner "file" {
     sources = [
       "${path.root}/../scripts/install.sh",
@@ -60,17 +65,17 @@ build {
       "${path.root}/../scripts/ereport.fs.zfs.io-datadog.sh",
       "${path.root}/../scripts/checksum-error.sh",
       "${path.root}/../scripts/io-error.sh",
+      "${path.root}/../scripts/payload.sha256",
     ]
-    destination = "/tmp/"
+    destination = "/tmp/zfs-datadog-upload/"
   }
 
   provisioner "shell" {
     inline = [
-      "sudo install -d -m 700 /root/zfs-datadog-src",
-      "sudo cp /tmp/*.sh /root/zfs-datadog-src/",
-      "sudo chown root:root /root/zfs-datadog-src/*.sh",
-      "sudo chmod go-w /root/zfs-datadog-src/*.sh",
-      "sudo sh /root/zfs-datadog-src/install.sh"
+      "sudo mkdir -m 700 /root/zfs-datadog-src",
+      "sudo cp /tmp/zfs-datadog-upload/install.sh /tmp/zfs-datadog-upload/config.sh /tmp/zfs-datadog-upload/zfs-datadog-lib.sh /tmp/zfs-datadog-upload/statechange-datadog.sh /tmp/zfs-datadog-upload/scrub_start-datadog.sh /tmp/zfs-datadog-upload/scrub_finish-datadog.sh /tmp/zfs-datadog-upload/resilver_start-datadog.sh /tmp/zfs-datadog-upload/resilver_finish-datadog.sh /tmp/zfs-datadog-upload/config_sync-datadog.sh /tmp/zfs-datadog-upload/pool_import-datadog.sh /tmp/zfs-datadog-upload/pool_destroy-datadog.sh /tmp/zfs-datadog-upload/vdev_attach-datadog.sh /tmp/zfs-datadog-upload/vdev_remove-datadog.sh /tmp/zfs-datadog-upload/ereport.fs.zfs.checksum-datadog.sh /tmp/zfs-datadog-upload/ereport.fs.zfs.io-datadog.sh /tmp/zfs-datadog-upload/checksum-error.sh /tmp/zfs-datadog-upload/io-error.sh /tmp/zfs-datadog-upload/payload.sha256 /root/zfs-datadog-src/",
+      "sudo sh -ec 'cd /root/zfs-datadog-src; set -- $(openssl dgst -sha256 payload.sha256); [ \"$2\" = \"bc4707dadee933711820e8557957ffeb68faa5654e043ff11c58e049c3958170\" ] || exit 1; set -- $(openssl dgst -sha256 install.sh); [ \"$2\" = \"b714c6b4a92f8e83cd30e6cade0d76350db2a273c8fded9a6bf9d57027406322\" ]'",
+      "sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=bc4707dadee933711820e8557957ffeb68faa5654e043ff11c58e049c3958170 sh /root/zfs-datadog-src/install.sh"
     ]
   }
 }

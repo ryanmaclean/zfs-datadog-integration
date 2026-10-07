@@ -134,36 +134,16 @@ log_info "Ensuring jq is available inside VM..."
 limactl shell "$VM_NAME" sudo bash -lc 'apt-get update -qq && apt-get install -y jq >/dev/null'
 
 log_info "Copying zedlet files to VM..."
-FILES=(
-    "install.sh"
-    "zfs-datadog-lib.sh"
-    "config.sh"
-    "statechange-datadog.sh"
-    "scrub_start-datadog.sh"
-    "scrub_finish-datadog.sh"
-    "resilver_start-datadog.sh"
-    "resilver_finish-datadog.sh"
-    "config_sync-datadog.sh"
-    "pool_import-datadog.sh"
-    "pool_destroy-datadog.sh"
-    "vdev_attach-datadog.sh"
-    "vdev_remove-datadog.sh"
-    "checksum-error.sh"
-    "io-error.sh"
-    "ereport.fs.zfs.checksum-datadog.sh"
-    "ereport.fs.zfs.io-datadog.sh"
-)
-
-for file in "${FILES[@]}"; do
-    limactl copy "$SCRIPT_DIR/$file" "$VM_NAME:/tmp/$file"
-done
+bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$VM_NAME"
 
 log_info "Installing zedlets..."
 limactl shell "$VM_NAME" sudo bash <<'INSTALL_ZEDLETS'
 set -e
 export PATH="/usr/sbin:/sbin:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin"
 
-cat > /tmp/config.sh <<'CONFIG'
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
+cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 #!/bin/sh
 DD_API_KEY="test-api-key-12345"
 DD_API_URL="http://localhost:8080"
@@ -177,10 +157,8 @@ MONITOR_RESILVER="true"
 MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
-install -d -m 700 /root/zfs-datadog-src
-cp /tmp/*.sh /root/zfs-datadog-src/
-chmod go-w /root/zfs-datadog-src/*.sh
-sh /root/zfs-datadog-src/install.sh
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 sleep 2
 INSTALL_ZEDLETS
 

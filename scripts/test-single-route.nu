@@ -14,6 +14,29 @@ def require_one [profile: string, files: list<string>, event_class: string] {
 def main [repo_root: string] {
     let repo = ($repo_root | path expand)
     let install = (open --raw $"($repo)/scripts/install.sh")
+    let pinned_manifest = 'bc4707dadee933711820e8557957ffeb68faa5654e043ff11c58e049c3958170'
+    let pinned_installer = 'b714c6b4a92f8e83cd30e6cade0d76350db2a273c8fded9a6bf9d57027406322'
+    let manifest = (open --raw $"($repo)/scripts/payload.sha256")
+    if (($manifest | hash sha256) != $pinned_manifest) {
+        error make {msg: 'reviewed payload manifest digest changed'}
+    }
+    if (($install | hash sha256) != $pinned_installer) {
+        error make {msg: 'reviewed installer digest changed'}
+    }
+    let manifest_lines = ($manifest | lines | where {|line| $line != ''})
+    if (($manifest_lines | length) != 17) {
+        error make {msg: 'payload manifest must enumerate 17 files'}
+    }
+    for line in $manifest_lines {
+        let parts = ($line | split row ' ')
+        if (($parts | length) != 2) {
+            error make {msg: $"malformed payload line: ($line)"}
+        }
+        let actual = (open --raw $"($repo)/scripts/($parts.1)" | hash sha256)
+        if ($actual != $parts.0) {
+            error make {msg: $"payload differs from manifest: ($parts.1)"}
+        }
+    }
     let fresh = ($install | split row "ZEDLETS='" | get 1 | split row "'" | first | lines | where {|line| $line != ''})
 
     for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
@@ -45,8 +68,11 @@ def main [repo_root: string] {
         if ('all-datadog.sh' in $uploaded) {
             error make {msg: $"($distro) Packer still uploads the all-event route"}
         }
-        if not ($packer | str contains 'sudo sh /root/zfs-datadog-src/install.sh') {
+        if not ($packer | str contains $"ZFS_DD_EXPECTED_MANIFEST_SHA=($pinned_manifest) sh /root/zfs-datadog-src/install.sh") {
             error make {msg: $"($distro) Packer bypasses guarded activation"}
+        }
+        if not ($packer | str contains $pinned_installer) or ($packer | str contains '/tmp/*.sh') {
+            error make {msg: $"($distro) Packer lacks sealed installer or still uses a wildcard upload"}
         }
         for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
             require_one $"($distro) Packer guarded install" $fresh $event_class
@@ -63,8 +89,11 @@ def main [repo_root: string] {
     if ('all-datadog.sh' in $lima_payload) {
         error make {msg: 'Lima still uploads the all-event route'}
     }
-    if not ($lima | str contains 'sh /root/zfs-datadog-src/install.sh') {
+    if not ($lima | str contains $"ZFS_DD_EXPECTED_MANIFEST_SHA=($pinned_manifest) sh /root/zfs-datadog-src/install.sh") {
         error make {msg: 'Lima bypasses guarded activation'}
+    }
+    if not ($lima | str contains $pinned_installer) or ($lima | str contains '/tmp/*.sh') {
+        error make {msg: 'Lima lacks sealed installer or still uses a wildcard upload'}
     }
     for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
         require_one 'Lima guarded install' $fresh $event_class

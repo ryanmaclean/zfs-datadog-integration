@@ -38,26 +38,28 @@ echo ""
 
 # Copy zedlets
 log_info "Copying zedlets to TrueNAS SCALE..."
+ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} 'mkdir -m 700 /root/zfs-datadog-src && mkdir -m 700 /root/zfs-datadog-test'
 scp $SSH_OPTS -P $SSH_PORT \
-    zfs-datadog-lib.sh \
-    config.sh \
-    statechange-datadog.sh \
-    scrub_finish-datadog.sh \
-    resilver_finish-datadog.sh \
-    install.sh \
-    scrub_start-datadog.sh \
-    resilver_start-datadog.sh \
-    config_sync-datadog.sh \
-    pool_import-datadog.sh \
-    pool_destroy-datadog.sh \
-    vdev_attach-datadog.sh \
-    vdev_remove-datadog.sh \
-    ereport.fs.zfs.checksum-datadog.sh \
-    ereport.fs.zfs.io-datadog.sh \
-    checksum-error.sh \
-    io-error.sh \
-    mock-datadog-server.py \
-    root@${SSH_HOST}:/tmp/
+    "$SCRIPT_DIR/zfs-datadog-lib.sh" \
+    "$SCRIPT_DIR/config.sh" \
+    "$SCRIPT_DIR/statechange-datadog.sh" \
+    "$SCRIPT_DIR/scrub_finish-datadog.sh" \
+    "$SCRIPT_DIR/resilver_finish-datadog.sh" \
+    "$SCRIPT_DIR/install.sh" \
+    "$SCRIPT_DIR/scrub_start-datadog.sh" \
+    "$SCRIPT_DIR/resilver_start-datadog.sh" \
+    "$SCRIPT_DIR/config_sync-datadog.sh" \
+    "$SCRIPT_DIR/pool_import-datadog.sh" \
+    "$SCRIPT_DIR/pool_destroy-datadog.sh" \
+    "$SCRIPT_DIR/vdev_attach-datadog.sh" \
+    "$SCRIPT_DIR/vdev_remove-datadog.sh" \
+    "$SCRIPT_DIR/ereport.fs.zfs.checksum-datadog.sh" \
+    "$SCRIPT_DIR/ereport.fs.zfs.io-datadog.sh" \
+    "$SCRIPT_DIR/checksum-error.sh" \
+    "$SCRIPT_DIR/io-error.sh" \
+    "$SCRIPT_DIR/payload.sha256" \
+    root@${SSH_HOST}:/root/zfs-datadog-src/
+scp $SSH_OPTS -P $SSH_PORT "$SCRIPT_DIR/../mock-datadog-server.py" root@${SSH_HOST}:/root/zfs-datadog-test/
 
 log_success "Files copied"
 echo ""
@@ -66,10 +68,15 @@ echo ""
 log_info "Installing zedlets..."
 ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'INSTALL'
 set -e
-cd /tmp
-
-# Configure source before guarded activation.
-cat > /tmp/config.sh <<'CONFIG'
+cd /root/zfs-datadog-src
+set -- $(openssl dgst -sha256 payload.sha256)
+[ "$2" = bc4707dadee933711820e8557957ffeb68faa5654e043ff11c58e049c3958170 ]
+set -- $(openssl dgst -sha256 install.sh)
+[ "$2" = b714c6b4a92f8e83cd30e6cade0d76350db2a273c8fded9a6bf9d57027406322 ]
+ZFS_DD_EXPECTED_MANIFEST_SHA=bc4707dadee933711820e8557957ffeb68faa5654e043ff11c58e049c3958170 sh ./install.sh
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
+cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
 DD_API_URL="http://localhost:8080"
 DOGSTATSD_HOST="localhost"
@@ -82,10 +89,8 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-install -d -m 700 /root/zfs-datadog-src
-cp /tmp/*.sh /root/zfs-datadog-src/
-chmod go-w /root/zfs-datadog-src/*.sh
-sh /root/zfs-datadog-src/install.sh
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 sleep 2
 
 echo "Zedlets installed"
@@ -97,8 +102,10 @@ echo ""
 # Start mock Datadog server
 log_info "Starting mock Datadog server..."
 ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'START_MOCK'
+set -- $(openssl dgst -sha256 /root/zfs-datadog-test/mock-datadog-server.py)
+[ "$2" = 0b3de0cc401b5a64a54a86cfa09cffeb79b143e1b55f9e12bafc9c9ab8cb087b ] || exit 1
 pkill -f mock-datadog-server.py 2>/dev/null || true
-nohup python3 /tmp/mock-datadog-server.py > /tmp/mock-datadog.log 2>&1 &
+nohup python3 /root/zfs-datadog-test/mock-datadog-server.py > /tmp/mock-datadog.log 2>&1 &
 sleep 3
 START_MOCK
 

@@ -76,18 +76,12 @@ test_distro() {
     
     # Copy zedlets
     log_info "Copying zedlets to $distro..."
-    limactl copy install.sh config.sh zfs-datadog-lib.sh \
-        statechange-datadog.sh scrub_start-datadog.sh scrub_finish-datadog.sh \
-        resilver_start-datadog.sh resilver_finish-datadog.sh \
-        config_sync-datadog.sh pool_import-datadog.sh pool_destroy-datadog.sh \
-        vdev_attach-datadog.sh vdev_remove-datadog.sh \
-        ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh \
-        checksum-error.sh io-error.sh "$vm_name:/tmp/"
-    limactl copy mock-datadog-server.py "$vm_name:/tmp/"
+    bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$vm_name"
+    limactl copy "$SCRIPT_DIR/../mock-datadog-server.py" "$vm_name:/tmp/"
     
     # Test POSIX compatibility
     log_info "Testing POSIX compatibility..."
-    if limactl shell "$vm_name" sh -n /tmp/zfs-datadog-lib.sh 2>/dev/null; then
+    if limactl shell "$vm_name" sh -n /tmp/zfs-datadog-upload/zfs-datadog-lib.sh 2>/dev/null; then
         log_success "POSIX syntax valid on $distro"
     else
         log_error "POSIX syntax errors on $distro"
@@ -99,7 +93,9 @@ test_distro() {
     log_info "Installing zedlets..."
     limactl shell "$vm_name" sudo bash <<'INSTALL'
 set -e
-cat > /tmp/config.sh <<'CONFIG'
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
+cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
 DD_API_URL="http://localhost:8080"
 DOGSTATSD_HOST="localhost"
@@ -112,10 +108,8 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-install -d -m 700 /root/zfs-datadog-src
-cp /tmp/*.sh /root/zfs-datadog-src/
-chmod go-w /root/zfs-datadog-src/*.sh
-sh /root/zfs-datadog-src/install.sh
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 
 sleep 2
 INSTALL

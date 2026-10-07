@@ -2,6 +2,7 @@
 # Automate Lima VM testing for all OSes
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 VMS="debian-zfs rocky-zfs ubuntu-zfs"
 
@@ -22,15 +23,7 @@ limactl shell rocky-zfs sudo dnf install -y zfs
 for vm in $VMS; do
     echo "=== Deploying to $vm ==="
     
-    # Copy files
-    limactl copy install.sh $vm:/tmp/
-    limactl copy config.sh $vm:/tmp/
-    limactl copy zfs-datadog-lib.sh $vm:/tmp/
-    limactl copy *-datadog.sh $vm:/tmp/
-    limactl copy .env.local $vm:/tmp/
-    
-    # Install
-    limactl shell $vm sudo bash /tmp/install.sh
+    bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$vm"
     
     # Create test pool
     limactl shell $vm 'sudo mkdir -p /tmp/zfs-test && \

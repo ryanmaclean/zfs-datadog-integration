@@ -67,19 +67,13 @@ log_info "Testing: POSIX compatibility, retry logic, error handling, Datadog int
 
 # Copy all files to VM
 log_info "Copying files to VM..."
-limactl copy install.sh config.sh zfs-datadog-lib.sh \
-    statechange-datadog.sh scrub_start-datadog.sh scrub_finish-datadog.sh \
-    resilver_start-datadog.sh resilver_finish-datadog.sh \
-    config_sync-datadog.sh pool_import-datadog.sh pool_destroy-datadog.sh \
-    vdev_attach-datadog.sh vdev_remove-datadog.sh \
-    ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh \
-    checksum-error.sh io-error.sh "$VM_NAME:/tmp/"
-limactl copy mock-datadog-server.py "$VM_NAME:/tmp/"
+bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$VM_NAME"
+limactl copy "$SCRIPT_DIR/../mock-datadog-server.py" "$VM_NAME:/tmp/"
 
 section "📋 Test Suite 1: POSIX Compatibility"
 
 log_test "1.1: Syntax validation with /bin/sh"
-if limactl shell "$VM_NAME" sh -n /tmp/zfs-datadog-lib.sh 2>/dev/null; then
+if limactl shell "$VM_NAME" sh -n /tmp/zfs-datadog-upload/zfs-datadog-lib.sh 2>/dev/null; then
     test_pass "zfs-datadog-lib.sh syntax valid"
 else
     test_fail "zfs-datadog-lib.sh syntax errors"
@@ -87,7 +81,7 @@ fi
 
 log_test "1.2: All zedlets syntax validation"
 for script in statechange-datadog.sh scrub_finish-datadog.sh resilver_finish-datadog.sh ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh checksum-error.sh io-error.sh; do
-    if limactl shell "$VM_NAME" sh -n "/tmp/$script" 2>/dev/null; then
+    if limactl shell "$VM_NAME" sh -n "/tmp/zfs-datadog-upload/$script" 2>/dev/null; then
         test_pass "$script syntax valid"
     else
         test_fail "$script syntax errors"
@@ -98,7 +92,7 @@ log_test "1.3: Execute library with /bin/sh"
 limactl shell "$VM_NAME" bash <<'TEST_POSIX'
 cat > /tmp/test-posix.sh <<'SCRIPT'
 #!/bin/sh
-. /tmp/zfs-datadog-lib.sh
+. /tmp/zfs-datadog-upload/zfs-datadog-lib.sh
 echo "POSIX test: $(get_pool_health_value "ONLINE")"
 echo "POSIX test: $(get_alert_type "degraded")"
 SCRIPT
@@ -135,7 +129,9 @@ START_MOCK
 log_test "2.1: Successful request (no retry needed)"
 limactl shell "$VM_NAME" sudo bash <<'TEST_SUCCESS'
 cd /tmp
-cat > /tmp/config.sh <<'CONFIG'
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
+cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
 DD_API_URL="http://localhost:8080"
 DOGSTATSD_HOST="localhost"
@@ -143,7 +139,7 @@ DOGSTATSD_PORT="8125"
 DD_TAGS="env:test"
 CONFIG
 
-. /tmp/zfs-datadog-lib.sh
+. /tmp/zfs-datadog-upload/zfs-datadog-lib.sh
 START_TIME=$(date +%s)
 send_datadog_event "Test Event" "Test successful request" "info" "test:success"
 END_TIME=$(date +%s)
@@ -178,7 +174,7 @@ CONFIG
 chmod 644 /tmp/config.sh
 
 . /tmp/config.sh
-. /tmp/zfs-datadog-lib.sh
+. /tmp/zfs-datadog-upload/zfs-datadog-lib.sh
 
 START_TIME=$(date +%s)
 send_datadog_event "Test Retry" "Test retry logic" "info" "test:retry" 2>/tmp/retry-test.log || true
@@ -230,7 +226,7 @@ DD_API_URL="http://localhost:8080"
 CONFIG
 
 . /tmp/config-nokey.sh
-. /tmp/zfs-datadog-lib.sh
+. /tmp/zfs-datadog-upload/zfs-datadog-lib.sh
 send_datadog_event "Test" "Test" "info" 2>/tmp/no-key-test.log || true
 
 if grep -q "DD_API_KEY not set" /tmp/no-key-test.log; then
@@ -248,7 +244,7 @@ log_test "3.2: Timeout handling"
 limactl shell "$VM_NAME" bash <<'TEST_TIMEOUT'
 cd /tmp
 . /tmp/config.sh
-. /tmp/zfs-datadog-lib.sh
+. /tmp/zfs-datadog-upload/zfs-datadog-lib.sh
 
 # Test with unreachable host (should timeout in ~10s)
 DD_API_URL="http://192.0.2.1:9999"  # TEST-NET, unreachable
@@ -274,7 +270,7 @@ log_test "3.3: DogStatsD retry logic"
 limactl shell "$VM_NAME" bash <<'TEST_STATSD'
 cd /tmp
 . /tmp/config.sh
-. /tmp/zfs-datadog-lib.sh
+. /tmp/zfs-datadog-upload/zfs-datadog-lib.sh
 
 # Send metric (should succeed)
 send_metric "test.metric" "1" "gauge" "test:metric" 2>/tmp/statsd-test.log
@@ -314,10 +310,8 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-install -d -m 700 /root/zfs-datadog-src
-cp /tmp/*.sh /root/zfs-datadog-src/
-chmod go-w /root/zfs-datadog-src/*.sh
-sh /root/zfs-datadog-src/install.sh
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 sleep 2
 INSTALL_POSIX
 

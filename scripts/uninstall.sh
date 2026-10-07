@@ -97,14 +97,68 @@ fi
 
 command -v systemctl >/dev/null 2>&1 || die 'systemctl is required'
 systemctl is-active --quiet zfs-zed || die 'zfs-zed is not active; inspect before removal'
-systemctl stop zfs-zed || die 'Could not stop zfs-zed; no files removed'
-if systemctl is-active --quiet zfs-zed; then die 'zfs-zed remains active; no files removed'; fi
 
+# Copy, do not hard-link: a later write to a target must not alter the
+# recovery bytes. The hidden root-only snapshot remains on any failed restore.
+backup="$ZED_DIR/.zfs-datadog-uninstall.$$"
+mkdir -m 700 "$backup" || die 'Could not create uninstall recovery directory'
+while read -r expected name extra; do
+    cp -p "$ZED_DIR/$name" "$backup/$name" || die "Snapshot failed: $name; recovery at $backup"
+    cmp -s "$ZED_DIR/$name" "$backup/$name" || die "Snapshot changed: $name; recovery at $backup"
+done < "$manifest"
+cp -p "$manifest" "$backup/.zfs-datadog.manifest" || die "Manifest snapshot failed; recovery at $backup"
+cmp -s "$manifest" "$backup/.zfs-datadog.manifest" || die "Manifest snapshot changed; recovery at $backup"
+
+remove_snapshot() {
+    while read -r hash name extra; do rm -f "$backup/$name" || return 1; done < "$backup/.zfs-datadog.manifest"
+    rm -f "$backup/.zfs-datadog.manifest" || return 1
+    rmdir "$backup"
+}
+restore_snapshot() {
+    while read -r hash name extra; do
+        target="$ZED_DIR/$name"
+        if [ -e "$target" ] || [ -L "$target" ]; then
+            [ -f "$target" ] && [ ! -L "$target" ] && cmp -s "$backup/$name" "$target" || return 1
+        else
+            ln "$backup/$name" "$target" || return 1
+        fi
+    done < "$backup/.zfs-datadog.manifest"
+    if [ -e "$manifest" ] || [ -L "$manifest" ]; then
+        [ -f "$manifest" ] && [ ! -L "$manifest" ] && cmp -s "$backup/.zfs-datadog.manifest" "$manifest" || return 1
+    else
+        ln "$backup/.zfs-datadog.manifest" "$manifest" || return 1
+    fi
+}
+recover() {
+    printf 'Error: %s; recovery snapshot: %s\n' "$1" "$backup" >&2
+    # A failed start or partial removal may have left the daemon state
+    # uncertain. Never restore live ZED paths until stop is confirmed.
+    if ! systemctl stop zfs-zed || systemctl is-active --quiet zfs-zed; then
+        printf 'Error: ZED could not be quiesced; snapshot retained, no restore attempted\n' >&2
+        exit 1
+    fi
+    if ! restore_snapshot; then
+        printf 'Error: restore found an unknown/colliding path or failed; ZED remains stopped\n' >&2
+        exit 1
+    fi
+    if ! systemctl start zfs-zed || ! systemctl is-active --quiet zfs-zed; then
+        printf 'Error: files restored but ZED did not restart; snapshot retained\n' >&2
+        exit 1
+    fi
+    remove_snapshot || printf 'Warning: restored files are active; recovery snapshot remains at %s\n' "$backup" >&2
+    printf 'Error: uninstall failed but owned files were restored and ZED is active\n' >&2
+    exit 1
+}
+
+if ! systemctl stop zfs-zed || systemctl is-active --quiet zfs-zed; then
+    die "Could not stop zfs-zed; no installed files removed; snapshot at $backup"
+fi
 while read -r expected name extra; do
     if [ "$name" = config.sh ] && [ "$keep_config" -eq 1 ]; then continue; fi
-    rm -f "$ZED_DIR/$name"
-done < "$manifest"
-rm -f "$manifest"
-systemctl start zfs-zed || die 'Files removed, but zfs-zed did not restart'
-systemctl is-active --quiet zfs-zed || die 'Files removed, but zfs-zed is not active'
+    rm -f "$ZED_DIR/$name" || recover "Could not remove $name"
+done < "$backup/.zfs-datadog.manifest"
+rm -f "$manifest" || recover 'Could not remove manifest'
+systemctl start zfs-zed || recover 'Could not restart zfs-zed after removal'
+systemctl is-active --quiet zfs-zed || recover 'zfs-zed is not active after removal'
+remove_snapshot || printf 'Warning: removed files are inactive; recovery snapshot remains at %s\n' "$backup" >&2
 printf 'Removed verified single-route files; zfs-zed is active.\n'

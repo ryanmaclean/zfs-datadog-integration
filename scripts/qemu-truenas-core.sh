@@ -60,8 +60,8 @@ echo ""
 echo "After installation:"
 echo "1. Configure network in TrueNAS web UI (http://truenas-ip)"
 echo "2. Enable SSH in System Settings"
-echo "3. Copy zedlets: scp *.sh root@truenas-ip:/tmp/"
-echo "4. Install manually (TrueNAS CORE uses /usr/local/etc/zfs/zed.d/)"
+echo "3. TrueNAS CORE native event delivery is not verified; do not copy Linux ZED zedlets."
+echo "4. Native Datadog intake remains a separate gate."
 echo ""
 
 # Run QEMU (x86_64 emulation on ARM64 will be slow)
