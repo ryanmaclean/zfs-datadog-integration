@@ -66,8 +66,6 @@ case "$choice" in
         VM_NAME="alpine-arm64"
         LIMA_FILE="examples/lima/lima-alpine-arm64.yaml"
         OS_NAME="Alpine Linux ARM64 (musl)"
-        ZED_PATH="/etc/zfs/zed.d"
-        SERVICE_CMD="rc-service zfs-zed restart"
         DIFFICULTY="${GREEN}Easy + Esoteric${NC}"
         ;;
     2)
@@ -79,16 +77,12 @@ case "$choice" in
         VM_NAME="netbsd-arm64"
         LIMA_FILE="examples/lima/lima-netbsd-arm64.yaml"
         OS_NAME="NetBSD 10.0 ARM64"
-        ZED_PATH="/usr/pkg/etc/zfs/zed.d"
-        SERVICE_CMD="/etc/rc.d/zed restart"
         DIFFICULTY="${YELLOW}Medium${NC}"
         ;;
     4)
         VM_NAME="openbsd-arm64"
         LIMA_FILE="examples/lima/lima-openbsd-arm64.yaml"
         OS_NAME="OpenBSD 7.6 ARM64"
-        ZED_PATH="/usr/local/etc/zfs/zed.d"
-        SERVICE_CMD="rcctl restart zed"
         DIFFICULTY="${RED}EXTREME${NC}"
         ;;
     *)
