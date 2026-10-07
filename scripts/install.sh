@@ -117,9 +117,9 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 # /root first, then invoke this script there.
 source_path=$SCRIPT_DIR
 while :; do
-    [ ! -L "$source_path" ] && [ -d "$source_path" ] || {
+    if [ -L "$source_path" ] || [ ! -d "$source_path" ]; then
         err "Unsafe source path: $source_path"; exit 1;
-    }
+    fi
     source_meta=$(stat -c '%u:%a' "$source_path") || exit 1
     [ "${source_meta%%:*}" = 0 ] || { err "Non-root source path: $source_path"; exit 1; }
     source_mode=${source_meta#*:}

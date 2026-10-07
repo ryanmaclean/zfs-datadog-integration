@@ -30,7 +30,9 @@ case "$ZED_DIR" in
 esac
 trust_path=$ZED_DIR
 while :; do
-    [ ! -L "$trust_path" ] && [ -d "$trust_path" ] || die "Unsafe ZED path: $trust_path"
+    if [ -L "$trust_path" ] || [ ! -d "$trust_path" ]; then
+        die "Unsafe ZED path: $trust_path"
+    fi
     trust_meta=$(stat -c '%u:%a' "$trust_path") || exit 1
     trust_uid=${trust_meta%%:*}
     trust_mode=${trust_meta#*:}
@@ -50,7 +52,9 @@ trap 'release_lock' EXIT
 trap 'exit 1' HUP INT TERM
 
 manifest="$ZED_DIR/.zfs-datadog.manifest"
-[ -f "$manifest" ] && [ ! -L "$manifest" ] || die 'Owned install manifest is absent or unsafe'
+if [ ! -f "$manifest" ] || [ -L "$manifest" ]; then
+    die 'Owned install manifest is absent or unsafe'
+fi
 [ "$(stat -c %u "$manifest")" = 0 ] || die 'Manifest is not root-owned'
 manifest_mode=$(stat -c %a "$manifest") || exit 1
 manifest_bits=$((0$manifest_mode))
@@ -79,7 +83,9 @@ while read -r expected name extra; do
     case "$seen" in *" $name "*) die "Duplicate manifest target: $name" ;; esac
     seen="$seen$name "
     target="$ZED_DIR/$name"
-    [ -f "$target" ] && [ ! -L "$target" ] || die "Missing or unsafe target: $target"
+    if [ ! -f "$target" ] || [ -L "$target" ]; then
+        die "Missing or unsafe target: $target"
+    fi
     [ "$(stat -c %u "$target")" = 0 ] || die "Non-root target: $target"
     if [ "$keep_config" -eq 0 ] || [ "$name" != config.sh ]; then
         digest=$(openssl dgst -sha256 "$target") || exit 1
@@ -110,12 +116,12 @@ cp -p "$manifest" "$backup/.zfs-datadog.manifest" || die "Manifest snapshot fail
 cmp -s "$manifest" "$backup/.zfs-datadog.manifest" || die "Manifest snapshot changed; recovery at $backup"
 
 remove_snapshot() {
-    while read -r hash name extra; do rm -f "$backup/$name" || return 1; done < "$backup/.zfs-datadog.manifest"
+    while read -r _hash name extra; do rm -f "$backup/$name" || return 1; done < "$backup/.zfs-datadog.manifest"
     rm -f "$backup/.zfs-datadog.manifest" || return 1
     rmdir "$backup"
 }
 restore_snapshot() {
-    while read -r hash name extra; do
+    while read -r _hash name extra; do
         target="$ZED_DIR/$name"
         if [ -e "$target" ] || [ -L "$target" ]; then
             [ -f "$target" ] && [ ! -L "$target" ] && cmp -s "$backup/$name" "$target" || return 1

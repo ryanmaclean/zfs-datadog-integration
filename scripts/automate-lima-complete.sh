@@ -31,8 +31,17 @@ install_sealed_lima() {
     guest_files+=("/tmp/zfs-datadog-upload/$file")
   done
   limactl shell "$vm" sudo cp "${guest_files[@]}" /root/zfs-datadog-src/
-  limactl shell "$vm" sudo sh -ec 'cd /root/zfs-datadog-src; set -- $(openssl dgst -sha256 payload.sha256); [ "$2" = "bc4707dadee933711820e8557957ffeb68faa5654e043ff11c58e049c3958170" ] || exit 1; set -- $(openssl dgst -sha256 install.sh); [ "$2" = "b714c6b4a92f8e83cd30e6cade0d76350db2a273c8fded9a6bf9d57027406322" ]'
-  limactl shell "$vm" sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=bc4707dadee933711820e8557957ffeb68faa5654e043ff11c58e049c3958170 sh /root/zfs-datadog-src/install.sh
+  local verify_script
+  verify_script=$(cat <<'VERIFY'
+cd /root/zfs-datadog-src
+set -- $(openssl dgst -sha256 payload.sha256)
+[ "$2" = "1de71ec228764649a5310e00ca76054a8488be3c9ccf92dff60cc2124c992e16" ] || exit 1
+set -- $(openssl dgst -sha256 install.sh)
+[ "$2" = "c0b4db0fc4bafb554e40f7e54f21b5bf664ef52717159c46302a44ec6a015835" ]
+VERIFY
+)
+  limactl shell "$vm" sudo sh -ec "$verify_script"
+  limactl shell "$vm" sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=1de71ec228764649a5310e00ca76054a8488be3c9ccf92dff60cc2124c992e16 sh /root/zfs-datadog-src/install.sh
 }
 
 if [ "${1:-}" = --sealed-install ]; then
