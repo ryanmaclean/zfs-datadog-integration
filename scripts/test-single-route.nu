@@ -1,0 +1,74 @@
+#!/usr/bin/env nu
+# Source-only ZED selector fixture. Run from any directory with the repo path.
+def selected [files: list<string>, event_class: string] {
+    $files | where {|name| $name == 'all-datadog.sh' or ($name | str starts-with $"($event_class)-") }
+}
+
+def require_one [profile: string, files: list<string>, event_class: string] {
+    let matches = (selected $files $event_class)
+    if (($matches | length) != 1) {
+        error make {msg: $"($profile): ($event_class) selected ($matches | length) routes: ($matches | str join ', ')"}
+    }
+}
+
+def main [repo_root: string] {
+    let repo = ($repo_root | path expand)
+    let install = (open --raw $"($repo)/scripts/install.sh")
+    let fresh = ($install | split row "ZEDLETS='" | get 1 | split row "'" | first | lines | where {|line| $line != ''})
+
+    for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
+        require_one 'fresh guarded install' $fresh $event_class
+    }
+
+    # An existing all-event router would make two dispatches. The guarded
+    # installer must reject that source state before stopping ZED or copying.
+    let existing = ($fresh | append 'all-datadog.sh')
+    if (((selected $existing 'ereport.fs.zfs.checksum') | length) != 2) {
+        error make {msg: 'legacy duplicate-route fixture no longer reproduces'}
+    }
+    if not ($install | str contains "OLD_ROUTES='all-datadog.sh checksum-error.sh io-error.sh'") {
+        error make {msg: 'installer lost the existing-route preflight block'}
+    }
+    if not ($install | str contains 'Existing integration path requires reviewed migration') {
+        error make {msg: 'installer no longer fails closed on existing routes'}
+    }
+
+    for distro in ['ubuntu', 'debian', 'rocky', 'fedora', 'arch'] {
+        let packer = (open --raw $"($repo)/packer/packer-($distro)-zfs.pkr.hcl")
+        let uploaded = ($packer | parse -r 'scripts/(?P<name>[A-Za-z0-9_.-]+[.]sh)' | get name)
+        for required in ($fresh | append '.checksum-error.sh' | append '.io-error.sh') {
+            let source_name = ($required | str trim --left --char '.')
+            if not ($source_name in $uploaded) {
+                error make {msg: $"($distro) Packer upload lacks ($source_name)"}
+            }
+        }
+        if ('all-datadog.sh' in $uploaded) {
+            error make {msg: $"($distro) Packer still uploads the all-event route"}
+        }
+        if not ($packer | str contains 'sudo sh /root/zfs-datadog-src/install.sh') {
+            error make {msg: $"($distro) Packer bypasses guarded activation"}
+        }
+        for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
+            require_one $"($distro) Packer guarded install" $fresh $event_class
+        }
+    }
+
+    let lima = (open --raw $"($repo)/scripts/automate-lima-complete.sh")
+    let lima_payload = ($lima | split row 'payload=(' | get 1 | split row ')' | first | parse -r '(?P<name>[A-Za-z0-9_.-]+[.]sh)' | get name)
+    for required in ($fresh | append 'checksum-error.sh' | append 'io-error.sh' | append 'install.sh') {
+        if not ($required in $lima_payload) {
+            error make {msg: $"Lima upload lacks ($required)"}
+        }
+    }
+    if ('all-datadog.sh' in $lima_payload) {
+        error make {msg: 'Lima still uploads the all-event route'}
+    }
+    if not ($lima | str contains 'sh /root/zfs-datadog-src/install.sh') {
+        error make {msg: 'Lima bypasses guarded activation'}
+    }
+    for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
+        require_one 'Lima guarded install' $fresh $event_class
+    }
+
+    print 'PASS: fresh, five Packer, and Lima profiles select one exact route per ereport; existing all-route profile is blocked'
+}

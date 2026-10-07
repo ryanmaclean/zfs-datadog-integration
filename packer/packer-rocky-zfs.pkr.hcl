@@ -42,16 +42,35 @@ build {
   }
 
   provisioner "file" {
+    sources = [
+      "${path.root}/../scripts/install.sh",
+      "${path.root}/../scripts/config.sh",
+      "${path.root}/../scripts/zfs-datadog-lib.sh",
+      "${path.root}/../scripts/statechange-datadog.sh",
+      "${path.root}/../scripts/scrub_start-datadog.sh",
+      "${path.root}/../scripts/scrub_finish-datadog.sh",
+      "${path.root}/../scripts/resilver_start-datadog.sh",
+      "${path.root}/../scripts/resilver_finish-datadog.sh",
+      "${path.root}/../scripts/config_sync-datadog.sh",
+      "${path.root}/../scripts/pool_import-datadog.sh",
+      "${path.root}/../scripts/pool_destroy-datadog.sh",
+      "${path.root}/../scripts/vdev_attach-datadog.sh",
+      "${path.root}/../scripts/vdev_remove-datadog.sh",
+      "${path.root}/../scripts/ereport.fs.zfs.checksum-datadog.sh",
+      "${path.root}/../scripts/ereport.fs.zfs.io-datadog.sh",
+      "${path.root}/../scripts/checksum-error.sh",
+      "${path.root}/../scripts/io-error.sh",
+    ]
     destination = "/tmp/"
   }
 
   provisioner "shell" {
     inline = [
-      "sudo mkdir -p /etc/zfs/zed.d",
-      "sudo cp /tmp/*.sh /etc/zfs/zed.d/",
-      "sudo cp /tmp/.env.local /etc/zfs/zed.d/",
-      "sudo chmod 755 /etc/zfs/zed.d/*.sh",
-      "sudo chmod 600 /etc/zfs/zed.d/config.sh /etc/zfs/zed.d/.env.local"
+      "sudo install -d -m 700 /root/zfs-datadog-src",
+      "sudo cp /tmp/*.sh /root/zfs-datadog-src/",
+      "sudo chown root:root /root/zfs-datadog-src/*.sh",
+      "sudo chmod go-w /root/zfs-datadog-src/*.sh",
+      "sudo sh /root/zfs-datadog-src/install.sh"
     ]
   }
 }

@@ -44,7 +44,16 @@ scp $SSH_OPTS -P $SSH_PORT \
     statechange-datadog.sh \
     scrub_finish-datadog.sh \
     resilver_finish-datadog.sh \
-    all-datadog.sh \
+    install.sh \
+    scrub_start-datadog.sh \
+    resilver_start-datadog.sh \
+    config_sync-datadog.sh \
+    pool_import-datadog.sh \
+    pool_destroy-datadog.sh \
+    vdev_attach-datadog.sh \
+    vdev_remove-datadog.sh \
+    ereport.fs.zfs.checksum-datadog.sh \
+    ereport.fs.zfs.io-datadog.sh \
     checksum-error.sh \
     io-error.sh \
     mock-datadog-server.py \
@@ -59,21 +68,8 @@ ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'INSTALL'
 set -e
 cd /tmp
 
-# Install to Debian/Linux path
-cp zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp config.sh /etc/zfs/zed.d/
-cp statechange-datadog.sh /etc/zfs/zed.d/
-cp scrub_finish-datadog.sh /etc/zfs/zed.d/
-cp resilver_finish-datadog.sh /etc/zfs/zed.d/
-cp all-datadog.sh /etc/zfs/zed.d/
-cp checksum-error.sh /etc/zfs/zed.d/
-cp io-error.sh /etc/zfs/zed.d/
-
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
-# Configure
-cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
+# Configure source before guarded activation.
+cat > /tmp/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
 DD_API_URL="http://localhost:8080"
 DOGSTATSD_HOST="localhost"
@@ -86,8 +82,10 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-# Restart ZED
-systemctl restart zfs-zed
+install -d -m 700 /root/zfs-datadog-src
+cp /tmp/*.sh /root/zfs-datadog-src/
+chmod go-w /root/zfs-datadog-src/*.sh
+sh /root/zfs-datadog-src/install.sh
 sleep 2
 
 echo "Zedlets installed"

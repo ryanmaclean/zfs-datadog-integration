@@ -60,33 +60,20 @@ echo ""
 echo "Copying zedlets to VM..."
 
 # Copy all necessary files to VM
-limactl copy zfs-datadog-lib.sh "$VM_NAME:/tmp/"
-limactl copy config.sh "$VM_NAME:/tmp/"
-limactl copy pool-health.sh "$VM_NAME:/tmp/"
-limactl copy scrub-finish.sh "$VM_NAME:/tmp/"
-limactl copy checksum-error.sh "$VM_NAME:/tmp/"
-limactl copy io-error.sh "$VM_NAME:/tmp/"
-limactl copy resilver-finish.sh "$VM_NAME:/tmp/"
+limactl copy install.sh config.sh zfs-datadog-lib.sh \
+    statechange-datadog.sh scrub_start-datadog.sh scrub_finish-datadog.sh \
+    resilver_start-datadog.sh resilver_finish-datadog.sh \
+    config_sync-datadog.sh pool_import-datadog.sh pool_destroy-datadog.sh \
+    vdev_attach-datadog.sh vdev_remove-datadog.sh \
+    ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh \
+    checksum-error.sh io-error.sh "$VM_NAME:/tmp/"
 
 echo "Installing zedlets..."
 limactl shell "$VM_NAME" sudo bash <<'INSTALL_ZEDLETS'
 set -e
 
-# Copy files to ZED directory
-cp /tmp/zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp /tmp/config.sh /etc/zfs/zed.d/
-cp /tmp/pool-health.sh /etc/zfs/zed.d/
-cp /tmp/scrub-finish.sh /etc/zfs/zed.d/
-cp /tmp/checksum-error.sh /etc/zfs/zed.d/
-cp /tmp/io-error.sh /etc/zfs/zed.d/
-cp /tmp/resilver-finish.sh /etc/zfs/zed.d/
-
-# Set permissions
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
-# Configure for testing (mock Datadog)
-cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
+# Configure source for testing before the guarded activation.
+cat > /tmp/config.sh <<'CONFIG'
 #!/bin/bash
 # Test configuration - logs to file instead of Datadog
 DD_API_KEY="test-key-12345"
@@ -101,8 +88,10 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-echo "Restarting ZED..."
-systemctl restart zfs-zed
+install -d -m 700 /root/zfs-datadog-src
+cp /tmp/*.sh /root/zfs-datadog-src/
+chmod go-w /root/zfs-datadog-src/*.sh
+sh /root/zfs-datadog-src/install.sh
 systemctl status zfs-zed --no-pager
 
 echo ""

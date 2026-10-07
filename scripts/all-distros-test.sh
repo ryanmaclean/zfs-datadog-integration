@@ -76,14 +76,13 @@ test_distro() {
     
     # Copy zedlets
     log_info "Copying zedlets to $distro..."
-    limactl copy zfs-datadog-lib.sh "$vm_name:/tmp/"
-    limactl copy config.sh "$vm_name:/tmp/"
-    limactl copy statechange-datadog.sh "$vm_name:/tmp/"
-    limactl copy scrub_finish-datadog.sh "$vm_name:/tmp/"
-    limactl copy resilver_finish-datadog.sh "$vm_name:/tmp/"
-    limactl copy all-datadog.sh "$vm_name:/tmp/"
-    limactl copy checksum-error.sh "$vm_name:/tmp/"
-    limactl copy io-error.sh "$vm_name:/tmp/"
+    limactl copy install.sh config.sh zfs-datadog-lib.sh \
+        statechange-datadog.sh scrub_start-datadog.sh scrub_finish-datadog.sh \
+        resilver_start-datadog.sh resilver_finish-datadog.sh \
+        config_sync-datadog.sh pool_import-datadog.sh pool_destroy-datadog.sh \
+        vdev_attach-datadog.sh vdev_remove-datadog.sh \
+        ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh \
+        checksum-error.sh io-error.sh "$vm_name:/tmp/"
     limactl copy mock-datadog-server.py "$vm_name:/tmp/"
     
     # Test POSIX compatibility
@@ -100,20 +99,7 @@ test_distro() {
     log_info "Installing zedlets..."
     limactl shell "$vm_name" sudo bash <<'INSTALL'
 set -e
-cd /tmp
-cp zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp config.sh /etc/zfs/zed.d/
-cp statechange-datadog.sh /etc/zfs/zed.d/
-cp scrub_finish-datadog.sh /etc/zfs/zed.d/
-cp resilver_finish-datadog.sh /etc/zfs/zed.d/
-cp all-datadog.sh /etc/zfs/zed.d/
-cp checksum-error.sh /etc/zfs/zed.d/
-cp io-error.sh /etc/zfs/zed.d/
-
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
-cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
+cat > /tmp/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
 DD_API_URL="http://localhost:8080"
 DOGSTATSD_HOST="localhost"
@@ -126,12 +112,10 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-# Restart ZED
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl restart zfs-zed || true
-elif command -v service >/dev/null 2>&1; then
-    service zfs-zed restart || true
-fi
+install -d -m 700 /root/zfs-datadog-src
+cp /tmp/*.sh /root/zfs-datadog-src/
+chmod go-w /root/zfs-datadog-src/*.sh
+sh /root/zfs-datadog-src/install.sh
 
 sleep 2
 INSTALL

@@ -67,14 +67,13 @@ log_info "Testing: POSIX compatibility, retry logic, error handling, Datadog int
 
 # Copy all files to VM
 log_info "Copying files to VM..."
-limactl copy zfs-datadog-lib.sh "$VM_NAME:/tmp/"
-limactl copy config.sh "$VM_NAME:/tmp/"
-limactl copy statechange-datadog.sh "$VM_NAME:/tmp/"
-limactl copy scrub_finish-datadog.sh "$VM_NAME:/tmp/"
-limactl copy resilver_finish-datadog.sh "$VM_NAME:/tmp/"
-limactl copy all-datadog.sh "$VM_NAME:/tmp/"
-limactl copy checksum-error.sh "$VM_NAME:/tmp/"
-limactl copy io-error.sh "$VM_NAME:/tmp/"
+limactl copy install.sh config.sh zfs-datadog-lib.sh \
+    statechange-datadog.sh scrub_start-datadog.sh scrub_finish-datadog.sh \
+    resilver_start-datadog.sh resilver_finish-datadog.sh \
+    config_sync-datadog.sh pool_import-datadog.sh pool_destroy-datadog.sh \
+    vdev_attach-datadog.sh vdev_remove-datadog.sh \
+    ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh \
+    checksum-error.sh io-error.sh "$VM_NAME:/tmp/"
 limactl copy mock-datadog-server.py "$VM_NAME:/tmp/"
 
 section "📋 Test Suite 1: POSIX Compatibility"
@@ -87,7 +86,7 @@ else
 fi
 
 log_test "1.2: All zedlets syntax validation"
-for script in statechange-datadog.sh scrub_finish-datadog.sh resilver_finish-datadog.sh all-datadog.sh checksum-error.sh io-error.sh; do
+for script in statechange-datadog.sh scrub_finish-datadog.sh resilver_finish-datadog.sh ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh checksum-error.sh io-error.sh; do
     if limactl shell "$VM_NAME" sh -n "/tmp/$script" 2>/dev/null; then
         test_pass "$script syntax valid"
     else
@@ -302,20 +301,7 @@ section "📋 Test Suite 4: Integration Test with POSIX Shell"
 
 log_info "Installing zedlets with POSIX shell..."
 limactl shell "$VM_NAME" sudo bash <<'INSTALL_POSIX'
-cd /tmp
-cp zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp config.sh /etc/zfs/zed.d/
-cp statechange-datadog.sh /etc/zfs/zed.d/
-cp scrub_finish-datadog.sh /etc/zfs/zed.d/
-cp resilver_finish-datadog.sh /etc/zfs/zed.d/
-cp all-datadog.sh /etc/zfs/zed.d/
-cp checksum-error.sh /etc/zfs/zed.d/
-cp io-error.sh /etc/zfs/zed.d/
-
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
-cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
+cat > /tmp/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
 DD_API_URL="http://localhost:8080"
 DOGSTATSD_HOST="localhost"
@@ -328,7 +314,10 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-systemctl restart zfs-zed
+install -d -m 700 /root/zfs-datadog-src
+cp /tmp/*.sh /root/zfs-datadog-src/
+chmod go-w /root/zfs-datadog-src/*.sh
+sh /root/zfs-datadog-src/install.sh
 sleep 2
 INSTALL_POSIX
 

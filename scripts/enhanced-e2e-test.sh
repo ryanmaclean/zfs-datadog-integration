@@ -135,12 +135,19 @@ limactl shell "$VM_NAME" sudo bash -lc 'apt-get update -qq && apt-get install -y
 
 log_info "Copying zedlet files to VM..."
 FILES=(
+    "install.sh"
     "zfs-datadog-lib.sh"
     "config.sh"
     "statechange-datadog.sh"
+    "scrub_start-datadog.sh"
     "scrub_finish-datadog.sh"
+    "resilver_start-datadog.sh"
     "resilver_finish-datadog.sh"
-    "all-datadog.sh"
+    "config_sync-datadog.sh"
+    "pool_import-datadog.sh"
+    "pool_destroy-datadog.sh"
+    "vdev_attach-datadog.sh"
+    "vdev_remove-datadog.sh"
     "checksum-error.sh"
     "io-error.sh"
     "ereport.fs.zfs.checksum-datadog.sh"
@@ -156,17 +163,7 @@ limactl shell "$VM_NAME" sudo bash <<'INSTALL_ZEDLETS'
 set -e
 export PATH="/usr/sbin:/sbin:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin"
 
-for ZED_DIR in /etc/zfs/zed.d /usr/local/etc/zfs/zed.d; do
-    [ -d "$ZED_DIR" ] || continue
-    cp /tmp/zfs-datadog-lib.sh "$ZED_DIR/"
-    cp /tmp/statechange-datadog.sh "$ZED_DIR/"
-    cp /tmp/scrub_finish-datadog.sh "$ZED_DIR/"
-    cp /tmp/resilver_finish-datadog.sh "$ZED_DIR/"
-    cp /tmp/all-datadog.sh "$ZED_DIR/"
-    cp /tmp/checksum-error.sh "$ZED_DIR/"
-    cp /tmp/io-error.sh "$ZED_DIR/"
-
-    cat > "$ZED_DIR/config.sh" <<'CONFIG'
+cat > /tmp/config.sh <<'CONFIG'
 #!/bin/sh
 DD_API_KEY="test-api-key-12345"
 DD_API_URL="http://localhost:8080"
@@ -180,11 +177,10 @@ MONITOR_RESILVER="true"
 MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
-    chmod 755 "$ZED_DIR"/*.sh
-    chmod 600 "$ZED_DIR"/config.sh
-done
-
-systemctl restart zfs-zed
+install -d -m 700 /root/zfs-datadog-src
+cp /tmp/*.sh /root/zfs-datadog-src/
+chmod go-w /root/zfs-datadog-src/*.sh
+sh /root/zfs-datadog-src/install.sh
 sleep 2
 INSTALL_ZEDLETS
 
@@ -368,7 +364,7 @@ export ZEVENT_VDEV_PATH="/tmp/zfs-mirror/disk1.img"
 export ZEVENT_VDEV_STATE="DEGRADED"
 export ZEVENT_VDEV_READ_ERRORS=8
 export ZEVENT_VDEV_WRITE_ERRORS=0
-/bin/sh /usr/local/etc/zfs/zed.d/io-error.sh
+/bin/sh /usr/local/etc/zfs/zed.d/ereport.fs.zfs.io-datadog.sh
 FAKE_IO
             IO_EVENTS=$(limactl shell "$VM_NAME" bash -lc "curl -s http://localhost:8080/status | jq '[.events[] | select(.data.title | test(\"I/O Error\"))] | length'")
             if [ "${IO_EVENTS:-0}" -gt 0 ]; then

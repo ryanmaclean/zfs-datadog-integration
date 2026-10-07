@@ -132,12 +132,21 @@ section "⚙️  Step 4: Installing Zedlets"
 log_info "Copying zedlet files to VM..."
 
 FILES=(
+    "install.sh"
     "zfs-datadog-lib.sh"
     "config.sh"
     "statechange-datadog.sh"
+    "scrub_start-datadog.sh"
     "scrub_finish-datadog.sh"
+    "resilver_start-datadog.sh"
     "resilver_finish-datadog.sh"
-    "all-datadog.sh"
+    "config_sync-datadog.sh"
+    "pool_import-datadog.sh"
+    "pool_destroy-datadog.sh"
+    "vdev_attach-datadog.sh"
+    "vdev_remove-datadog.sh"
+    "ereport.fs.zfs.checksum-datadog.sh"
+    "ereport.fs.zfs.io-datadog.sh"
     "checksum-error.sh"
     "io-error.sh"
 )
@@ -150,22 +159,8 @@ log_info "Installing zedlets..."
 limactl shell "$VM_NAME" sudo bash <<'INSTALL_ZEDLETS'
 set -e
 
-# Copy to ZED directory
-cp /tmp/zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp /tmp/config.sh /etc/zfs/zed.d/
-cp /tmp/statechange-datadog.sh /etc/zfs/zed.d/
-cp /tmp/scrub_finish-datadog.sh /etc/zfs/zed.d/
-cp /tmp/resilver_finish-datadog.sh /etc/zfs/zed.d/
-cp /tmp/all-datadog.sh /etc/zfs/zed.d/
-cp /tmp/checksum-error.sh /etc/zfs/zed.d/
-cp /tmp/io-error.sh /etc/zfs/zed.d/
-
-# Set permissions
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
-# Configure to use mock server
-cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
+# Configure the source before its guarded activation.
+cat > /tmp/config.sh <<'CONFIG'
 #!/bin/bash
 DD_API_KEY="test-api-key-12345"
 DD_API_URL="http://localhost:8080"
@@ -180,12 +175,10 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-echo "Zedlets installed to /etc/zfs/zed.d/"
-ls -la /etc/zfs/zed.d/*.sh
-
-# Restart ZED
-echo "Restarting ZFS Event Daemon..."
-systemctl restart zfs-zed
+install -d -m 700 /root/zfs-datadog-src
+cp /tmp/*.sh /root/zfs-datadog-src/
+chmod go-w /root/zfs-datadog-src/*.sh
+sh /root/zfs-datadog-src/install.sh
 sleep 2
 systemctl status zfs-zed --no-pager || true
 INSTALL_ZEDLETS

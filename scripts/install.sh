@@ -111,6 +111,44 @@ fi
 # "cd; pwd" instead of ${BASH_SOURCE[0]} — works under any POSIX sh.
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
+# Root execution from a user-writable checkout (especially /tmp) would let a
+# different user swap a handler between preflight and staging. Require a
+# sealed root-owned source tree; image builders may copy their payload into
+# /root first, then invoke this script there.
+source_path=$SCRIPT_DIR
+while :; do
+    [ ! -L "$source_path" ] && [ -d "$source_path" ] || {
+        err "Unsafe source path: $source_path"; exit 1;
+    }
+    source_meta=$(stat -c '%u:%a' "$source_path") || exit 1
+    [ "${source_meta%%:*}" = 0 ] || { err "Non-root source path: $source_path"; exit 1; }
+    source_mode=${source_meta#*:}
+    source_bits=$((0$source_mode))
+    [ "$((source_bits & 0022))" -eq 0 ] || {
+        err "Writable source path: $source_path"; exit 1;
+    }
+    [ "$source_path" = / ] && break
+    source_path=$(dirname "$source_path")
+done
+
+# A failed or interrupted run leaves the lock for manual inspection. Never
+# steal it: a concurrent installer could otherwise replace another run's files.
+umask 077
+lock="$ZED_DIR/.zfs-datadog-install.lock"
+if ! mkdir -m 700 "$lock" 2>/dev/null; then
+    err "Installation lock exists: $lock"
+    exit 1
+fi
+lock_owned=1
+release_lock() {
+    if [ "$lock_owned" -eq 1 ]; then
+        rmdir "$lock" || err "Could not release installation lock: $lock"
+        lock_owned=0
+    fi
+}
+trap 'release_lock' EXIT
+trap 'exit 1' HUP INT TERM
+
 printf '%sZFS Datadog Integration Installer%s\n' "$GREEN" "$NC"
 printf '==================================\n'
 printf 'OS:      %s\n' "$OS"
@@ -121,6 +159,7 @@ printf 'Checking dependencies...\n'
 MISSING=''
 command -v curl >/dev/null 2>&1 || MISSING="$MISSING curl"
 command -v nc   >/dev/null 2>&1 || MISSING="$MISSING nc"
+command -v openssl >/dev/null 2>&1 || MISSING="$MISSING openssl"
 
 if [ -n "$MISSING" ]; then
     err "Missing dependencies:$MISSING"
@@ -161,7 +200,7 @@ OLD_ROUTES='all-datadog.sh checksum-error.sh io-error.sh'
 printf 'Checking source files...\n'
 MISSING_SRC=''
 for f in $LIB $ZEDLETS $HANDLERS; do
-    [ -f "$SCRIPT_DIR/$f" ] || MISSING_SRC="$MISSING_SRC $f"
+    [ -f "$SCRIPT_DIR/$f" ] && [ ! -L "$SCRIPT_DIR/$f" ] || MISSING_SRC="$MISSING_SRC $f"
 done
 if [ -n "$MISSING_SRC" ]; then
     err "Missing source files:$MISSING_SRC"
@@ -169,10 +208,19 @@ if [ -n "$MISSING_SRC" ]; then
 fi
 ok "All source files found"
 printf '\n'
+for f in install.sh $LIB $ZEDLETS $HANDLERS config.sh config.sh.example; do
+    [ -f "$SCRIPT_DIR/$f" ] || continue
+    [ ! -L "$SCRIPT_DIR/$f" ] || { err "Symlinked source file: $f"; exit 1; }
+    src_meta=$(stat -c '%u:%a' "$SCRIPT_DIR/$f") || exit 1
+    [ "${src_meta%%:*}" = 0 ] || { err "Non-root source file: $f"; exit 1; }
+    src_mode=${src_meta#*:}
+    src_bits=$((0$src_mode))
+    [ "$((src_bits & 0022))" -eq 0 ] || { err "Writable source file: $f"; exit 1; }
+done
 
 # Refuse old and partial installations before touching a configuration or
 # ZED. An unknown or modified old route cannot be retired by filename alone.
-for f in $LIB $ZEDLETS $OLD_ROUTES .checksum-error.sh .io-error.sh config.sh .env.local; do
+for f in $LIB $ZEDLETS $OLD_ROUTES .checksum-error.sh .io-error.sh config.sh .env.local .zfs-datadog.manifest; do
     if [ -e "$ZED_DIR/$f" ] || [ -L "$ZED_DIR/$f" ]; then
         err "Existing integration path requires reviewed migration: $ZED_DIR/$f"
         exit 1
@@ -198,18 +246,25 @@ cleanup() {
     trap - EXIT
     set +e
     if [ "$committed" -eq 0 ]; then
+        rollback_quiesced=0
         if [ "$zed_stopped" -eq 1 ]; then
-            systemctl stop zfs-zed >/dev/null 2>&1 ||
-                err "Rollback could not stop zfs-zed; service state is unknown"
+            if ! systemctl stop zfs-zed >/dev/null 2>&1 ||
+               systemctl is-active --quiet zfs-zed; then
+                err "Rollback could not quiesce zfs-zed; installed paths preserved for recovery"
+                installed=''
+            else
+                rollback_quiesced=1
+            fi
         fi
         for path in $installed; do rm -f "$path"; done
-        if [ "$zed_stopped" -eq 1 ]; then
+        if [ "$rollback_quiesced" -eq 1 ]; then
             if ! systemctl start zfs-zed >/dev/null 2>&1; then
                 err "Rollback could not restart zfs-zed; inspect service state"
             fi
         fi
     fi
     if [ "$stage_owned" -eq 1 ]; then rm -rf "$stage"; fi
+    release_lock
     exit "$result"
 }
 trap 'cleanup $?' EXIT
@@ -232,6 +287,23 @@ chmod 644 "$stage/$LIB"
 chmod 600 "$stage/config.sh"
 for f in $ZEDLETS $HANDLERS; do chmod 755 "$stage/$f"; done
 
+# Manifest is the uninstall authority. It binds exact owned postimages to
+# explicit basenames; no wildcard removal or filename-only ownership claim.
+: > "$stage/.zfs-datadog.manifest"
+for f in $LIB config.sh; do
+    digest=$(openssl dgst -sha256 "$stage/$f") || exit 1
+    printf '%s %s\n' "${digest##*= }" "$f" >> "$stage/.zfs-datadog.manifest"
+done
+for f in $HANDLERS; do
+    digest=$(openssl dgst -sha256 "$stage/$f") || exit 1
+    printf '%s .%s\n' "${digest##*= }" "$f" >> "$stage/.zfs-datadog.manifest"
+done
+for f in $ZEDLETS; do
+    digest=$(openssl dgst -sha256 "$stage/$f") || exit 1
+    printf '%s %s\n' "${digest##*= }" "$f" >> "$stage/.zfs-datadog.manifest"
+done
+chmod 600 "$stage/.zfs-datadog.manifest"
+
 systemctl stop zfs-zed || { err "Cannot quiesce zfs-zed"; exit 1; }
 zed_stopped=1
 if systemctl is-active --quiet zfs-zed; then
@@ -239,20 +311,28 @@ if systemctl is-active --quiet zfs-zed; then
     exit 1
 fi
 for f in $LIB config.sh; do
+    ln "$stage/$f" "$ZED_DIR/$f" || { err "Activation collision: $f"; exit 1; }
     installed="$installed $ZED_DIR/$f"
-    mv "$stage/$f" "$ZED_DIR/$f"
 done
 for f in $HANDLERS; do
+    ln "$stage/$f" "$ZED_DIR/.$f" || { err "Activation collision: .$f"; exit 1; }
     installed="$installed $ZED_DIR/.$f"
-    mv "$stage/$f" "$ZED_DIR/.$f"
 done
 for f in $ZEDLETS; do
+    ln "$stage/$f" "$ZED_DIR/$f" || { err "Activation collision: $f"; exit 1; }
     installed="$installed $ZED_DIR/$f"
-    mv "$stage/$f" "$ZED_DIR/$f"
 done
+ln "$stage/.zfs-datadog.manifest" "$ZED_DIR/.zfs-datadog.manifest" || {
+    err "Manifest activation collision"
+    exit 1
+}
+installed="$installed $ZED_DIR/.zfs-datadog.manifest"
 systemctl start zfs-zed || { err "Cannot start zfs-zed after activation"; exit 1; }
 systemctl is-active --quiet zfs-zed || { err "zfs-zed did not become active"; exit 1; }
 committed=1
+rm -rf "$stage"
+stage_owned=0
+release_lock
 ok "Single-route files activated; zfs-zed is active"
 printf '\n'
 
