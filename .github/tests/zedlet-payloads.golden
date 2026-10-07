@@ -1,0 +1,577 @@
+=== lib-driver.sh (none)
+case: unknown priority falls back to normal, event_type tag appended
+logger -t zfs-datadog [WARN] Unknown priority 'urgent', falling back to normal
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "T1",
+  "text": "body",
+  "priority": "normal",
+  "tags": ["a:1","b:2","event_type:ereport.fs.zfs.io"],
+  "alert_type": "warning",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: T1
+  rc=0
+case: low priority, event_type with empty tags
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "T2",
+  "text": "body",
+  "priority": "low",
+  "tags": ["event_type:pool_import"],
+  "alert_type": "info",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: T2
+  rc=0
+case: caller variables and IFS untouched
+  caller-title caller-tags caller-priority caller-retry ifs= \t \n
+case: curl fails on every attempt
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "T3",
+  "text": "body",
+  "priority": "normal",
+  "tags": ["x:y"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [WARN] Failed to send event (attempt 1/3), retrying in 1s...
+sleep 1
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "T3",
+  "text": "body",
+  "priority": "normal",
+  "tags": ["x:y"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [WARN] Failed to send event (attempt 2/3), retrying in 2s...
+sleep 2
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "T3",
+  "text": "body",
+  "priority": "normal",
+  "tags": ["x:y"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [ERROR] Failed to send event after 3 attempts: 
+  rc=1
+case: missing API key
+logger -t zfs-datadog [ERROR] DD_API_KEY not set, cannot send event
+  rc=1
+case: metric with and without tags
+nc -u -w1 localhost 8125
+  data: zfs.test.gauge:5|g|#k:v,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.test.gauge:5|g|#k:v,host:zfs-test-host
+  rc=0
+nc -u -w1 localhost 8125
+  data: zfs.test.count:1|c|#env:production,service:zfs,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.test.count:1|c|#env:production,service:zfs,host:zfs-test-host
+  rc=0
+case: health and alert mapping
+  ONLINE -> 0 success
+  degraded -> 1 warning
+  FAULTED -> 2 error
+  offline -> 3 error
+  UNAVAIL -> 4 error
+  removed -> 5 info
+  bogus -> 99 info
+case: build_tags
+  env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+--- exit 0
+=== all-datadog.sh (ereport.fs.zfs.checksum)
+logger -t zfs-datadog [DEBUG] all-datadog received event class: ereport.fs.zfs.checksum
+logger -t zfs-datadog [DEBUG] routing checksum event to checksum-error.sh
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Checksum Error: tank",
+  "text": "Pool: tank\nVdev: da1\nChecksum Errors: 3\nPath: /dev/da1\nVdev State: DEGRADED",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Checksum Error: tank
+nc -u -w1 localhost 8125
+  data: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
+--- exit 0
+=== statechange-datadog.sh (sysevent.fs.zfs.statechange)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Pool Health Change: tank (vdev: da1)",
+  "text": "Pool: tank\nVdev: da1\nNew State: DEGRADED\nPath: /dev/da1",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "warning",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Pool Health Change: tank (vdev: da1)
+nc -u -w1 localhost 8125
+  data: zfs.pool.health:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.pool.health:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [INFO] Pool health event processed: tank - DEGRADED
+--- exit 0
+=== scrub_start-datadog.sh (sysevent.fs.zfs.scrub_start)
+nc -u -w1 localhost 8125
+  data: zfs.scrub.start:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.start:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.scrub.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Scrub Started: tank",
+  "text": "Pool: tank\nEvent ID: 42\nStarted at: 1700000000 0",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "info",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Scrub Started: tank
+logger -t zfs-datadog [INFO] Scrub start event processed: pool=tank eid=42
+--- exit 0
+=== scrub_finish-datadog.sh (sysevent.fs.zfs.scrub_finish)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Scrub Completed: tank",
+  "text": "Pool: tank\nStatus: completed with errors\nErrors Found: 4\nDuration: 2h 3m",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Scrub Completed: tank
+nc -u -w1 localhost 8125
+  data: zfs.scrub.errors:4|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.errors:4|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.scrub.duration:7384|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.duration:7384|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.scrub.in_progress:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.in_progress:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [INFO] Scrub completion event processed: tank - 4 errors
+--- exit 0
+=== resilver_start-datadog.sh (sysevent.fs.zfs.resilver_start)
+nc -u -w1 localhost 8125
+  data: zfs.resilver.start:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.start:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.resilver.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Resilver Started: tank",
+  "text": "Pool: tank\nEvent ID: 42\nStarted at: 1700000000 0",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "warning",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Resilver Started: tank
+logger -t zfs-datadog [INFO] Resilver start event processed: pool=tank eid=42
+--- exit 0
+=== resilver_finish-datadog.sh (sysevent.fs.zfs.resilver_finish)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Resilver Completed: tank",
+  "text": "Pool: tank\nStatus: completed successfully\nErrors Found: 0\nDuration: 0h 10m",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "success",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Resilver Completed: tank
+nc -u -w1 localhost 8125
+  data: zfs.resilver.errors:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.errors:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.resilver.duration:600|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.duration:600|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.resilver.in_progress:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.in_progress:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [INFO] Resilver completion event processed: tank - 0 errors
+--- exit 0
+=== config_sync-datadog.sh (sysevent.fs.zfs.config_sync)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Config Sync: tank",
+  "text": "Pool configuration synchronized for tank on host zfs-test-host",
+  "priority": "low",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED","event_type:config_sync"],
+  "alert_type": "info",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Config Sync: tank
+--- exit 0
+=== pool_import-datadog.sh (sysevent.fs.zfs.pool_import)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Pool Imported: tank",
+  "text": "Pool tank has been imported on host zfs-test-host",
+  "priority": "low",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED","event_type:pool_import"],
+  "alert_type": "info",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Pool Imported: tank
+--- exit 0
+=== pool_destroy-datadog.sh (sysevent.fs.zfs.pool_destroy)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Pool Destroyed: tank",
+  "text": "Pool tank has been destroyed on host zfs-test-host",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED","event_type:pool_destroy"],
+  "alert_type": "warning",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Pool Destroyed: tank
+--- exit 0
+=== vdev_attach-datadog.sh (sysevent.fs.zfs.vdev_attach)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Device Attached: tank",
+  "text": "A new device has been attached to pool tank on host zfs-test-host. Resilvering will begin automatically.",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED","event_type:vdev_attach"],
+  "alert_type": "info",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Device Attached: tank
+--- exit 0
+=== vdev_remove-datadog.sh (sysevent.fs.zfs.vdev_remove)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Device Removed: tank",
+  "text": "A device has been removed from pool tank on host zfs-test-host",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED","event_type:vdev_remove"],
+  "alert_type": "warning",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Device Removed: tank
+--- exit 0
+=== ereport.fs.zfs.checksum-datadog.sh (ereport.fs.zfs.checksum)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Checksum Error: tank",
+  "text": "Pool: tank\nVdev: da1\nChecksum Errors: 3\nPath: /dev/da1\nVdev State: DEGRADED",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Checksum Error: tank
+nc -u -w1 localhost 8125
+  data: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
+--- exit 0
+=== ereport.fs.zfs.io-datadog.sh (ereport.fs.zfs.io)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS I/O Error: tank",
+  "text": "Pool: tank\nVdev: da1\nRead Errors: 1\nWrite Errors: 2\nPath: /dev/da1\nVdev State: DEGRADED",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS I/O Error: tank
+nc -u -w1 localhost 8125
+  data: zfs.io.error:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.error:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.io.read_errors:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.read_errors:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.io.write_errors:2|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.write_errors:2|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [ERROR] I/O error detected: tank - da1 - R:1 W:2
+--- exit 0
+=== checksum-error.sh (ereport.fs.zfs.checksum)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS Checksum Error: tank",
+  "text": "Pool: tank\nVdev: da1\nChecksum Errors: 3\nPath: /dev/da1\nVdev State: DEGRADED",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Checksum Error: tank
+nc -u -w1 localhost 8125
+  data: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
+--- exit 0
+=== io-error.sh (ereport.fs.zfs.io)
+curl argc=12
+  arg: -s
+  arg: -m
+  arg: 10
+  arg: -X
+  arg: POST
+  arg: https://api.datadoghq.com/api/v1/events
+  arg: -H
+  arg: Content-Type: application/json
+  arg: -H
+  arg: DD-API-KEY: stub-key-for-tests
+  arg: -d
+  arg: {
+  "title": "ZFS I/O Error: tank",
+  "text": "Pool: tank\nVdev: da1\nRead Errors: 1\nWrite Errors: 2\nPath: /dev/da1\nVdev State: DEGRADED",
+  "priority": "normal",
+  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
+  "alert_type": "error",
+  "source_type_name": "zfs",
+  "host": "zfs-test-host"
+}
+logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS I/O Error: tank
+nc -u -w1 localhost 8125
+  data: zfs.io.error:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.error:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.io.read_errors:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.read_errors:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+nc -u -w1 localhost 8125
+  data: zfs.io.write_errors:2|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.write_errors:2|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+logger -t zfs-datadog [ERROR] I/O error detected: tank - da1 - R:1 W:2
+--- exit 0

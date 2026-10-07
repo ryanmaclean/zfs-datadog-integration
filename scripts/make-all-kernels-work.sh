@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: local
 #
 # MAKE ALL ARM64 LIMA BUILDS WORK WITH CUSTOM KERNELS
 # No excuses - everything must work
@@ -17,7 +18,7 @@ build_kernel_in_vm() {
     
     case $OS_TYPE in
         "linux")
-            limactl shell $VM -- sudo bash -c '
+            remote_script=$(cat <<'REMOTE_SCRIPT'
                 apt-get update
                 apt-get install -y build-essential bc bison flex libssl-dev libelf-dev git
                 cd /usr/src
@@ -34,26 +35,30 @@ build_kernel_in_vm() {
                 cp arch/arm64/boot/Image /boot/vmlinuz-m-series
                 update-grub
                 echo "✓ Kernel installed"
-            '
+REMOTE_SCRIPT
+            )
+            limactl shell "$VM" -- sudo bash -c "$remote_script"
             ;;
         "freebsd")
-            limactl shell $VM -- sudo sh -c '
+            remote_script=$(cat <<'REMOTE_SCRIPT'
                 pkg install -y git
                 cd /usr/src
                 [ ! -d .git ] && git clone --depth 1 --branch releng/14.2 https://git.freebsd.org/src.git .
                 make -j$(sysctl -n hw.ncpu) buildkernel KERNCONF=GENERIC
                 make installkernel KERNCONF=GENERIC
                 echo "✓ FreeBSD kernel installed"
-            '
+REMOTE_SCRIPT
+            )
+            limactl shell "$VM" -- sudo sh -c "$remote_script"
             ;;
     esac
     
     echo "[$VM] Rebooting..."
-    limactl shell $VM -- sudo reboot || true
+    limactl shell "$VM" -- sudo reboot || true
     sleep 30
     
     echo "[$VM] Verifying..."
-    limactl shell $VM -- uname -r
+    limactl shell "$VM" -- uname -r
 }
 
 # 1. Linux VMs

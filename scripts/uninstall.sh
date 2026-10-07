@@ -5,10 +5,10 @@
 set -e
 
 # Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+NC=$(printf '\033[0m') # No Color
 
 # Default values
 DRY_RUN=0
@@ -28,7 +28,7 @@ while [ $# -gt 0 ]; do
             VERBOSE=1
             ;;
         -h|--help)
-            cat << EOF
+            cat << EOF2
 Usage: $0 [OPTIONS]
 
 Uninstall ZFS Datadog Integration zedlets.
@@ -48,11 +48,11 @@ EXAMPLES:
 
     # Preview what would be removed
     sudo $0 --dry-run
-EOF
+EOF2
             exit 0
             ;;
         *)
-            printf "${RED}Unknown option: $1${NC}\n" >&2
+            printf '%sUnknown option: %s%s\n' "$RED" "$1" "$NC" >&2
             exit 1
             ;;
     esac
@@ -61,8 +61,8 @@ done
 
 # Check if running as root
 if [ "$(id -u)" -ne 0 ] && [ "$DRY_RUN" -eq 0 ]; then
-    printf "${RED}Error: This script must be run as root${NC}\n" >&2
-    printf "Try: sudo $0\n" >&2
+    printf '%sError: This script must be run as root%s\n' "$RED" "$NC" >&2
+    printf 'Try: sudo %s\n' "$0" >&2
     exit 1
 fi
 
@@ -84,11 +84,11 @@ case "$OS_TYPE" in
         ;;
 esac
 
-printf "${GREEN}ZFS Datadog Integration Uninstaller${NC}\n"
-printf "=====================================\n\n"
+printf '%sZFS Datadog Integration Uninstaller%s\n' "$GREEN" "$NC"
+printf '=====================================\n\n'
 
 if [ "$DRY_RUN" -eq 1 ]; then
-    printf "${YELLOW}DRY RUN MODE - No files will be removed${NC}\n\n"
+    printf '%sDRY RUN MODE - No files will be removed%s\n\n' "$YELLOW" "$NC"
 fi
 
 # List of zedlet files to remove
@@ -112,79 +112,79 @@ config.sh
 FILES_TO_REMOVE=0
 FILES_REMOVED=0
 
-printf "Checking for installed files...\n\n"
+printf 'Checking for installed files...\n\n'
 
 # Remove zedlets
-printf "Zedlet Scripts:\n"
+printf 'Zedlet Scripts:\n'
 for file in $ZEDLET_FILES; do
     filepath="$ZED_DIR/$file"
     if [ -f "$filepath" ] || [ -L "$filepath" ]; then
         FILES_TO_REMOVE=$((FILES_TO_REMOVE + 1))
         if [ "$VERBOSE" -eq 1 ] || [ "$DRY_RUN" -eq 1 ]; then
-            printf "  - $filepath\n"
+            printf '  - %s\n' "$filepath"
         fi
         if [ "$DRY_RUN" -eq 0 ]; then
             rm -f "$filepath"
             FILES_REMOVED=$((FILES_REMOVED + 1))
-            [ "$VERBOSE" -eq 1 ] && printf "    ${GREEN}✓ Removed${NC}\n"
+            [ "$VERBOSE" -eq 1 ] && printf '    %s✓ Removed%s\n' "$GREEN" "$NC"
         fi
     fi
 done
 
 # Remove config files (unless --keep-config)
 if [ "$KEEP_CONFIG" -eq 0 ]; then
-    printf "\nConfiguration Files:\n"
+    printf '\nConfiguration Files:\n'
     for file in $CONFIG_FILES; do
         filepath="$ZED_DIR/$file"
         if [ -f "$filepath" ]; then
             FILES_TO_REMOVE=$((FILES_TO_REMOVE + 1))
             if [ "$VERBOSE" -eq 1 ] || [ "$DRY_RUN" -eq 1 ]; then
-                printf "  - $filepath\n"
+                printf '  - %s\n' "$filepath"
             fi
             if [ "$DRY_RUN" -eq 0 ]; then
                 rm -f "$filepath"
                 FILES_REMOVED=$((FILES_REMOVED + 1))
-                [ "$VERBOSE" -eq 1 ] && printf "    ${GREEN}✓ Removed${NC}\n"
+                [ "$VERBOSE" -eq 1 ] && printf '    %s✓ Removed%s\n' "$GREEN" "$NC"
             fi
         fi
     done
 else
-    printf "\n${YELLOW}Keeping configuration files (--keep-config)${NC}\n"
+    printf '\n%sKeeping configuration files (--keep-config)%s\n' "$YELLOW" "$NC"
 fi
 
 # Summary
-printf "\n"
+printf '\n'
 if [ "$DRY_RUN" -eq 1 ]; then
-    printf "${YELLOW}Summary (Dry Run):${NC}\n"
-    printf "  Would remove: $FILES_TO_REMOVE file(s)\n"
+    printf '%sSummary (Dry Run):%s\n' "$YELLOW" "$NC"
+    printf '  Would remove: %s file(s)\n' "$FILES_TO_REMOVE"
 else
-    printf "${GREEN}Summary:${NC}\n"
-    printf "  Removed: $FILES_REMOVED file(s)\n"
-    
+    printf '%sSummary:%s\n' "$GREEN" "$NC"
+    printf '  Removed: %s file(s)\n' "$FILES_REMOVED"
+
     if [ "$FILES_REMOVED" -eq 0 ]; then
-        printf "\n${YELLOW}No files were found to remove.${NC}\n"
-        printf "ZFS Datadog Integration may not be installed.\n"
+        printf '\n%sNo files were found to remove.%s\n' "$YELLOW" "$NC"
+        printf 'ZFS Datadog Integration may not be installed.\n'
     else
-        printf "\n${GREEN}✓ Uninstallation complete!${NC}\n\n"
-        
+        printf '\n%s✓ Uninstallation complete!%s\n\n' "$GREEN" "$NC"
+
         # Restart ZED if files were removed
-        printf "Restarting ZFS Event Daemon...\n"
+        printf 'Restarting ZFS Event Daemon...\n'
         case "$OS_TYPE" in
             freebsd|truenas)
-                service zfs restart 2>/dev/null || printf "${YELLOW}Note: Could not restart ZED automatically${NC}\n"
+                service zfs restart 2>/dev/null || printf '%sNote: Could not restart ZED automatically%s\n' "$YELLOW" "$NC"
                 ;;
             *)
                 systemctl restart zfs-zed 2>/dev/null || \
                 service zfs-zed restart 2>/dev/null || \
-                printf "${YELLOW}Note: Could not restart ZED automatically${NC}\n"
+                printf '%sNote: Could not restart ZED automatically%s\n' "$YELLOW" "$NC"
                 ;;
         esac
-        
-        printf "\n${GREEN}ZFS Event Daemon restarted${NC}\n"
-        printf "\nDatadog events will no longer be sent for ZFS events.\n"
-        
+
+        printf '\n%sZFS Event Daemon restarted%s\n' "$GREEN" "$NC"
+        printf '\nDatadog events will no longer be sent for ZFS events.\n'
+
         if [ "$KEEP_CONFIG" -eq 1 ]; then
-            printf "\n${YELLOW}Configuration preserved for future reinstall.${NC}\n"
+            printf '\n%sConfiguration preserved for future reinstall.%s\n' "$YELLOW" "$NC"
         fi
     fi
 fi

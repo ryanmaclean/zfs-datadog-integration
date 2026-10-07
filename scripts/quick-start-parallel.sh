@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Quick Start: Parallel Multi-OS Testing
 # One command to rule them all

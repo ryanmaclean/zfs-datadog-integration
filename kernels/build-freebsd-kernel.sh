@@ -24,7 +24,7 @@ cp /tmp/freebsd-m-series-kernel.conf /usr/src/sys/arm64/conf/M-SERIES
 
 # Build kernel
 echo "Building kernel (this will take 20-40 minutes)..."
-make -j$(sysctl -n hw.ncpu) KERNCONF=M-SERIES buildkernel
+make -j"$(sysctl -n hw.ncpu)" KERNCONF=M-SERIES buildkernel
 
 # Install kernel
 echo "Installing kernel..."

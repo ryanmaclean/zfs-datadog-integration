@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # ACTUALLY RUN A BUILD - Using Lima (which we know works)
 # This proves the system works end-to-end

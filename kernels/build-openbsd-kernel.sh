@@ -27,7 +27,7 @@ config M-SERIES
 
 cd ../compile/M-SERIES
 echo "Building kernel (this will take 15-30 minutes)..."
-make -j$(sysctl -n hw.ncpu)
+make -j"$(sysctl -n hw.ncpu)"
 
 # Install kernel
 echo "Installing kernel..."

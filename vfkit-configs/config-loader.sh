@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: source, local
 #
 # Configuration loader for vfkit VMs
 # Sources .env if it exists, otherwise uses defaults
@@ -12,9 +13,11 @@ DEFAULT_WARN_FREE_SPACE_GB=50
 
 # Load .env if it exists
 if [ -f "$(dirname "$0")/../.env" ]; then
+    # shellcheck source=../.env.example  # untracked .env is created from this template
     source "$(dirname "$0")/../.env"
     echo "✓ Loaded configuration from .env"
 elif [ -f "$HOME/.vfkit.env" ]; then
+    # shellcheck source=../.env.example  # ~/.vfkit.env takes the same variables as .env.example
     source "$HOME/.vfkit.env"
     echo "✓ Loaded configuration from ~/.vfkit.env"
 fi
@@ -45,7 +48,8 @@ mkdir -p "$DOWNLOAD_CACHE_DIR"
 # Check disk space
 check_disk_space() {
     local path="$1"
-    local available_gb=$(df -BG "$path" | tail -1 | awk '{print $4}' | sed 's/G//')
+    local available_gb
+    available_gb=$(df -BG "$path" | tail -1 | awk '{print $4}' | sed 's/G//')
     
     if [ "$available_gb" -lt "$MIN_FREE_SPACE_GB" ]; then
         echo "❌ ERROR: Only ${available_gb}GB free on $path"

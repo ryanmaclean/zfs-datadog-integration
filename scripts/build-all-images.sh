@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>, declare, arrays, local, export -f, here-strings
 #
 # Parallel Image Building with Packer
 # Builds golden images for all 11 OSes simultaneously
@@ -10,11 +11,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAX_PARALLEL=${MAX_PARALLEL:-4}  # Adjust based on CPU cores
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+RED=$(printf '\033[0;31m')
+CYAN=$(printf '\033[0;36m')
+NC=$(printf '\033[0m')
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
@@ -68,15 +69,18 @@ build_image() {
     fi
     
     echo "🔨 Building $os_name..." | tee -a "$log_file"
-    local start_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
     
     if packer build "$template" >> "$log_file" 2>&1; then
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         echo "✓ $os_name: SUCCESS (${duration}s)" | tee -a "$log_file"
         return 0
     else
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         echo "✗ $os_name: FAILED (${duration}s)" | tee -a "$log_file"
         return 1
@@ -97,10 +101,13 @@ elif command -v xargs &> /dev/null; then
     log_info "Using xargs for parallel builds"
     
     # Build using xargs
-    printf '%s\n' "${BUILDS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
-        IFS=: read -r name template <<< "{}"
-        build_image "$name" "$template"
-    '
+    # The item is passed as $1, never spliced into the code string.
+    xargs_worker=$(cat <<'XARGS_WORKER'
+IFS=: read -r name template <<< "$1"
+build_image "$name" "$template"
+XARGS_WORKER
+    )
+    printf '%s\n' "${BUILDS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c "$xargs_worker" _ {}
 else
     log_info "No parallel tool found, building sequentially"
     

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, arrays, echo flags, &>
 #
 # QEMU-based FreeBSD Testing
 # Downloads and runs FreeBSD 14.2 in QEMU for zedlet testing
@@ -7,7 +8,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VM_NAME="freebsd"
 
 # Determine architecture
 # Use x86_64 for better compatibility (works on both ARM64 and x86_64)
@@ -17,14 +17,14 @@ QCOW_FILE="${SCRIPT_DIR}/freebsd-amd64.qcow2"
 QEMU_CMD="qemu-system-x86_64"
 QEMU_MACHINE="q35"
 QEMU_CPU="max"  # Use 'max' for emulation compatibility
-QEMU_BIOS=""
+QEMU_BIOS=()  # optional extra args, e.g. (-bios /path/to/firmware.fd); empty adds nothing
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+BLUE=$(printf '\033[0;34m')
+NC=$(printf '\033[0m')
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
@@ -120,7 +120,7 @@ $QEMU_CMD \
     -accel hvf \
     -machine $QEMU_MACHINE \
     -cpu $QEMU_CPU \
-    $QEMU_BIOS \
+    "${QEMU_BIOS[@]}" \
     -smp 2 \
     -m 4G \
     -drive file="$QCOW_FILE",if=virtio,format=qcow2 \

@@ -6,9 +6,9 @@
 
 set -e
 
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-NC='\033[0m'
+CYAN=$(printf '\033[0;36m')
+GREEN=$(printf '\033[0;32m')
+NC=$(printf '\033[0m')
 
 echo "${CYAN}═══════════════════════════════════════${NC}"
 echo "${CYAN}OpenBSD M-series Custom ISO Builder${NC}"
@@ -72,3 +72,9 @@ EOF
 
 echo "${CYAN}[3/4] Creating ISO...${NC}"
 # Create ISO with auto-install
+
+cd "$WORK_DIR"
+makefs -t cd9660 -o rockridge "$ISO_NAME" rootfs/
+
+echo "${GREEN}✓ ISO created: $ISO_NAME${NC}"
+echo "  Size: $(du -h "$ISO_NAME" | cut -f1)"

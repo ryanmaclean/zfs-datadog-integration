@@ -6,11 +6,11 @@
 
 set -e
 
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-MAGENTA='\033[0;35m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+CYAN=$(printf '\033[0;36m')
+YELLOW=$(printf '\033[1;33m')
+MAGENTA=$(printf '\033[0;35m')
+NC=$(printf '\033[0m')
 
 echo "${MAGENTA}╔══════════════════════════════════════════╗${NC}"
 echo "${MAGENTA}║  EXTRACT & PUBLISH TO GITHUB            ║${NC}"
@@ -111,7 +111,7 @@ echo ""
 echo "${CYAN}Creating checksums...${NC}"
 
 cd "$ARTIFACTS_DIR"
-shasum -a 256 *.tar.gz > SHA256SUMS 2>/dev/null || echo "# No tarballs found" > SHA256SUMS
+shasum -a 256 ./*.tar.gz > SHA256SUMS 2>/dev/null || echo "# No tarballs found" > SHA256SUMS
 cd ..
 
 echo "${GREEN}✓ Checksums created${NC}"
@@ -198,7 +198,7 @@ EOF
     gh release create v1.0.0-m-series-kernels \
         --title "M-series Optimized Kernels" \
         --notes-file RELEASE_NOTES.md \
-        *.tar.gz SHA256SUMS || {
+        ./*.tar.gz SHA256SUMS || {
         echo "${YELLOW}Release creation failed, try manually${NC}"
     }
     

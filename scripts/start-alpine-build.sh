@@ -5,10 +5,10 @@
 
 set -e
 
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+CYAN=$(printf '\033[0;36m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+NC=$(printf '\033[0m')
 
 VM_NAME="alpine-kernel-build"
 

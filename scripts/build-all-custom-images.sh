@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build ALL custom images for M-series
 # Arch, Gentoo, NetBSD, OpenBSD
@@ -6,12 +6,11 @@
 
 set -e
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+CYAN=$(printf '\033[0;36m')
+MAGENTA=$(printf '\033[0;35m')
+NC=$(printf '\033[0m')
 
 echo "${MAGENTA}╔══════════════════════════════════════════╗${NC}"
 echo "${MAGENTA}║  BUILD ALL CUSTOM M-SERIES IMAGES       ║${NC}"
@@ -35,7 +34,9 @@ echo "${CYAN}╚═════════════════════�
 echo ""
 
 echo "${CYAN}Starting Arch build in background...${NC}"
-sudo ./iso-builds/build-arch-m-series-iso.sh > "$BUILD_DIR/arch-build.log" 2>&1 &
+# The log is opened by this (unprivileged) shell, so it stays user-owned;
+# only the build itself runs under sudo.
+{ sudo ./iso-builds/build-arch-m-series-iso.sh; } > "$BUILD_DIR/arch-build.log" 2>&1 &
 ARCH_PID=$!
 echo "${GREEN}✓ Arch build started (PID: $ARCH_PID)${NC}"
 BUILDS_STARTED=$((BUILDS_STARTED + 1))
@@ -52,7 +53,9 @@ echo ""
 
 echo "${CYAN}Starting Gentoo build in background...${NC}"
 echo "${YELLOW}Note: This takes 2-3 hours (compiling everything)${NC}"
-sudo ./iso-builds/build-gentoo-m-series-iso.sh > "$BUILD_DIR/gentoo-build.log" 2>&1 &
+# The log is opened by this (unprivileged) shell, so it stays user-owned;
+# only the build itself runs under sudo.
+{ sudo ./iso-builds/build-gentoo-m-series-iso.sh; } > "$BUILD_DIR/gentoo-build.log" 2>&1 &
 GENTOO_PID=$!
 echo "${GREEN}✓ Gentoo build started (PID: $GENTOO_PID)${NC}"
 BUILDS_STARTED=$((BUILDS_STARTED + 1))
@@ -68,7 +71,9 @@ echo "${CYAN}╚═════════════════════�
 echo ""
 
 echo "${CYAN}Starting NetBSD build in background...${NC}"
-sudo ./iso-builds/build-netbsd-m-series-iso.sh > "$BUILD_DIR/netbsd-build.log" 2>&1 &
+# The log is opened by this (unprivileged) shell, so it stays user-owned;
+# only the build itself runs under sudo.
+{ sudo ./iso-builds/build-netbsd-m-series-iso.sh; } > "$BUILD_DIR/netbsd-build.log" 2>&1 &
 NETBSD_PID=$!
 echo "${GREEN}✓ NetBSD build started (PID: $NETBSD_PID)${NC}"
 BUILDS_STARTED=$((BUILDS_STARTED + 1))
@@ -84,7 +89,9 @@ echo "${CYAN}╚═════════════════════�
 echo ""
 
 echo "${CYAN}Starting OpenBSD build in background...${NC}"
-sudo ./iso-builds/build-openbsd-m-series-iso.sh > "$BUILD_DIR/openbsd-build.log" 2>&1 &
+# The log is opened by this (unprivileged) shell, so it stays user-owned;
+# only the build itself runs under sudo.
+{ sudo ./iso-builds/build-openbsd-m-series-iso.sh; } > "$BUILD_DIR/openbsd-build.log" 2>&1 &
 OPENBSD_PID=$!
 echo "${GREEN}✓ OpenBSD build started (PID: $OPENBSD_PID)${NC}"
 BUILDS_STARTED=$((BUILDS_STARTED + 1))

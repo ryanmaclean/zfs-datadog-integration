@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, declare, local, indirect expansion, array key expansion
 #
 # Automated Multi-OS Testing Orchestrator
 # Tests ZFS Datadog integration across all 11 operating systems
@@ -13,12 +14,12 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 mkdir -p "$RESULTS_DIR"
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+BLUE=$(printf '\033[0;34m')
+CYAN=$(printf '\033[0;36m')
+NC=$(printf '\033[0m')
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
@@ -37,16 +38,19 @@ test_os() {
     
     log_section "Testing $os_name"
     
-    local start_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
     
     if eval "$test_command" > "$result_file" 2>&1; then
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         TEST_RESULTS[$os_name]="PASS"
         TEST_TIMES[$os_name]=$duration
         log_success "$os_name: PASSED (${duration}s)"
     else
-        local end_time=$(date +%s)
+        local end_time
+        end_time=$(date +%s)
         local duration=$((end_time - start_time))
         TEST_RESULTS[$os_name]="FAIL"
         TEST_TIMES[$os_name]=$duration

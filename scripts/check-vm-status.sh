@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Check VM Status and Provide Next Steps
 #
@@ -8,7 +8,7 @@ echo "==============="
 echo ""
 
 # Check for running QEMU processes
-QEMU_PROCS=$(ps aux | grep qemu-system | grep -v grep)
+QEMU_PROCS=$(pgrep -fl qemu-system 2>/dev/null || true)
 
 if [ -z "$QEMU_PROCS" ]; then
     echo "Status: No VMs running"
@@ -18,7 +18,7 @@ if [ -z "$QEMU_PROCS" ]; then
     echo "  ./qemu-truenas-core.sh"
 else
     echo "Running VMs:"
-    echo "$QEMU_PROCS" | awk '{print "  PID " $2 ": " $NF}'
+    echo "$QEMU_PROCS" | awk '{print "  PID " $1 ": " $NF}'
     echo ""
 fi
 
@@ -27,7 +27,7 @@ echo "SSH Connectivity:"
 echo ""
 
 # TrueNAS SCALE
-echo -n "  TrueNAS SCALE (port 2222): "
+printf '%s' "  TrueNAS SCALE (port 2222): "
 if nc -z -w 1 localhost 2222 2>/dev/null; then
     if ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 2222 root@localhost "echo test" 2>/dev/null; then
         echo "✓ Ready"
@@ -40,7 +40,7 @@ else
 fi
 
 # TrueNAS CORE
-echo -n "  TrueNAS CORE (port 2223): "
+printf '%s' "  TrueNAS CORE (port 2223): "
 if nc -z -w 1 localhost 2223 2>/dev/null; then
     if ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 2223 root@localhost "echo test" 2>/dev/null; then
         echo "✓ Ready"
@@ -60,12 +60,12 @@ echo ""
 
 # Check for downloaded images
 echo "Downloaded Images:"
-ls -lh truenas*.iso 2>/dev/null | awk '{print "  " $9 " - " $5}' || echo "  None"
+find . -maxdepth 1 -name 'truenas*.iso' -exec ls -lh {} \; 2>/dev/null | awk '{print "  " $9 " - " $5}' || echo "  None"
 echo ""
 
 # Check for disk images
 echo "VM Disks:"
-ls -lh truenas*.qcow2 2>/dev/null | awk '{print "  " $9 " - " $5}' || echo "  None"
+find . -maxdepth 1 -name 'truenas*.qcow2' -exec ls -lh {} \; 2>/dev/null | awk '{print "  " $9 " - " $5}' || echo "  None"
 echo ""
 
 echo "Next Steps:"

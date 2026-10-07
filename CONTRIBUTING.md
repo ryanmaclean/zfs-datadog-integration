@@ -72,13 +72,12 @@ brew install shellcheck
 ### Testing Your Changes
 
 ```bash
-# Syntax check all scripts
-shellcheck scripts/*.sh
+# Lint every shell script in the repo (sourced files are followed via
+# .shellcheckrc; CI uses ShellCheck v0.11.0 and allows no suppressions)
+.github/scripts/shell-scripts.sh | tr '\n' '\0' | xargs -0 shellcheck
 
-# POSIX compliance check
-for script in scripts/*.sh; do
-  sh -n "$script"
-done
+# Shebang policy: #!/bin/sh unless bash is genuinely required
+.github/scripts/check-shebangs.sh
 
 # Test with mock Datadog server
 python3 mock-datadog-server.py &
@@ -137,6 +136,30 @@ export DD_API_URL="http://localhost:8080"
 - Quote variables: `"$var"` not `$var`
 - Use descriptive variable names
 - Add error checking
+- Fix ShellCheck findings instead of adding `# shellcheck disable=`. For
+  files that are sourced at runtime from a computed path, rely on
+  `.shellcheckrc` (`source-path=SCRIPTDIR`) or add a
+  `# shellcheck source=<path>` directive pointing at the file (or at its
+  tracked template, e.g. `../.env.local.example`).
+- Never splice local values into code that another shell will parse
+  (`ssh host "cmd $var"`, `bash -c '... {} ...'`). Pass the script as a
+  quoted heredoc and the values as positional parameters, or quote each
+  word with `printf %q` (bash) on the local side. Secrets go over stdin,
+  never on a command line.
+
+#### Shebangs
+
+Every shell script must start with one of exactly two shebangs (enforced by
+`.github/scripts/check-shebangs.sh` in CI):
+
+- `#!/bin/sh` — the default. ShellCheck then rejects bash-only syntax. All
+  zedlets, `zfs-datadog-lib.sh`, `config.sh` and the installer scripts must
+  be POSIX sh, because ZED runs them with the system `/bin/sh` (FreeBSD sh,
+  dash, busybox ash), and none of those may rely on `local`.
+- `#!/usr/bin/env bash` — only when bash is genuinely needed (arrays,
+  `[[ =~ ]]`, `read -p`, `BASH_SOURCE`, `export -f`, `printf %q`, ...). Line 2
+  must say why, e.g. `# bash-required: arrays, export -f`. CI fails a bash
+  script that uses no bash-only features, so convert those to `#!/bin/sh`.
 
 ### Good Example
 

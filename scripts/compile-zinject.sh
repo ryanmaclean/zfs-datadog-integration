@@ -39,7 +39,7 @@ apt-get install -y \
     libelf-dev \
     libtirpc-dev \
     pkg-config \
-    linux-headers-$(uname -r) \
+    linux-headers-"$(uname -r)" \
     python3 \
     python3-dev \
     python3-setuptools \
@@ -66,7 +66,7 @@ echo "Configuring OpenZFS with debug support (includes zinject)..."
 
 echo ""
 echo "Compiling OpenZFS (this may take 15-30 minutes)..."
-make -j$(nproc)
+make -j"$(nproc)"
 
 echo ""
 echo "Installing OpenZFS..."

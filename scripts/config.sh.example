@@ -9,7 +9,7 @@
 
 # Datadog API Configuration
 # Get your API key from: https://app.datadoghq.com/organization-settings/api-keys
-DD_API_KEY="your_api_key_here"
+DD_API_KEY="${DD_API_KEY:-your_api_key_here}"
 
 # Datadog Site (default: datadoghq.com)
 # For EU: datadoghq.eu

@@ -1,15 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, read -p
 #
 # Test BSD Kernel Builds and VMs
 #
 
 set -e
 
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+YELLOW=$(printf '\033[1;33m')
+RED=$(printf '\033[0;31m')
+NC=$(printf '\033[0m')
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  BSD Kernel Build & VM Test Suite                     ║${NC}"
@@ -40,7 +41,7 @@ echo "4. Set up FreeBSD kernel build"
 echo "5. Test BSD support in ML extension"
 echo "6. All of the above"
 echo ""
-read -p "Choice (1-6): " CHOICE
+read -r -p "Choice (1-6): " CHOICE
 
 case $CHOICE in
     1|6)

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: local
 #
 # Fix failed builds by accessing VMs directly (bypassing SSH)
 #
@@ -14,7 +15,7 @@ fix_build() {
     echo "[${VM}] Trying direct approach..."
     
     # Create build script locally
-    cat > /tmp/build-kernel-${VM}.sh << 'EOF'
+    cat > /tmp/build-kernel-"${VM}".sh << 'EOF'
 #!/bin/bash
 set -e
 cd /usr/src
@@ -35,10 +36,10 @@ echo "DONE"
 EOF
     
     # Copy script to VM
-    limactl copy /tmp/build-kernel-${VM}.sh ${VM}:/tmp/build.sh
+    limactl copy /tmp/build-kernel-"${VM}".sh "${VM}":/tmp/build.sh
     
     # Execute via limactl (not shell, direct exec)
-    limactl shell ${VM} sudo bash /tmp/build.sh > build-logs-serial/${VM}.log 2>&1 &
+    limactl shell "${VM}" sudo bash /tmp/build.sh > build-logs-serial/"${VM}".log 2>&1 &
     
     echo "[${VM}] Build started via direct copy+exec"
 }

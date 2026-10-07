@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: printf %q
 #
 # Setup VMs on ZFS Pool for Multi-OS Testing
 # Target: i9-zfs-pop.local with tank3 ZFS pool
@@ -8,56 +9,80 @@ set -e
 
 REMOTE_HOST="i9-zfs-pop.local"
 REMOTE_USER="studio"
+REMOTE="${REMOTE_USER}@${REMOTE_HOST}"
 ZFS_POOL="tank3"
 VM_DATASET="${ZFS_POOL}/vms"
 VM_PATH="/tank3/vms"
+
+# Run one command on the remote host. ssh joins its arguments into a single
+# string that the remote shell re-parses, so every word is quoted locally
+# with printf %q: the remote side sees exactly these words, with no word
+# splitting, globbing or injection from the values. '--' stops ssh from
+# treating a leading '-' in the command as one of its own options.
+# %q renders newlines as bash $'...' quoting, so the remote login shell
+# must be bash/zsh/ksh93 (it is bash on this Linux target).
+remote() {
+    ssh "$REMOTE" -- "$(printf '%q ' "$@")"
+}
+
+# Same, with a tty (sudo may need to prompt for a password).
+remote_tty() {
+    ssh -t "$REMOTE" -- "$(printf '%q ' "$@")"
+}
 
 echo "========================================"
 echo "🖥️  Multi-OS VM Setup on ZFS"
 echo "========================================"
 echo ""
-echo "Target: ${REMOTE_USER}@${REMOTE_HOST}"
+echo "Target: ${REMOTE}"
 echo "ZFS Pool: ${ZFS_POOL}"
 echo "VM Storage: ${VM_DATASET}"
 echo ""
 
-# Install virtualization tools
+# Install virtualization tools. The script is a quoted heredoc (nothing
+# expands locally); the user to add to the libvirt/kvm groups is passed as $1.
 echo "Step 1: Installing virtualization tools..."
-ssh -t ${REMOTE_USER}@${REMOTE_HOST} "sudo bash -c '
+install_script=$(cat <<'INSTALL'
 apt-get update -qq
 apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager virtinst
 systemctl enable --now libvirtd
-usermod -aG libvirt,kvm ${REMOTE_USER}
-'"
+usermod -aG libvirt,kvm "$1"
+INSTALL
+)
+remote_tty sudo bash -c "$install_script" _ "$REMOTE_USER"
 
 # Create ZFS dataset for VMs
 echo ""
 echo "Step 2: Creating ZFS dataset for VMs..."
-ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo zfs create -o mountpoint=${VM_PATH} ${VM_DATASET} 2>/dev/null || echo 'Dataset may already exist'"
-ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo chown -R ${REMOTE_USER}:${REMOTE_USER} ${VM_PATH}"
+remote sudo zfs create -o "mountpoint=${VM_PATH}" "$VM_DATASET" 2>/dev/null || echo 'Dataset may already exist'
+remote sudo chown -R "${REMOTE_USER}:${REMOTE_USER}" "$VM_PATH"
 
 # Configure libvirt to use ZFS storage
 echo ""
 echo "Step 3: Configuring libvirt storage pool..."
-ssh ${REMOTE_USER}@${REMOTE_HOST} "
-virsh pool-define-as zfs-vms dir --target ${VM_PATH} 2>/dev/null || true
+virsh_script=$(cat <<'VIRSH'
+virsh pool-define-as zfs-vms dir --target "$1" 2>/dev/null || true
 virsh pool-start zfs-vms 2>/dev/null || true
 virsh pool-autostart zfs-vms 2>/dev/null || true
 virsh pool-list
-"
+VIRSH
+)
+remote sh -c "$virsh_script" _ "$VM_PATH"
 
 # Download ISOs to ZFS
 echo ""
 echo "Step 4: Downloading OS ISOs to ZFS storage..."
-ssh ${REMOTE_USER}@${REMOTE_HOST} "mkdir -p ${VM_PATH}/isos"
+remote mkdir -p "${VM_PATH}/isos"
 
 # Copy already downloaded ISOs from Mac
 echo ""
 echo "Step 5: Copying ISOs from local machine..."
-scp truenas-scale.iso truenas-core.iso ${REMOTE_USER}@${REMOTE_HOST}:${VM_PATH}/isos/ 2>/dev/null || echo "ISOs not found locally, will download on remote"
+scp truenas-scale.iso truenas-core.iso "${REMOTE}:${VM_PATH}/isos/" 2>/dev/null || echo "ISOs not found locally, will download on remote"
 
-# Download remaining ISOs on remote
-ssh ${REMOTE_USER}@${REMOTE_HOST} "cd ${VM_PATH}/isos && bash" <<'DOWNLOAD_ISOS'
+# Download remaining ISOs on remote. The script arrives on stdin; the ISO
+# directory is passed as positional parameter $1.
+remote bash -s -- "${VM_PATH}/isos" <<'DOWNLOAD_ISOS'
+cd -- "$1" || exit 1
 # FreeBSD
 if [ ! -f FreeBSD-14.3-RELEASE-amd64-disc1.iso ]; then
     echo "Downloading FreeBSD..."
@@ -90,7 +115,7 @@ echo ""
 echo "Step 6: Creating VM definitions..."
 
 # Create VM creation script on remote
-ssh ${REMOTE_USER}@${REMOTE_HOST} "cat > ${VM_PATH}/create-vms.sh" <<'CREATE_VMS'
+remote tee "${VM_PATH}/create-vms.sh" >/dev/null <<'CREATE_VMS'
 #!/bin/bash
 VM_PATH="/tank3/vms"
 ISO_PATH="${VM_PATH}/isos"
@@ -171,7 +196,7 @@ echo "VMs created. List:"
 virsh list --all
 CREATE_VMS
 
-ssh ${REMOTE_USER}@${REMOTE_HOST} "chmod +x ${VM_PATH}/create-vms.sh"
+remote chmod +x "${VM_PATH}/create-vms.sh"
 
 echo ""
 echo "========================================"
@@ -188,4 +213,4 @@ echo ""
 echo "VM storage location: ${VM_PATH}"
 echo "All VMs stored on ZFS pool: ${ZFS_POOL}"
 echo ""
-echo "Check VMs: ssh ${REMOTE_USER}@${REMOTE_HOST} 'virsh list --all'"
+echo "Check VMs: ssh ${REMOTE} 'virsh list --all'"

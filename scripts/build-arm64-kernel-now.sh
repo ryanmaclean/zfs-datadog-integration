@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # ACTUALLY BUILD ARM64 KERNEL - For M-series Macs
 # This is the REAL build, not a test

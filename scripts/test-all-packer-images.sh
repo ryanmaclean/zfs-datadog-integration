@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Test all Packer-built images with ZFS + Datadog
 
 REMOTE="studio@i9-zfs-pop.local"

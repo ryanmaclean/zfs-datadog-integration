@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Mount remote ZFS storage from i9-zfs-pop.local
 # For dev environment only - saves local disk space

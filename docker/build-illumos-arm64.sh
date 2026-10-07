@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build illumos ARM64 (OpenSolaris fork)
 # Using richlowe/arm64-gate
@@ -19,7 +19,7 @@ docker build --platform linux/arm64 \
 # Run illumos build
 docker run --platform linux/arm64 \
     --rm \
-    -v $(pwd):/workspace \
+    -v "$(pwd)":/workspace \
     illumos-arm64-builder \
     /bin/bash -c '
 set -e

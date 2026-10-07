@@ -9,6 +9,11 @@ ZED_DIR="$(dirname "$0")"
 . "${ZED_DIR}/zfs-datadog-lib.sh" || exit 1
 . "${ZED_DIR}/config.sh" || exit 1
 
+# zfs-datadog-lib.sh sets HOSTNAME, but restate the POSIX-portable default
+# here so this handler does not depend on HOSTNAME being exported by the
+# caller or by a future version of the sourced library.
+HOSTNAME="${HOSTNAME:-$(hostname)}"
+
 # Build event details
 EVENT_TYPE="pool_import"
 TITLE="ZFS Pool Imported: ${ZEVENT_POOL}"

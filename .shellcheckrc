@@ -1,0 +1,5 @@
+# ShellCheck project config (see https://www.shellcheck.net/wiki/Directive).
+# Resolve `. "$DIR/lib.sh"` and `# shellcheck source=` paths relative to the
+# script being checked, so sourced files are followed instead of skipped.
+source-path=SCRIPTDIR
+external-sources=true

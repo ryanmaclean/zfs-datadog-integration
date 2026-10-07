@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Test all vfkit VM configurations
 # Automated non-interactive testing
@@ -14,13 +14,13 @@ echo ""
 
 # Check prerequisites
 echo "=== Checking Prerequisites ==="
-if ! command -v vfkit &> /dev/null; then
+if ! command -v vfkit > /dev/null 2>&1; then
     echo "❌ vfkit not found. Install with: brew install vfkit"
     exit 1
 fi
 echo "✅ vfkit: $(vfkit --version 2>&1 | head -1)"
 
-if ! command -v qemu-img &> /dev/null; then
+if ! command -v qemu-img > /dev/null 2>&1; then
     echo "❌ qemu-img not found. Install with: brew install qemu"
     exit 1
 fi
@@ -101,7 +101,7 @@ echo "Creating 10GB sparse file..."
 qemu-img create -f qcow2 "$TEST_FILE" 10G
 
 echo "Virtual size:"
-ls -lh "$TEST_FILE" | awk '{print "  " $5}'
+find "$TEST_FILE" -maxdepth 0 -exec ls -lh {} \; | awk '{print "  " $5}'
 
 echo "Actual size:"
 du -h "$TEST_FILE" | awk '{print "  " $1}'

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Universal Esoteric OS Booter
 # Boots unusual operating systems in Lima + QEMU with code-server access
@@ -6,11 +6,11 @@
 
 set -e
 
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+YELLOW=$(printf '\033[1;33m')
+RED=$(printf '\033[0;31m')
+NC=$(printf '\033[0m')
 
 OS_NAME=$1
 ISO_URL=$2
@@ -63,7 +63,7 @@ case "$OS_NAME" in
         CPUS=1
         ;;
     serenity)
-        echo -e "${YELLOW}SerenityOS requires building from source (1-2 hours)${NC}"
+        printf '%b\n' "${YELLOW}SerenityOS requires building from source (1-2 hours)${NC}"
         echo "Use: ./boot-serenity.sh instead"
         exit 1
         ;;
@@ -74,14 +74,14 @@ case "$OS_NAME" in
 esac
 
 if [ -z "$ISO_URL" ]; then
-    echo -e "${RED}Error: ISO URL required${NC}"
+    printf '%b\n' "${RED}Error: ISO URL required${NC}"
     show_usage
     exit 1
 fi
 
-echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Esoteric OS Booter: ${OS_NAME}${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
+printf '%b\n' "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
+printf '%b\n' "${BLUE}║  Esoteric OS Booter: ${OS_NAME}${NC}"
+printf '%b\n' "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo "Configuration:"
 echo "  OS: $OS_NAME"
@@ -92,7 +92,7 @@ echo "  VNC Port: 590${VNC_PORT}"
 echo ""
 
 # Create Lima config
-cat > ${OS_NAME}.yaml <<EOF
+cat > "${OS_NAME}.yaml" <<EOF
 images:
   - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
     arch: "aarch64"
@@ -183,16 +183,16 @@ INNER_EOF
       echo "✓ Configuration complete"
 EOF
 
-echo -e "${BLUE}Starting Lima VM...${NC}"
-limactl start --name=${OS_NAME} ${OS_NAME}.yaml
+printf '%b\n' "${BLUE}Starting Lima VM...${NC}"
+limactl start --name="${OS_NAME}" "${OS_NAME}.yaml"
 
 # Get VM IP
-VM_IP=$(limactl shell ${OS_NAME} hostname -I | awk '{print $1}')
+VM_IP=$(limactl shell "${OS_NAME}" hostname -I | awk '{print $1}')
 
 echo ""
-echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  ${OS_NAME} VM Started!${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
+printf '%b\n' "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
+printf '%b\n' "${BLUE}║  ${OS_NAME} VM Started!${NC}"
+printf '%b\n' "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo "Access:"
 echo "  code-server: http://${VM_IP}:8080"
@@ -209,5 +209,5 @@ echo ""
 echo "Delete VM:"
 echo "  limactl delete ${OS_NAME}"
 echo ""
-echo -e "${GREEN}Ready to boot ${OS_NAME}! 🚀${NC}"
+printf '%b\n' "${GREEN}Ready to boot ${OS_NAME}! 🚀${NC}"
 echo ""

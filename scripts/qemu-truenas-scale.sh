@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, &>, arrays
 #
 # QEMU-based TrueNAS SCALE Testing
 # Downloads and runs TrueNAS SCALE in QEMU for zedlet testing
@@ -7,18 +8,17 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VM_NAME="truenas-scale"
 ISO_URL="https://download.sys.truenas.net/TrueNAS-SCALE-Dragonfish/24.04.2.2/TrueNAS-SCALE-24.04.2.2.iso"
 ISO_FILE="${SCRIPT_DIR}/truenas-scale.iso"
 DISK_IMG="${SCRIPT_DIR}/truenas-scale-disk.qcow2"
 DISK_SIZE="20G"
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+BLUE=$(printf '\033[0;34m')
+NC=$(printf '\033[0m')
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
@@ -37,13 +37,13 @@ if [ "$ARCH" = "arm64" ]; then
     QEMU_CMD="qemu-system-aarch64"
     QEMU_MACHINE="virt,highmem=on"
     QEMU_CPU="host"
-    QEMU_ACCEL="-accel hvf"  # macOS Hypervisor.framework
+    QEMU_ACCEL=(-accel hvf)  # macOS Hypervisor.framework
     log_info "Using ARM64 architecture"
 else
     QEMU_CMD="qemu-system-x86_64"
     QEMU_MACHINE="q35"
     QEMU_CPU="host"
-    QEMU_ACCEL="-accel hvf"
+    QEMU_ACCEL=(-accel hvf)
     log_info "Using x86_64 architecture"
 fi
 
@@ -80,7 +80,7 @@ echo ""
 
 # Run QEMU
 $QEMU_CMD \
-    $QEMU_ACCEL \
+    "${QEMU_ACCEL[@]}" \
     -machine $QEMU_MACHINE \
     -cpu $QEMU_CPU \
     -smp 2 \

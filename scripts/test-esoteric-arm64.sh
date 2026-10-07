@@ -7,13 +7,13 @@
 set -e
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+BLUE=$(printf '\033[0;34m')
+MAGENTA=$(printf '\033[0;35m')
+CYAN=$(printf '\033[0;36m')
+NC=$(printf '\033[0m')
 
 echo "${MAGENTA}╔══════════════════════════════════════════╗${NC}"
 echo "${MAGENTA}║  ESOTERIC ARM64 + ZFS BUILD TESTER      ║${NC}"

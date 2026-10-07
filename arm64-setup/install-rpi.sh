@@ -1,14 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, read -n, [[ ]], =~ regex matching, &>
 #
 # Install code-server on Raspberry Pi (ARM64)
 #
 
 set -e
 
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+YELLOW=$(printf '\033[1;33m')
+NC=$(printf '\033[0m')
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  code-server for Raspberry Pi (ARM64)                 ║${NC}"
@@ -102,7 +103,7 @@ read -r -n 1 ENABLE_SERVICE
 echo ""
 
 if [[ ! $ENABLE_SERVICE =~ ^[Nn]$ ]]; then
-    sudo systemctl enable --now code-server@$USER
+    sudo systemctl enable --now "code-server@$USER"
     echo -e "${GREEN}✓ Service enabled${NC}"
 else
     echo -e "${YELLOW}Service not enabled. Start manually: code-server${NC}"

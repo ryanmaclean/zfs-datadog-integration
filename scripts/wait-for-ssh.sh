@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Wait for SSH to become available on VM
 #
@@ -25,11 +25,11 @@ while true; do
     fi
     
     ELAPSED=$(($(date +%s) - START))
-    if [ $ELAPSED -gt $MAX_WAIT ]; then
+    if [ $ELAPSED -gt "$MAX_WAIT" ]; then
         echo "✗ Timeout waiting for SSH after ${ELAPSED}s"
         exit 1
     fi
     
-    echo -n "."
+    printf '%s' "."
     sleep 5
 done

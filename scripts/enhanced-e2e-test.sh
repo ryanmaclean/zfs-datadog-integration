@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, arrays
 #
 # Enhanced End-to-End Test Suite for ZFS Datadog Integration
 # Comprehensive testing of all event types and error scenarios
@@ -14,11 +15,11 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 export NEXT_TELEMETRY_DISABLED=1
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+BLUE=$(printf '\033[0;34m')
+NC=$(printf '\033[0m')
 
 # Test results tracking
 TESTS_PASSED=0
@@ -475,7 +476,7 @@ echo "  checksum-error.sh: $([ $CHECKSUM_CAPTURED -gt 0 ] && echo '✓ WORKING' 
 echo "  io-error.sh: $([ $IO_CAPTURED -gt 0 ] && echo '✓ WORKING' || echo '✗ NOT TRIGGERED')"
 echo ""
 
-if [ $TESTS_FAILED -eq 0 ] && [ $TOTAL_EVENTS -gt 5 ]; then
+if [ $TESTS_FAILED -eq 0 ] && [ "$TOTAL_EVENTS" -gt 5 ]; then
     log_success "All tests passed! Integration is working correctly."
     exit 0
 else

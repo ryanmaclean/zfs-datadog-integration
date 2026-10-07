@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Build FreeBSD M-series kernel NOW
 # Fresh start, no SSH issues

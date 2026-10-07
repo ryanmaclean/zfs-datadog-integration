@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Automated TrueNAS CORE Testing
 # Deploys and tests POSIX-compatible zedlets on FreeBSD
@@ -6,20 +6,22 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SSH_PORT=2223
 SSH_HOST=localhost
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+# Options shared by every ssh/scp call. POSIX sh has no arrays, so they are
+# spelled out once here and each option stays its own argument.
+tn_ssh() { ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p "$SSH_PORT" "$@"; }
+tn_scp() { scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -P "$SSH_PORT" "$@"; }
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+RED=$(printf '\033[0;31m')
+NC=$(printf '\033[0m')
 
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
-log_error() { echo -e "${RED}[✗]${NC} $1"; }
+log_info() { printf '%b\n' "${BLUE}[INFO]${NC} $1"; }
+log_success() { printf '%b\n' "${GREEN}[✓]${NC} $1"; }
+log_error() { printf '%b\n' "${RED}[✗]${NC} $1"; }
 
 echo "========================================"
 echo "TrueNAS CORE Zedlet Testing"
@@ -38,7 +40,7 @@ echo ""
 
 # Copy zedlets
 log_info "Copying zedlets to TrueNAS CORE..."
-scp $SSH_OPTS -P $SSH_PORT \
+tn_scp \
     zfs-datadog-lib.sh \
     config.sh \
     statechange-datadog.sh \
@@ -55,7 +57,7 @@ echo ""
 
 # Install zedlets
 log_info "Installing zedlets (FreeBSD paths)..."
-ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'INSTALL'
+tn_ssh root@${SSH_HOST} bash <<'INSTALL'
 set -e
 cd /tmp
 
@@ -98,7 +100,7 @@ echo ""
 
 # Start mock Datadog server
 log_info "Starting mock Datadog server..."
-ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'START_MOCK'
+tn_ssh root@${SSH_HOST} bash <<'START_MOCK'
 pkill -f mock-datadog-server.py 2>/dev/null || true
 nohup python3 /tmp/mock-datadog-server.py > /tmp/mock-datadog.log 2>&1 &
 sleep 3
@@ -109,7 +111,7 @@ echo ""
 
 # Create test pool
 log_info "Creating test pool..."
-ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'CREATE_POOL'
+tn_ssh root@${SSH_HOST} bash <<'CREATE_POOL'
 set -e
 
 # Create disk images
@@ -129,7 +131,7 @@ echo ""
 
 # Trigger scrub
 log_info "Triggering scrub event..."
-ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} bash <<'SCRUB'
+tn_ssh root@${SSH_HOST} bash <<'SCRUB'
 zpool scrub testpool
 while zpool status testpool | grep -q "scan: scrub in progress"; do
     sleep 1
@@ -143,11 +145,11 @@ echo ""
 
 # Check results
 log_info "Checking captured events..."
-EVENTS=$(ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.events_received')
+EVENTS=$(tn_ssh root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.events_received')
 
 if [ "$EVENTS" -gt 0 ]; then
     log_success "Events captured: $EVENTS"
-    ssh $SSH_OPTS -p $SSH_PORT root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.'
+    tn_ssh root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.'
 else
     log_error "No events captured"
     exit 1

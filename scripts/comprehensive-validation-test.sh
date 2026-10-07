@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Comprehensive Validation Test Suite
 # Tests: POSIX compatibility, retry logic, error handling, real Datadog integration
@@ -7,15 +7,14 @@
 set -e
 
 VM_NAME="zfs-test"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+BLUE=$(printf '\033[0;34m')
+CYAN=$(printf '\033[0;36m')
+NC=$(printf '\033[0m')
 
 # Test results
 TOTAL_TESTS=0
@@ -23,17 +22,17 @@ PASSED_TESTS=0
 FAILED_TESTS=0
 SKIPPED_TESTS=0
 
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
-log_error() { echo -e "${RED}[✗]${NC} $1"; }
-log_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
-log_test() { echo -e "${CYAN}[TEST]${NC} $1"; }
+log_info() { printf '%b\n' "${BLUE}[INFO]${NC} $1"; }
+log_success() { printf '%b\n' "${GREEN}[✓]${NC} $1"; }
+log_error() { printf '%b\n' "${RED}[✗]${NC} $1"; }
+log_warning() { printf '%b\n' "${YELLOW}[!]${NC} $1"; }
+log_test() { printf '%b\n' "${CYAN}[TEST]${NC} $1"; }
 
 section() {
     echo ""
-    echo -e "${GREEN}======================================================================${NC}"
-    echo -e "${GREEN}$1${NC}"
-    echo -e "${GREEN}======================================================================${NC}"
+    printf '%b\n' "${GREEN}======================================================================${NC}"
+    printf '%b\n' "${GREEN}$1${NC}"
+    printf '%b\n' "${GREEN}======================================================================${NC}"
     echo ""
 }
 
@@ -96,7 +95,7 @@ for script in statechange-datadog.sh scrub_finish-datadog.sh resilver_finish-dat
 done
 
 log_test "1.3: Execute library with /bin/sh"
-limactl shell "$VM_NAME" bash <<'TEST_POSIX'
+if limactl shell "$VM_NAME" bash <<'TEST_POSIX'
 cat > /tmp/test-posix.sh <<'SCRIPT'
 #!/bin/sh
 . /tmp/zfs-datadog-lib.sh
@@ -108,8 +107,7 @@ if sh /tmp/test-posix.sh 2>/dev/null | grep -q "POSIX test"; then
     echo "POSIX_OK"
 fi
 TEST_POSIX
-
-if [ $? -eq 0 ]; then
+then
     test_pass "Library functions work with /bin/sh"
 else
     test_fail "Library functions fail with /bin/sh"
@@ -134,7 +132,7 @@ sleep 3
 START_MOCK
 
 log_test "2.1: Successful request (no retry needed)"
-limactl shell "$VM_NAME" sudo bash <<'TEST_SUCCESS'
+if limactl shell "$VM_NAME" sudo bash <<'TEST_SUCCESS'
 cd /tmp
 cat > /tmp/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
@@ -154,15 +152,14 @@ if [ $DURATION -lt 2 ]; then
     echo "SUCCESS_FAST"
 fi
 TEST_SUCCESS
-
-if [ $? -eq 0 ]; then
+then
     test_pass "Successful request completes quickly (<2s)"
 else
     test_fail "Request took too long or failed"
 fi
 
 log_test "2.2: Retry logic with server failure"
-limactl shell "$VM_NAME" bash <<'TEST_RETRY'
+if limactl shell "$VM_NAME" bash <<'TEST_RETRY'
 # Kill mock server
 pkill -f mock-datadog-server.py 2>/dev/null || true
 sleep 1
@@ -197,8 +194,7 @@ if grep -q "retrying" /tmp/retry-test.log; then
     echo "RETRY_MESSAGES_OK"
 fi
 TEST_RETRY
-
-if [ $? -eq 0 ]; then
+then
     test_pass "Retry logic executes with correct timing"
 else
     test_fail "Retry logic timing incorrect"
@@ -223,7 +219,7 @@ RESTART_MOCK
 section "📋 Test Suite 3: Error Handling"
 
 log_test "3.1: Missing API key handling"
-limactl shell "$VM_NAME" bash <<'TEST_NO_KEY'
+if limactl shell "$VM_NAME" bash <<'TEST_NO_KEY'
 cd /tmp
 cat > /tmp/config-nokey.sh <<'CONFIG'
 DD_API_KEY=""
@@ -238,15 +234,14 @@ if grep -q "DD_API_KEY not set" /tmp/no-key-test.log; then
     echo "ERROR_DETECTED"
 fi
 TEST_NO_KEY
-
-if [ $? -eq 0 ]; then
+then
     test_pass "Missing API key detected and logged"
 else
     test_fail "Missing API key not handled"
 fi
 
 log_test "3.2: Timeout handling"
-limactl shell "$VM_NAME" bash <<'TEST_TIMEOUT'
+if limactl shell "$VM_NAME" bash <<'TEST_TIMEOUT'
 cd /tmp
 . /tmp/config.sh
 . /tmp/zfs-datadog-lib.sh
@@ -264,15 +259,14 @@ if [ $DURATION -ge 25 ] && [ $DURATION -le 40 ]; then
     echo "TIMEOUT_OK"
 fi
 TEST_TIMEOUT
-
-if [ $? -eq 0 ]; then
+then
     test_pass "Timeout handling works correctly"
 else
     test_fail "Timeout handling incorrect"
 fi
 
 log_test "3.3: DogStatsD retry logic"
-limactl shell "$VM_NAME" bash <<'TEST_STATSD'
+if limactl shell "$VM_NAME" bash <<'TEST_STATSD'
 cd /tmp
 . /tmp/config.sh
 . /tmp/zfs-datadog-lib.sh
@@ -283,8 +277,7 @@ if [ $? -eq 0 ]; then
     echo "METRIC_OK"
 fi
 TEST_STATSD
-
-if [ $? -eq 0 ]; then
+then
     test_pass "DogStatsD metric sending works"
 else
     test_fail "DogStatsD metric sending failed"

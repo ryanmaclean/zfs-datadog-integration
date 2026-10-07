@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: shopt
 #
 # PROVE IT WORKS - Comprehensive test of all VM configurations
 # This script actually runs the tests and verifies results
@@ -49,7 +50,7 @@ cd /Volumes/tank3/iso-cache
 shopt -s nullglob
 for img in *.qcow2 *.img *.iso; do
     if [ -f "$img" ]; then
-        SIZE=$(ls -lh "$img" | awk '{print $5}')
+        SIZE=$(find "$img" -maxdepth 0 -exec ls -lh {} \; | awk '{print $5}')
         TYPE=$(file "$img" | cut -d: -f2)
         echo "✅ $img ($SIZE)" | tee -a "$RESULTS_FILE"
         echo "   Type: $TYPE" | tee -a "$RESULTS_FILE"
@@ -121,7 +122,8 @@ echo "" | tee -a "$RESULTS_FILE"
 # Test 6: Verify .env configuration
 echo "=== Test 6: Environment Configuration Test ===" | tee -a "$RESULTS_FILE"
 if [ -f ".env" ]; then
-    source .env
+    # shellcheck source=../.env.example  # untracked .env is created from this template
+    . ./.env
     echo "✅ .env loaded" | tee -a "$RESULTS_FILE"
     echo "   VM_STORAGE_DIR: $VM_STORAGE_DIR" | tee -a "$RESULTS_FILE"
     echo "   DOWNLOAD_CACHE_DIR: $DOWNLOAD_CACHE_DIR" | tee -a "$RESULTS_FILE"
@@ -150,7 +152,7 @@ echo "  Local Mac:  $LOCAL_USAGE" | tee -a "$RESULTS_FILE"
 echo "  Remote:     $REMOTE_USAGE" | tee -a "$RESULTS_FILE"
 echo "" | tee -a "$RESULTS_FILE"
 echo "Images Downloaded:" | tee -a "$RESULTS_FILE"
-ls -lh /Volumes/tank3/iso-cache/ 2>/dev/null | grep -E '\.(qcow2|img|iso)$' | awk '{print "  " $9 " - " $5}' | tee -a "$RESULTS_FILE"
+find /Volumes/tank3/iso-cache -maxdepth 1 -type f \( -name '*.qcow2' -o -name '*.img' -o -name '*.iso' \) -exec ls -lh {} \; 2>/dev/null | awk '{print "  " $9 " - " $5}' | tee -a "$RESULTS_FILE"
 echo "" | tee -a "$RESULTS_FILE"
 echo "Results saved to: $RESULTS_FILE" | tee -a "$RESULTS_FILE"
 echo "" | tee -a "$RESULTS_FILE"

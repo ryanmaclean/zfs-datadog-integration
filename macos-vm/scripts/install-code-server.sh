@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Install code-server in macOS VM
 #
@@ -6,32 +6,31 @@
 set -e
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+RED=$(printf '\033[0;31m')
+NC=$(printf '\033[0m')
 
-echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  code-server Installer                                 ║${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
+printf '%b\n' "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
+printf '%b\n' "${BLUE}║  code-server Installer                                 ║${NC}"
+printf '%b\n' "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 VM_NAME="macos-dev"
 
 # Check if VM exists and is running
 if ! limactl list | grep "$VM_NAME" | grep -q "Running"; then
-    echo -e "${RED}VM '$VM_NAME' is not running!${NC}"
+    printf '%b\n' "${RED}VM '$VM_NAME' is not running!${NC}"
     echo ""
     echo "Start with: limactl start $VM_NAME"
     exit 1
 fi
 
-echo -e "${GREEN}✓ VM is running${NC}"
+printf '%b\n' "${GREEN}✓ VM is running${NC}"
 echo ""
 
 # Install code-server
-echo -e "${BLUE}Installing code-server in VM...${NC}"
+printf '%b\n' "${BLUE}Installing code-server in VM...${NC}"
 echo ""
 
 limactl shell "$VM_NAME" <<'INSTALL_SCRIPT'
@@ -69,7 +68,7 @@ echo "IMPORTANT: Save this password!"
 echo ""
 
 # Create systemd service (if systemd available)
-if command -v systemctl &> /dev/null; then
+if command -v systemctl > /dev/null 2>&1; then
     sudo tee /etc/systemd/system/code-server.service > /dev/null <<EOF
 [Unit]
 Description=code-server
@@ -104,15 +103,15 @@ echo ""
 INSTALL_SCRIPT
 
 echo ""
-echo -e "${GREEN}✓ code-server installed successfully!${NC}"
+printf '%b\n' "${GREEN}✓ code-server installed successfully!${NC}"
 echo ""
 
 # Get VM IP
 VM_IP=$(limactl shell "$VM_NAME" -- hostname -I | awk '{print $1}')
 
-echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Installation Complete!                                ║${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
+printf '%b\n' "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
+printf '%b\n' "${BLUE}║  Installation Complete!                                ║${NC}"
+printf '%b\n' "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo "Access code-server:"
 echo ""

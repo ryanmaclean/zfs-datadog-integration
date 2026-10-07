@@ -7,7 +7,6 @@
 set -e
 
 OUTDIR="${OUTDIR:-/tmp/zfs-minimal}"
-VERSION="3.19"
 
 echo "=== Building ZFS-Minimal Alpine for M-series ==="
 echo "Output: $OUTDIR"
@@ -110,7 +109,7 @@ EOF
 echo "Creating initramfs..."
 mkinitfs -o "$OUTDIR/initramfs" \
     -F "base ext4 virtio scsi nvme network zfs" \
-    $(chroot rootfs /bin/sh -c 'ls /lib/modules | head -1')
+    "$(chroot rootfs /bin/sh -c 'ls /lib/modules | head -1')"
 
 # Create bootable disk image
 echo "Creating disk image..."
@@ -127,7 +126,7 @@ echo ""
 echo "✓ ZFS-Minimal Alpine built!"
 echo ""
 echo "Image: $OUTDIR/zfs-minimal.img"
-echo "Size: $(du -h $OUTDIR/zfs-minimal.img | cut -f1)"
+echo "Size: $(du -h "$OUTDIR/zfs-minimal.img" | cut -f1)"
 echo ""
 echo "Root FS size: $(du -sh rootfs | cut -f1)"
 echo ""

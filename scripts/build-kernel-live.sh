@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: read -p, [[ ]], =~ regex matching
 #
 # Build M-series kernel LIVE in zfs-test VM
 # Fixed version with proper error handling and disk space checks

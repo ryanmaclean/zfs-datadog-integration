@@ -1,14 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: echo flags, read -p, [[ ]], =~ regex matching
 #
 # Quick Demo - Boot Plan 9 and show it working
 #
 
 set -e
 
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+NC=$(printf '\033[0m')
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  Quick Demo: Plan 9 from Bell Labs                    ║${NC}"
@@ -24,7 +24,7 @@ echo "  5. Show you how to access it"
 echo ""
 echo "Time: ~5 minutes"
 echo ""
-read -p "Continue? (Y/n) " CONTINUE
+read -r -p "Continue? (Y/n) " CONTINUE
 if [[ $CONTINUE =~ ^[Nn]$ ]]; then
     exit 0
 fi

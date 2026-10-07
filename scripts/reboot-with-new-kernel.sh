@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: brace expansion, echo flags, [[ ]], == in place of =
 #
 # Reboot VM with new kernel and verify
 #
@@ -23,7 +24,7 @@ sleep 5
 
 # Wait for VM to come back up
 echo "Waiting for VM to restart..."
-for i in {1..30}; do
+for _ in {1..30}; do
   if limactl shell $VM -- echo "alive" >/dev/null 2>&1; then
     echo "VM is back online!"
     break

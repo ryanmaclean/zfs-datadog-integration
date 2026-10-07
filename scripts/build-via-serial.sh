@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: local
 #
 # Build kernels using serial console instead of SSH
 # No SSH timeouts!

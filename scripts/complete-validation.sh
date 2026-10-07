@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: declare, arrays, local, brace expansion, export -f, indirect expansion, array key expansion, here-strings, array references
 #
 # Complete Validation - ALL VMs with Datadog Agent + Metrics
 # Does NOT stop until everything is validated
@@ -6,10 +7,10 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load API key
-source .env.local
+# shellcheck source=../.env.local.example  # untracked .env.local is created from this template
+. ./.env.local
 
 # VM configurations: name:ssh_port:os_type
 declare -A VMS=(
@@ -25,7 +26,7 @@ echo "🚀 Complete Validation - ALL VMs"
 echo "========================================"
 echo ""
 echo "VMs to test: ${#VMS[@]}"
-echo "Datadog API Key: ${DD_API_KEY:0:10}..."
+echo "Datadog API Key: ${DD_API_KEY:+set (${#DD_API_KEY} chars)}"
 echo ""
 
 # Function to setup and test a single VM
@@ -39,7 +40,7 @@ complete_vm_test() {
     
     # Wait for SSH
     echo "[${vm_name}] Waiting for SSH on localhost:${ssh_port}..." | tee -a "$log"
-    for i in {1..120}; do
+    for _ in {1..120}; do
         if nc -z localhost "$ssh_port" 2>/dev/null; then
             echo "[${vm_name}] SSH ready!" | tee -a "$log"
             break
@@ -49,22 +50,33 @@ complete_vm_test() {
     
     # Install Datadog Agent
     echo "[${vm_name}] Installing Datadog Agent..." | tee -a "$log"
+    # The API key is sent as the first line of ssh's stdin (never on a command
+    # line, never spliced into the script text); the remote shell reads it and
+    # then executes the rest of stdin. The script itself is a quoted heredoc,
+    # so nothing in it expands locally. The remote command is wrapped in sh -c
+    # because root's login shell on FreeBSD/TrueNAS CORE is csh.
     case "$os_type" in
         TrueNAS-SCALE)
-            ssh -p "$ssh_port" root@localhost "bash -s" >> "$log" 2>&1 <<EOF
-DD_API_KEY=${DD_API_KEY} DD_SITE="datadoghq.com" bash -c "\$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script_agent7.sh)"
+            {
+                printf '%s\n' "$DD_API_KEY"
+                cat <<'EOF'
+DD_SITE="datadoghq.com" bash -c "$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script_agent7.sh)"
 systemctl enable datadog-agent
 systemctl start datadog-agent
 EOF
+            } | ssh -p "$ssh_port" root@localhost "sh -c 'IFS= read -r DD_API_KEY && export DD_API_KEY && exec bash -s'" >> "$log" 2>&1
             ;;
         FreeBSD|TrueNAS-CORE)
-            ssh -p "$ssh_port" root@localhost "bash -s" >> "$log" 2>&1 <<EOF
+            {
+                printf '%s\n' "$DD_API_KEY"
+                cat <<'EOF'
 pkg install -y datadog-agent
 echo 'datadog_enable="YES"' >> /etc/rc.conf
-echo 'api_key: ${DD_API_KEY}' > /usr/local/etc/datadog-agent/datadog.yaml
+printf 'api_key: %s\n' "$DD_API_KEY" > /usr/local/etc/datadog-agent/datadog.yaml
 echo 'site: datadoghq.com' >> /usr/local/etc/datadog-agent/datadog.yaml
 service datadog-agent start
 EOF
+            } | ssh -p "$ssh_port" root@localhost "sh -c 'IFS= read -r DD_API_KEY && export DD_API_KEY && exec bash -s'" >> "$log" 2>&1
             ;;
         OpenBSD)
             echo "[${vm_name}] Datadog not available on OpenBSD, using API only" | tee -a "$log"
@@ -77,7 +89,7 @@ EOF
     # Deploy zedlets
     echo "[${vm_name}] Deploying zedlets..." | tee -a "$log"
     scp -P "$ssh_port" -o StrictHostKeyChecking=no \
-        .env.local config.sh zfs-datadog-lib.sh *-datadog.sh *-error.sh \
+        .env.local config.sh zfs-datadog-lib.sh ./*-datadog.sh ./*-error.sh \
         root@localhost:/tmp/ >> "$log" 2>&1
     
     # Install zedlets

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bash-required: BASH_SOURCE, array references, echo flags, local, RANDOM, brace expansion, export -f, declare, arrays, +=, &>
 #
 # Parallel Testing of Golden Images
 # Tests all built images simultaneously
@@ -13,11 +14,10 @@ RESULTS_DIR="${SCRIPT_DIR}/test-results/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$RESULTS_DIR"
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+RED=$(printf '\033[0;31m')
+NC=$(printf '\033[0m')
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
@@ -41,7 +41,8 @@ test_image() {
     local log_file="${RESULTS_DIR}/${os_name}.log"
     
     echo "🧪 Testing $os_name on port $ssh_port..." | tee -a "$log_file"
-    local start_time=$(date +%s)
+    local start_time
+    start_time=$(date +%s)
     
     # Start VM
     qemu-system-x86_64 \
@@ -54,11 +55,12 @@ test_image() {
         -pidfile "${RESULTS_DIR}/${os_name}.pid" \
         >> "$log_file" 2>&1
     
-    local vm_pid=$(cat "${RESULTS_DIR}/${os_name}.pid")
+    local vm_pid
+    vm_pid=$(cat "${RESULTS_DIR}/${os_name}.pid")
     
     # Wait for SSH
     local ssh_ready=0
-    for i in {1..60}; do
+    for _ in {1..60}; do
         if nc -z localhost "$ssh_port" 2>/dev/null; then
             ssh_ready=1
             break
@@ -83,7 +85,8 @@ test_image() {
     # Shutdown VM
     kill "$vm_pid" 2>/dev/null || true
     
-    local end_time=$(date +%s)
+    local end_time
+    end_time=$(date +%s)
     local duration=$((end_time - start_time))
     
     if [ $test_result -eq 0 ]; then
@@ -126,10 +129,13 @@ if command -v parallel &> /dev/null; then
     printf '%s\n' "${IMAGES[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_image '{1}' '{2}'
 else
     log_info "Using xargs for parallel testing"
-    printf '%s\n' "${IMAGES[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
-        IFS=: read -r name image <<< "{}"
-        test_image "$name" "$image"
-    '
+    # The item is passed as $1, never spliced into the code string.
+    xargs_worker=$(cat <<'XARGS_WORKER'
+IFS=: read -r name image <<< "$1"
+test_image "$name" "$image"
+XARGS_WORKER
+    )
+    printf '%s\n' "${IMAGES[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c "$xargs_worker" _ {}
 fi
 
 echo ""

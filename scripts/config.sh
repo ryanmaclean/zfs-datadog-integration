@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # ZFS Datadog Integration Configuration
 # 
@@ -6,8 +6,10 @@
 
 # Source .env.local if it exists (for local development/testing)
 if [ -f "$(dirname "$0")/.env.local" ]; then
+    # shellcheck source=../.env.local.example  # untracked .env.local is created from this template
     . "$(dirname "$0")/.env.local"
 elif [ -f "/etc/zfs/zed.d/.env.local" ]; then
+    # shellcheck source=../.env.local.example  # untracked .env.local is created from this template
     . "/etc/zfs/zed.d/.env.local"
 fi
 
