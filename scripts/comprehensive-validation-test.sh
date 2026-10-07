@@ -9,12 +9,12 @@ set -e
 VM_NAME="zfs-test"
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+RED=$(printf '\033[0;31m')
+GREEN=$(printf '\033[0;32m')
+YELLOW=$(printf '\033[1;33m')
+BLUE=$(printf '\033[0;34m')
+CYAN=$(printf '\033[0;36m')
+NC=$(printf '\033[0m')
 
 # Test results
 TOTAL_TESTS=0

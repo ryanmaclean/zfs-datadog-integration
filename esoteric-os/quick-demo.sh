@@ -6,9 +6,9 @@
 
 set -e
 
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+NC=$(printf '\033[0m')
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  Quick Demo: Plan 9 from Bell Labs                    ║${NC}"

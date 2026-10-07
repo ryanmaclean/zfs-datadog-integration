@@ -6,11 +6,11 @@
 
 set -e
 
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-MAGENTA='\033[0;35m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+CYAN=$(printf '\033[0;36m')
+YELLOW=$(printf '\033[1;33m')
+MAGENTA=$(printf '\033[0;35m')
+NC=$(printf '\033[0m')
 
 echo "${MAGENTA}╔══════════════════════════════════════════╗${NC}"
 echo "${MAGENTA}║  EXTRACT & PUBLISH TO GITHUB            ║${NC}"

@@ -11,10 +11,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RESULTS_FILE="${SCRIPT_DIR}/vm-benchmark-results.txt"
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+CYAN=$(printf '\033[0;36m')
+NC=$(printf '\033[0m')
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }

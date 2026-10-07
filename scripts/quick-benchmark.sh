@@ -6,10 +6,10 @@
 
 
 # Colors
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+CYAN=$(printf '\033[0;36m')
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+NC=$(printf '\033[0m')
 
 printf '%b\n' "${CYAN}VM Image Download & Setup Benchmarks${NC}"
 echo "======================================"

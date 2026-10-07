@@ -14,10 +14,10 @@ RESULTS_DIR="${SCRIPT_DIR}/test-results/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$RESULTS_DIR"
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-NC='\033[0m'
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+RED=$(printf '\033[0;31m')
+NC=$(printf '\033[0m')
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }

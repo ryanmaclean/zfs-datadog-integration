@@ -8,11 +8,11 @@
 set -e
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+YELLOW=$(printf '\033[1;33m')
+RED=$(printf '\033[0;31m')
+NC=$(printf '\033[0m') # No Color
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  macOS IPSW Downloader                                ║${NC}"

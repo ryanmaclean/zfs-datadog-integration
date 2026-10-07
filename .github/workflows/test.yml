@@ -64,6 +64,11 @@ jobs:
           done < /tmp/shell-scripts.txt
           echo "All scripts have valid syntax"
 
+      # Dry-run the VM helpers against argv-recording stubs: QEMU/ssh/scp must
+      # get no empty or bundled arguments, and colour output must be real ESC.
+      - name: Argument and colour regression test
+        run: .github/scripts/test-argv-regressions.sh
+
   mock-server-test:
     name: Mock Server Tests
     runs-on: ubuntu-latest

@@ -6,9 +6,9 @@
 
 set -e
 
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-NC='\033[0m'
+CYAN=$(printf '\033[0;36m')
+GREEN=$(printf '\033[0;32m')
+NC=$(printf '\033[0m')
 
 echo "${CYAN}═══════════════════════════════════════${NC}"
 echo "${CYAN}NetBSD M-series Custom ISO Builder${NC}"

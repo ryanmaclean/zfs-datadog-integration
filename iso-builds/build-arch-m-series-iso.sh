@@ -6,10 +6,10 @@
 
 set -e
 
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-MAGENTA='\033[0;35m'
-NC='\033[0m'
+CYAN=$(printf '\033[0;36m')
+GREEN=$(printf '\033[0;32m')
+MAGENTA=$(printf '\033[0;35m')
+NC=$(printf '\033[0m')
 
 echo "${MAGENTA}╔══════════════════════════════════════════╗${NC}"
 echo "${MAGENTA}║  Arch Linux ARM64 M-series ISO Builder  ║${NC}"

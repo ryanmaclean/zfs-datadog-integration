@@ -11,10 +11,10 @@ EXTENSION_DIR="../code-app-ml-extension"
 CLI="$EXTENSION_DIR/cli.js"
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+GREEN=$(printf '\033[0;32m')
+BLUE=$(printf '\033[0;34m')
+YELLOW=$(printf '\033[1;33m')
+NC=$(printf '\033[0m') # No Color
 
 clear
 
