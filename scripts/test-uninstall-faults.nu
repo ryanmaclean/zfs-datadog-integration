@@ -113,7 +113,7 @@ def --wrapped main [...args: string] {
                 if (open --raw $file) != "unknown collision\n" {
                     error make {msg: $"($scenario): unknown collision overwritten; inspect ($sandbox)"}
                 }
-            } else if $scenario != 'restore_collision' {
+            } else {
                 if not ($file | path exists) or ((open --raw $file | hash sha256) != $entry.digest) {
                     error make {msg: $"($scenario): owned bytes changed or missing: ($entry.name); inspect ($sandbox)"}
                 }
