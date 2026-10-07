@@ -37,11 +37,9 @@ printf '====================================\n\n'
 printf '1. Checking configuration file...\n'
 if [ -f "$ZED_DIR/config.sh" ]; then
     printf '   %s✓%s Found: %s/config.sh\n' "$GREEN" "$NC" "$ZED_DIR"
-    # shellcheck disable=SC1091  # config.sh lives alongside the installed zedlets at runtime, not in this checkout
     . "$ZED_DIR/config.sh"
 elif [ -f "$(dirname "$0")/config.sh" ]; then
     printf '   %s✓%s Found: %s/config.sh\n' "$GREEN" "$NC" "$(dirname "$0")"
-    # shellcheck disable=SC1091  # config.sh lives alongside the installed zedlets at runtime, not in this checkout
     . "$(dirname "$0")/config.sh"
 else
     printf '   %s✗%s Configuration file not found\n' "$RED" "$NC"

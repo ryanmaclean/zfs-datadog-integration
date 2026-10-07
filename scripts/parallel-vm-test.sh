@@ -32,8 +32,7 @@ test_vm() {
     
     # Wait for SSH (after manual installation)
     echo "[${vm_name}] Waiting for SSH on localhost:${ssh_port}..." | tee -a "$log_file"
-    # shellcheck disable=SC2034  # loop counter required by the range syntax, not used in the body
-    for i in {1..60}; do
+    for _ in {1..60}; do
         if nc -z localhost "$ssh_port" 2>/dev/null; then
             echo "[${vm_name}] SSH ready!" | tee -a "$log_file"
             break

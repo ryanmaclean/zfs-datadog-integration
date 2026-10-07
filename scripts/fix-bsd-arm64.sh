@@ -11,8 +11,7 @@ echo "=== FIXING BSD BUILDS FOR ARM64 ==="
 # 1. FreeBSD ARM64 - Build kernel NOW
 echo "[1/3] FreeBSD ARM64..."
 if limactl shell freebsd-build -- echo "ready" >/dev/null 2>&1; then
-    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
-    limactl shell freebsd-build -- sh -c '
+    remote_script=$(cat <<'REMOTE_SCRIPT'
         uname -m
         pkg install -y git
         cd /usr/src
@@ -30,7 +29,9 @@ EOF
         make -j$(sysctl -n hw.ncpu) buildkernel KERNCONF=M-SERIES
         make installkernel KERNCONF=M-SERIES
         echo "✓ FreeBSD ARM64 kernel installed"
-    ' > freebsd-arm64-build.log 2>&1 &
+REMOTE_SCRIPT
+    )
+    limactl shell freebsd-build -- sh -c "$remote_script" > freebsd-arm64-build.log 2>&1 &
     echo "FreeBSD building..."
 else
     echo "FreeBSD VM not accessible"

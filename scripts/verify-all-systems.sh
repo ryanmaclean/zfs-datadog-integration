@@ -27,8 +27,8 @@ if [ ! -f ".env.local" ]; then
     exit 1
 fi
 
-# shellcheck disable=SC1091  # local-dev override file, checked above and required before this point
-. .env.local
+# shellcheck source=../.env.local.example  # untracked .env.local is created from this template
+. ./.env.local
 
 if [ -z "$DD_API_KEY" ] || [ "$DD_API_KEY" = "test-key-replace-with-real" ]; then
     log_warning "Using test API key. Set real key in .env.local for production testing"

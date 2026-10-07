@@ -6,10 +6,10 @@
 
 # Source .env.local if it exists (for local development/testing)
 if [ -f "$(dirname "$0")/.env.local" ]; then
-    # shellcheck disable=SC1091  # optional local-dev override file, not part of the repo
+    # shellcheck source=../.env.local.example  # untracked .env.local is created from this template
     . "$(dirname "$0")/.env.local"
 elif [ -f "/etc/zfs/zed.d/.env.local" ]; then
-    # shellcheck disable=SC1091  # optional local-dev override file, not part of the repo
+    # shellcheck source=../.env.local.example  # untracked .env.local is created from this template
     . "/etc/zfs/zed.d/.env.local"
 fi
 

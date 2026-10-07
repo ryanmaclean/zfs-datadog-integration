@@ -100,11 +100,13 @@ elif command -v xargs &> /dev/null; then
     log_info "Using xargs for parallel builds"
     
     # Build using xargs
-    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
-    printf '%s\n' "${BUILDS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
-        IFS=: read -r name template <<< "{}"
-        build_image "$name" "$template"
-    '
+    # The item is passed as $1, never spliced into the code string.
+    xargs_worker=$(cat <<'XARGS_WORKER'
+IFS=: read -r name template <<< "$1"
+build_image "$name" "$template"
+XARGS_WORKER
+    )
+    printf '%s\n' "${BUILDS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c "$xargs_worker" _ {}
 else
     log_info "No parallel tool found, building sequentially"
     

@@ -19,8 +19,7 @@ build_in_vm() {
     
     echo "[${VM}] Starting build..."
     
-    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
-    limactl shell "$VM" -- bash -c '
+    remote_script=$(cat <<'REMOTE_SCRIPT'
         # Become root
         sudo su - << "ROOTEOF"
 set -x
@@ -70,7 +69,9 @@ update-grub 2>/dev/null || grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null ||
 echo "=== SUCCESS ==="
 ls -lh /boot/vmlinuz-m-series
 ROOTEOF
-' > "$LOG" 2>&1 &
+REMOTE_SCRIPT
+    )
+    limactl shell "$VM" -- bash -c "$remote_script" > "$LOG" 2>&1 &
     
     echo "[${VM}] Background build started (log: $LOG)"
 }
@@ -87,8 +88,7 @@ done
 # FreeBSD
 if limactl list | grep -q "freebsd.*Running"; then
     echo "[freebsd-build] Starting..."
-    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
-    limactl shell freebsd-build -- sh -c '
+    remote_script=$(cat <<'REMOTE_SCRIPT'
         sudo su - << "FBSDEOF"
 pkg install -y git 2>/dev/null || true
 cd /usr/src
@@ -104,7 +104,9 @@ make -j$(sysctl -n hw.ncpu) buildkernel KERNCONF=M-SERIES || exit 1
 make installkernel KERNCONF=M-SERIES || exit 1
 echo "=== FREEBSD SUCCESS ==="
 FBSDEOF
-    ' > $LOGS_DIR/freebsd-build.log 2>&1 &
+REMOTE_SCRIPT
+    )
+    limactl shell freebsd-build -- sh -c "$remote_script" > $LOGS_DIR/freebsd-build.log 2>&1 &
     echo "[freebsd-build] Background build started"
 fi
 

@@ -121,8 +121,8 @@ echo "" | tee -a "$RESULTS_FILE"
 # Test 6: Verify .env configuration
 echo "=== Test 6: Environment Configuration Test ===" | tee -a "$RESULTS_FILE"
 if [ -f ".env" ]; then
-    # shellcheck disable=SC1091  # local-dev override file, not part of the repo
-    source .env
+    # shellcheck source=../.env.example  # untracked .env is created from this template
+    . ./.env
     echo "✅ .env loaded" | tee -a "$RESULTS_FILE"
     echo "   VM_STORAGE_DIR: $VM_STORAGE_DIR" | tee -a "$RESULTS_FILE"
     echo "   DOWNLOAD_CACHE_DIR: $DOWNLOAD_CACHE_DIR" | tee -a "$RESULTS_FILE"

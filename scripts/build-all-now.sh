@@ -19,8 +19,7 @@ build_kernel() {
     
     echo "[${VM}] Building kernel..."
     
-    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
-    limactl shell "$VM" -- sudo bash -c '
+    remote_script=$(cat <<'REMOTE_SCRIPT'
         set -e
         
         # Install tools (handle different distros)
@@ -73,7 +72,9 @@ build_kernel() {
         fi
         
         echo "KERNEL BUILT: $(ls -lh /boot/vmlinuz-m-series)"
-    ' > "$LOG" 2>&1 &
+REMOTE_SCRIPT
+    )
+    limactl shell "$VM" -- sudo bash -c "$remote_script" > "$LOG" 2>&1 &
     
     echo "[${VM}] Building in background (log: $LOG)"
 }
@@ -94,8 +95,7 @@ build_freebsd_kernel() {
         sleep 5
     done
     
-    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
-    limactl shell "$VM" -- sudo sh -c '
+    remote_script=$(cat <<'REMOTE_SCRIPT'
         set -e
         
         # Install git if needed
@@ -123,7 +123,9 @@ EOF
         make installkernel KERNCONF=M-SERIES
         
         echo "FREEBSD KERNEL BUILT"
-    ' > "$LOG" 2>&1 &
+REMOTE_SCRIPT
+    )
+    limactl shell "$VM" -- sudo sh -c "$remote_script" > "$LOG" 2>&1 &
     
     echo "[${VM}] Building in background (log: $LOG)"
 }

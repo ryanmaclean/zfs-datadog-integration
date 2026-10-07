@@ -112,11 +112,13 @@ if command -v parallel &> /dev/null; then
     printf '%s\n' "${TEST_ARGS[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_distro '{1}' '{2}'
 else
     log_info "Using xargs for parallel execution"
-    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
-    printf '%s\n' "${TEST_ARGS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
-        IFS=: read -r name config <<< "{}"
-        test_distro "$name" "$config"
-    '
+    # The item is passed as $1, never spliced into the code string.
+    xargs_worker=$(cat <<'XARGS_WORKER'
+IFS=: read -r name config <<< "$1"
+test_distro "$name" "$config"
+XARGS_WORKER
+    )
+    printf '%s\n' "${TEST_ARGS[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c "$xargs_worker" _ {}
 fi
 
 echo ""

@@ -59,8 +59,7 @@ test_image() {
     
     # Wait for SSH
     local ssh_ready=0
-    # shellcheck disable=SC2034  # loop counter required by the range syntax, not used in the body
-    for i in {1..60}; do
+    for _ in {1..60}; do
         if nc -z localhost "$ssh_port" 2>/dev/null; then
             ssh_ready=1
             break
@@ -129,11 +128,13 @@ if command -v parallel &> /dev/null; then
     printf '%s\n' "${IMAGES[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_image '{1}' '{2}'
 else
     log_info "Using xargs for parallel testing"
-    # shellcheck disable=SC2016  # intentionally unexpanded here; this heredoc/string runs inside the remote VM/sub-shell
-    printf '%s\n' "${IMAGES[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c '
-        IFS=: read -r name image <<< "{}"
-        test_image "$name" "$image"
-    '
+    # The item is passed as $1, never spliced into the code string.
+    xargs_worker=$(cat <<'XARGS_WORKER'
+IFS=: read -r name image <<< "$1"
+test_image "$name" "$image"
+XARGS_WORKER
+    )
+    printf '%s\n' "${IMAGES[@]}" | xargs -P "$MAX_PARALLEL" -I {} bash -c "$xargs_worker" _ {}
 fi
 
 echo ""

@@ -34,8 +34,9 @@ echo "${CYAN}╚═════════════════════�
 echo ""
 
 echo "${CYAN}Starting Arch build in background...${NC}"
-# shellcheck disable=SC2024  # log redirect intentionally stays owned by the invoking user; only the build itself needs root
-sudo ./iso-builds/build-arch-m-series-iso.sh > "$BUILD_DIR/arch-build.log" 2>&1 &
+# The log is opened by this (unprivileged) shell, so it stays user-owned;
+# only the build itself runs under sudo.
+{ sudo ./iso-builds/build-arch-m-series-iso.sh; } > "$BUILD_DIR/arch-build.log" 2>&1 &
 ARCH_PID=$!
 echo "${GREEN}✓ Arch build started (PID: $ARCH_PID)${NC}"
 BUILDS_STARTED=$((BUILDS_STARTED + 1))
@@ -52,8 +53,9 @@ echo ""
 
 echo "${CYAN}Starting Gentoo build in background...${NC}"
 echo "${YELLOW}Note: This takes 2-3 hours (compiling everything)${NC}"
-# shellcheck disable=SC2024  # log redirect intentionally stays owned by the invoking user; only the build itself needs root
-sudo ./iso-builds/build-gentoo-m-series-iso.sh > "$BUILD_DIR/gentoo-build.log" 2>&1 &
+# The log is opened by this (unprivileged) shell, so it stays user-owned;
+# only the build itself runs under sudo.
+{ sudo ./iso-builds/build-gentoo-m-series-iso.sh; } > "$BUILD_DIR/gentoo-build.log" 2>&1 &
 GENTOO_PID=$!
 echo "${GREEN}✓ Gentoo build started (PID: $GENTOO_PID)${NC}"
 BUILDS_STARTED=$((BUILDS_STARTED + 1))
@@ -69,8 +71,9 @@ echo "${CYAN}╚═════════════════════�
 echo ""
 
 echo "${CYAN}Starting NetBSD build in background...${NC}"
-# shellcheck disable=SC2024  # log redirect intentionally stays owned by the invoking user; only the build itself needs root
-sudo ./iso-builds/build-netbsd-m-series-iso.sh > "$BUILD_DIR/netbsd-build.log" 2>&1 &
+# The log is opened by this (unprivileged) shell, so it stays user-owned;
+# only the build itself runs under sudo.
+{ sudo ./iso-builds/build-netbsd-m-series-iso.sh; } > "$BUILD_DIR/netbsd-build.log" 2>&1 &
 NETBSD_PID=$!
 echo "${GREEN}✓ NetBSD build started (PID: $NETBSD_PID)${NC}"
 BUILDS_STARTED=$((BUILDS_STARTED + 1))
@@ -86,8 +89,9 @@ echo "${CYAN}╚═════════════════════�
 echo ""
 
 echo "${CYAN}Starting OpenBSD build in background...${NC}"
-# shellcheck disable=SC2024  # log redirect intentionally stays owned by the invoking user; only the build itself needs root
-sudo ./iso-builds/build-openbsd-m-series-iso.sh > "$BUILD_DIR/openbsd-build.log" 2>&1 &
+# The log is opened by this (unprivileged) shell, so it stays user-owned;
+# only the build itself runs under sudo.
+{ sudo ./iso-builds/build-openbsd-m-series-iso.sh; } > "$BUILD_DIR/openbsd-build.log" 2>&1 &
 OPENBSD_PID=$!
 echo "${GREEN}✓ OpenBSD build started (PID: $OPENBSD_PID)${NC}"
 BUILDS_STARTED=$((BUILDS_STARTED + 1))
