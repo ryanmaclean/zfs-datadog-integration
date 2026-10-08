@@ -102,7 +102,7 @@ log_success "Test pool created"
 # Start mock Datadog server in VM
 section "🐕 Step 3: Starting Mock Datadog Server"
 log_info "Copying mock server to VM..."
-limactl copy "$SCRIPT_DIR/mock-datadog-server.py" "$VM_NAME:/tmp/"
+limactl copy "$SCRIPT_DIR/../mock-datadog-server.py" "$VM_NAME:/tmp/"
 
 log_info "Starting mock Datadog server in background..."
 limactl shell "$VM_NAME" bash <<'START_MOCK'
@@ -132,40 +132,15 @@ log_success "Mock Datadog server running"
 section "⚙️  Step 4: Installing Zedlets"
 log_info "Copying zedlet files to VM..."
 
-FILES=(
-    "zfs-datadog-lib.sh"
-    "config.sh"
-    "statechange-datadog.sh"
-    "scrub_finish-datadog.sh"
-    "resilver_finish-datadog.sh"
-    "all-datadog.sh"
-    "checksum-error.sh"
-    "io-error.sh"
-)
-
-for file in "${FILES[@]}"; do
-    limactl copy "$SCRIPT_DIR/$file" "$VM_NAME:/tmp/"
-done
+bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$VM_NAME"
 
 log_info "Installing zedlets..."
 limactl shell "$VM_NAME" sudo bash <<'INSTALL_ZEDLETS'
 set -e
 
-# Copy to ZED directory
-cp /tmp/zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp /tmp/config.sh /etc/zfs/zed.d/
-cp /tmp/statechange-datadog.sh /etc/zfs/zed.d/
-cp /tmp/scrub_finish-datadog.sh /etc/zfs/zed.d/
-cp /tmp/resilver_finish-datadog.sh /etc/zfs/zed.d/
-cp /tmp/all-datadog.sh /etc/zfs/zed.d/
-cp /tmp/checksum-error.sh /etc/zfs/zed.d/
-cp /tmp/io-error.sh /etc/zfs/zed.d/
-
-# Set permissions
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
-# Configure to use mock server
+# Set the mock endpoint only after a sealed install, with ZED quiesced.
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
 cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 #!/bin/bash
 DD_API_KEY="test-api-key-12345"
@@ -181,12 +156,8 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-echo "Zedlets installed to /etc/zfs/zed.d/"
-ls -la /etc/zfs/zed.d/*.sh
-
-# Restart ZED
-echo "Restarting ZFS Event Daemon..."
-systemctl restart zfs-zed
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 sleep 2
 systemctl status zfs-zed --no-pager || true
 INSTALL_ZEDLETS

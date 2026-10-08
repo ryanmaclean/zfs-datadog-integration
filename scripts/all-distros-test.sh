@@ -76,19 +76,12 @@ test_distro() {
     
     # Copy zedlets
     log_info "Copying zedlets to $distro..."
-    limactl copy zfs-datadog-lib.sh "$vm_name:/tmp/"
-    limactl copy config.sh "$vm_name:/tmp/"
-    limactl copy statechange-datadog.sh "$vm_name:/tmp/"
-    limactl copy scrub_finish-datadog.sh "$vm_name:/tmp/"
-    limactl copy resilver_finish-datadog.sh "$vm_name:/tmp/"
-    limactl copy all-datadog.sh "$vm_name:/tmp/"
-    limactl copy checksum-error.sh "$vm_name:/tmp/"
-    limactl copy io-error.sh "$vm_name:/tmp/"
-    limactl copy mock-datadog-server.py "$vm_name:/tmp/"
+    bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$vm_name"
+    limactl copy "$SCRIPT_DIR/../mock-datadog-server.py" "$vm_name:/tmp/"
     
     # Test POSIX compatibility
     log_info "Testing POSIX compatibility..."
-    if limactl shell "$vm_name" sh -n /tmp/zfs-datadog-lib.sh 2>/dev/null; then
+    if limactl shell "$vm_name" sh -n /tmp/zfs-datadog-upload/zfs-datadog-lib.sh 2>/dev/null; then
         log_success "POSIX syntax valid on $distro"
     else
         log_error "POSIX syntax errors on $distro"
@@ -100,19 +93,8 @@ test_distro() {
     log_info "Installing zedlets..."
     limactl shell "$vm_name" sudo bash <<'INSTALL'
 set -e
-cd /tmp
-cp zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp config.sh /etc/zfs/zed.d/
-cp statechange-datadog.sh /etc/zfs/zed.d/
-cp scrub_finish-datadog.sh /etc/zfs/zed.d/
-cp resilver_finish-datadog.sh /etc/zfs/zed.d/
-cp all-datadog.sh /etc/zfs/zed.d/
-cp checksum-error.sh /etc/zfs/zed.d/
-cp io-error.sh /etc/zfs/zed.d/
-
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
 cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
 DD_API_URL="http://localhost:8080"
@@ -126,12 +108,8 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-# Restart ZED
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl restart zfs-zed || true
-elif command -v service >/dev/null 2>&1; then
-    service zfs-zed restart || true
-fi
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 
 sleep 2
 INSTALL

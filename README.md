@@ -2,7 +2,7 @@
 
 [![Test](https://github.com/ryanmaclean/zfs-datadog-integration/actions/workflows/test.yml/badge.svg)](https://github.com/ryanmaclean/zfs-datadog-integration/actions/workflows/test.yml)
 
-OpenZFS event monitoring with Datadog integration across 9 operating systems.
+OpenZFS ZED event monitoring on hosts with a verified ZED service. FreeBSD base uses a different event path.
 
 ## Quick Start
 
@@ -10,15 +10,14 @@ OpenZFS event monitoring with Datadog integration across 9 operating systems.
 # Install on Ubuntu/Debian
 sudo ./scripts/install.sh
 
-# Configure Datadog API key
-sudo cp scripts/config.sh.example /etc/zfs/zed.d/config.sh
-sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
+# Review local Agent endpoint and tags in the installed configuration
+sudo vi /etc/zfs/zed.d/config.sh
 
 # Validate configuration
 sudo ./scripts/validate-config.sh
 
-# Restart ZFS Event Daemon
-sudo systemctl restart zfs-zed
+# Confirm both services remain active after installation
+sudo systemctl is-active zfs-zed datadog-agent
 ```
 
 **📖 [Full Installation Guide](INSTALL.md)** - Detailed instructions for all operating systems
@@ -44,20 +43,24 @@ Sends ZFS events to Datadog:
 - Pop!_OS 22.04 ✅
 - Debian 11+ ✅ (POSIX-compatible)
 
-**Ready for Testing** (POSIX-compatible):
+**Linux source route still needs host and intake testing**:
 - RHEL/Rocky/AlmaLinux 8+
 - Fedora, Arch Linux
-- FreeBSD 13+
-- TrueNAS SCALE & CORE
-- OpenBSD, NetBSD
-- OpenIndiana (Illumos)
+- TrueNAS SCALE (Linux ZED route, testing needed)
+
+OpenBSD, NetBSD, and Illumos need separate verified native event routes; the
+Linux ZED installer rejects those systems before changing files or services.
+
+**FreeBSD and TrueNAS CORE:** the ZED installer exits before writing files or restarting services. Base FreeBSD uses `zfsd`/`devd`; a native Datadog Agent event check has not passed host-to-intake validation. A ZED directory or `zfsd` restart does not establish monitoring.
+
+On ZED hosts, an installer success message or zedlet exit status does not confirm Datadog intake. Validate the selected runtime tools' licenses and one controlled event at intake before calling a host monitored.
 
 See [INSTALL.md](INSTALL.md) for OS-specific instructions.
 
 ## Features
 
-- **POSIX-compatible**: Works on Linux and BSD systems
-- **Retry logic**: Exponential backoff (3 attempts, 1s/2s/4s)
+- **POSIX shell**: ZED installer is disabled on FreeBSD base and TrueNAS CORE
+- **Agent-local transport**: One loopback DogStatsD datagram per event or metric, without a ZED API key
 - **Error handling**: Comprehensive logging and graceful degradation
 - **Configuration validation**: Built-in config checker
 - **Easy installation**: Automated install and uninstall scripts
@@ -68,7 +71,7 @@ See [INSTALL.md](INSTALL.md) for OS-specific instructions.
 
 - **install.sh** - Automated installation
 - **uninstall.sh** - Clean removal with --dry-run and --keep-config
-- **validate-config.sh** - Configuration and connectivity validation
+- **validate-config.sh** - Configuration and local service validation
 - **config.sh.example** - Configuration template
 
 See [scripts/](scripts/) for all tools and [examples/](examples/) for VM configs.
@@ -76,18 +79,18 @@ See [scripts/](scripts/) for all tools and [examples/](examples/) for VM configs
 ## Architecture
 
 ```
-ZFS Event → zed → zedlet → HTTP POST → Datadog API
+ZFS Event → zed → zedlet → loopback DogStatsD → Datadog Agent
 ```
 
-**Retry logic**: Exponential backoff (3 attempts)
-**Logging**: All events logged to Datadog
+**Handoff**: One datagram per event or metric, with no ambiguous retry
+**Delivery**: Verify each event at Datadog intake; a local socket write is not proof
 
 ## Contributing
 
 Issues and pull requests welcome! See [open issues](https://github.com/ryanmaclean/zfs-datadog-integration/issues) for areas that need work.
 
 **Testing needed:**
-- BSD systems (FreeBSD, OpenBSD, NetBSD)
+- OpenBSD and NetBSD ZED routes
 - TrueNAS SCALE and CORE
 - RHEL-based distributions
 - OpenIndiana/Illumos

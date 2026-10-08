@@ -35,6 +35,12 @@ source "qemu" "debian-zfs" {
 build {
   sources = ["source.qemu.debian-zfs"]
 
+  # Fail before ZFS provisioning until the packaged Agent and Agent-local
+  # intake fixture are admitted for this exact image.
+  provisioner "shell" {
+    inline = ["printf '%s\\n' 'HOLD: Debian image lacks reviewed packaged Datadog Agent and Agent-local intake proof' >&2; exit 1"]
+  }
+
   provisioner "shell" {
     inline = [
       "sudo apt-get update",
@@ -42,22 +48,41 @@ build {
     ]
   }
 
+  # Upload into a private directory owned by the provisioning account.
+  provisioner "shell" {
+    inline = ["install -d -m 700 /tmp/zfs-datadog-upload"]
+  }
+
   provisioner "file" {
-    destination = "/tmp/"
+    sources = [
+      "${path.root}/../scripts/install.sh",
+      "${path.root}/../scripts/config.sh",
+      "${path.root}/../scripts/zfs-datadog-lib.sh",
+      "${path.root}/../scripts/statechange-datadog.sh",
+      "${path.root}/../scripts/scrub_start-datadog.sh",
+      "${path.root}/../scripts/scrub_finish-datadog.sh",
+      "${path.root}/../scripts/resilver_start-datadog.sh",
+      "${path.root}/../scripts/resilver_finish-datadog.sh",
+      "${path.root}/../scripts/config_sync-datadog.sh",
+      "${path.root}/../scripts/pool_import-datadog.sh",
+      "${path.root}/../scripts/pool_destroy-datadog.sh",
+      "${path.root}/../scripts/vdev_attach-datadog.sh",
+      "${path.root}/../scripts/vdev_remove-datadog.sh",
+      "${path.root}/../scripts/ereport.fs.zfs.checksum-datadog.sh",
+      "${path.root}/../scripts/ereport.fs.zfs.io-datadog.sh",
+      "${path.root}/../scripts/checksum-error.sh",
+      "${path.root}/../scripts/io-error.sh",
+      "${path.root}/../scripts/payload.sha256",
+    ]
+    destination = "/tmp/zfs-datadog-upload/"
   }
 
   provisioner "shell" {
     inline = [
-      "sudo mkdir -p /etc/zfs/zed.d",
-      "sudo cp /tmp/*.sh /etc/zfs/zed.d/",
-      "sudo cp /tmp/.env.local /etc/zfs/zed.d/",
-      "sudo chmod 755 /etc/zfs/zed.d/*.sh",
-      "sudo chmod 600 /etc/zfs/zed.d/config.sh /etc/zfs/zed.d/.env.local"
+      "sudo mkdir -m 700 /root/zfs-datadog-src",
+      "sudo cp /tmp/zfs-datadog-upload/install.sh /tmp/zfs-datadog-upload/config.sh /tmp/zfs-datadog-upload/zfs-datadog-lib.sh /tmp/zfs-datadog-upload/statechange-datadog.sh /tmp/zfs-datadog-upload/scrub_start-datadog.sh /tmp/zfs-datadog-upload/scrub_finish-datadog.sh /tmp/zfs-datadog-upload/resilver_start-datadog.sh /tmp/zfs-datadog-upload/resilver_finish-datadog.sh /tmp/zfs-datadog-upload/config_sync-datadog.sh /tmp/zfs-datadog-upload/pool_import-datadog.sh /tmp/zfs-datadog-upload/pool_destroy-datadog.sh /tmp/zfs-datadog-upload/vdev_attach-datadog.sh /tmp/zfs-datadog-upload/vdev_remove-datadog.sh /tmp/zfs-datadog-upload/ereport.fs.zfs.checksum-datadog.sh /tmp/zfs-datadog-upload/ereport.fs.zfs.io-datadog.sh /tmp/zfs-datadog-upload/checksum-error.sh /tmp/zfs-datadog-upload/io-error.sh /tmp/zfs-datadog-upload/payload.sha256 /root/zfs-datadog-src/",
+      "sudo sh -ec 'cd /root/zfs-datadog-src; set -- $(openssl dgst -sha256 payload.sha256); [ \"$2\" = \"77e67d33c1716d4760e5b8c67bdc91ef684937624e086498311d9dd4f72e7116\" ] || exit 1; set -- $(openssl dgst -sha256 install.sh); [ \"$2\" = \"e3f8009df25e541b08fca0237f0f61e881bcb99e38723cc229b3df8a54fdbef3\" ]'",
+      "sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=77e67d33c1716d4760e5b8c67bdc91ef684937624e086498311d9dd4f72e7116 sh /root/zfs-datadog-src/install.sh"
     ]
   }
-}
-
-variable "dd_api_key" {
-  type    = string
-  default = env("DD_API_KEY")
 }
