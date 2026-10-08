@@ -27,6 +27,9 @@ jobs:
           echo "Checking shell scripts..."
           find scripts/ -name "*.sh" -type f -exec shellcheck -x {} +
 
+      - name: Check tracked shell path integrity
+        run: .github/scripts/shell-scripts.sh > "$RUNNER_TEMP/shell-scripts.txt"
+
       - name: Fail on new ShellCheck findings
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -188,6 +191,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Reject shell paths that line-oriented checks cannot represent
+        run: |
+          fixture=$(mktemp -d)
+          trap 'rm -rf "$fixture"' EXIT
+          cp .github/scripts/shell-scripts.sh "$fixture/lister.sh"
+          git -C "$fixture" init -q
+          printf '#!/bin/sh\n' > "$fixture/ordinary.sh"
+          git -C "$fixture" add ordinary.sh
+          (cd "$fixture" && sh ./lister.sh) > "$fixture/list"
+          grep -Fx ordinary.sh "$fixture/list"
+          for name in "$(printf 'tab\tname.sh')" "$(printf 'line\nbreak.sh')"; do
+            printf '#!/bin/sh\n' > "$fixture/$name"
+            git -C "$fixture" add -- "$name"
+            if (cd "$fixture" && sh ./lister.sh) > "$fixture/list" 2> "$fixture/error"; then
+              echo 'Lister accepted an unrepresentable tracked script' >&2
+              exit 1
+            fi
+            test ! -s "$fixture/list"
+            grep -F 'refusing incomplete shell-script checks' "$fixture/error"
+            git -C "$fixture" rm -q --cached -- "$name"
+            rm -- "$fixture/$name"
+          done
       
       - name: Validate shell syntax
         run: |
@@ -206,6 +232,31 @@ jobs:
       # get no empty or bundled arguments, and colour output must be real ESC.
       - name: Argument and colour regression test
         run: .github/scripts/test-argv-regressions.sh
+
+      - name: Argument regression rejects quoted tracked paths
+        run: |
+          tab_name="$(printf 'scripts/pr23-tab\tcase.sh')"
+          newline_name="$(printf 'scripts/pr23-line\nbreak.sh')"
+          test ! -e "$tab_name"
+          test ! -e "$newline_name"
+          cleanup() {
+            for name in "$tab_name" "$newline_name"; do
+              git rm -q --cached -- "$name" 2>/dev/null || true
+              rm -f -- "$name"
+            done
+          }
+          trap cleanup EXIT
+          for name in "$tab_name" "$newline_name"; do
+            printf '#!/bin/sh\n' > "$name"
+            git add -- "$name"
+            if .github/scripts/test-argv-regressions.sh > /tmp/pr23-argv-test.log 2>&1; then
+              echo 'Argument regression accepted an unrepresentable script' >&2
+              exit 1
+            fi
+            grep -F 'Tracked path needs Git quoting; refusing incomplete shell-script checks' /tmp/pr23-argv-test.log
+            git rm -q --cached -- "$name"
+            rm -- "$name"
+          done
 
   shipped-zedlets:
     name: Shipped Zedlet Checks
