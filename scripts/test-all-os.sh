@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: pipefail
 # A higher-level driver must fail before a Lima/QEMU boot, results directory,
 # or inherited historical PASS can bypass the Agent-local fixture gate.
 set -euo pipefail

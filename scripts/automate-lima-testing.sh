@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: BASH_SOURCE
 # Automate Lima VM testing for all OSes
 
 set -e
@@ -26,15 +27,15 @@ for vm in $VMS; do
     bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$vm"
     
     # Create test pool
-    limactl shell $vm 'sudo mkdir -p /tmp/zfs-test && \
+    limactl shell "$vm" 'sudo mkdir -p /tmp/zfs-test && \
         sudo dd if=/dev/zero of=/tmp/zfs-test/disk1.img bs=1M count=256 && \
         sudo dd if=/dev/zero of=/tmp/zfs-test/disk2.img bs=1M count=256 && \
         sudo zpool create -f testpool mirror /tmp/zfs-test/disk1.img /tmp/zfs-test/disk2.img'
     
     # Run scrub
-    limactl shell $vm sudo zpool scrub testpool
+    limactl shell "$vm" sudo zpool scrub testpool
     sleep 5
-    limactl shell $vm sudo zpool status testpool
+    limactl shell "$vm" sudo zpool status testpool
     
     echo "✓ $vm complete"
 done

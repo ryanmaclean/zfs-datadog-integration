@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: pipefail
 # Do not report green integration from a direct HTTP mock, a successful UDP
 # write, or an unreviewed post-install replacement of sealed ZED config.
 set -euo pipefail

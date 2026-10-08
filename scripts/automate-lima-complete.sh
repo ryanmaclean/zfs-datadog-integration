@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: BASH_SOURCE and Bash-specific arrays
 set -e
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

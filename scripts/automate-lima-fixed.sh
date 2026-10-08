@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: BASH_SOURCE
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

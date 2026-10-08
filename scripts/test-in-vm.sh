@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: pipefail
 # Agent-local Lima integration is intentionally unavailable until a reviewed
 # packaged Agent and an off-i9 disposable guest are bound to this source tree.
 set -euo pipefail

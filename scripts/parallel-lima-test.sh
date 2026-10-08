@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# bash-required: pipefail
 # Stop before spawning parallel Lima guests or writing a misleading report.
 set -euo pipefail
 
