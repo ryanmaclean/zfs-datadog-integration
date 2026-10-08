@@ -4,6 +4,11 @@
 # Use existing zfs-test VM that already works
 #
 
+# HOLD: this reuses a named Lima guest, reboots it, and mutates ZFS without
+# proving guest ownership or that its storage is disposable.
+printf '%s\n' 'HOLD (78): build-and-verify-one-kernel lacks verified disposable Lima guest and ZFS disk provenance.' >&2
+exit 78
+
 set -e
 
 CYAN=$(printf '\033[0;36m')

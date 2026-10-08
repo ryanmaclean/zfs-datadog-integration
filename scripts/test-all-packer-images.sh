@@ -1,6 +1,11 @@
 #!/bin/sh
 # Test all Packer-built images with ZFS + Datadog
 
+# HOLD: this legacy path SSHes to live i9 and runs QEMU/ZFS there.
+# It has no verified off-NAS disposable target, so fail before any SSH.
+printf '%s\n' 'HOLD (78): test-all-packer-images targets live i9 ZFS; no verified disposable off-NAS route.' >&2
+exit 78
+
 REMOTE="studio@i9-zfs-pop.local"
 
 echo "Testing all Packer-built images..."

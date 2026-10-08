@@ -5,6 +5,11 @@
 # Target: i9-zfs-pop.local with tank3 ZFS pool
 #
 
+# HOLD: this legacy path creates datasets and VMs on the live i9 NAS.
+# It has no verified off-NAS disposable target, so fail before any SSH.
+printf '%s\n' 'HOLD (78): setup-vms-on-zfs targets live i9 ZFS; no verified disposable off-NAS route.' >&2
+exit 78
+
 set -e
 
 REMOTE_HOST="i9-zfs-pop.local"

@@ -5,6 +5,11 @@
 # Comprehensive testing of all event types and error scenarios
 #
 
+# HOLD: this reuses a named Lima guest and destroys pools without proving
+# guest ownership or that its ZFS disks are disposable.
+printf '%s\n' 'HOLD (78): enhanced-e2e-test lacks verified disposable Lima guest and ZFS disk provenance.' >&2
+exit 78
+
 set -e
 
 VM_NAME="zfs-test"

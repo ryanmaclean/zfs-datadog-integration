@@ -5,6 +5,11 @@
 # Fully automated testing in Lima VM
 #
 
+# HOLD: the named Lima guest may already exist; this script deletes it and
+# creates a ZFS pool without proving guest ownership or disposable disks.
+printf '%s\n' 'HOLD (78): e2e-test lacks verified disposable Lima guest and ZFS disk provenance.' >&2
+exit 78
+
 set -e
 
 VM_NAME="zfs-test"
