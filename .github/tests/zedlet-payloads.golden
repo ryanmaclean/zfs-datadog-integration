@@ -143,36 +143,6 @@ case: health and alert mapping
 case: build_tags
   env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 --- exit 0
-=== all-datadog.sh (ereport.fs.zfs.checksum)
-logger -t zfs-datadog [DEBUG] all-datadog received event class: ereport.fs.zfs.checksum
-logger -t zfs-datadog [DEBUG] routing checksum event to checksum-error.sh
-curl argc=12
-  arg: -s
-  arg: -m
-  arg: 10
-  arg: -X
-  arg: POST
-  arg: https://api.datadoghq.com/api/v1/events
-  arg: -H
-  arg: Content-Type: application/json
-  arg: -H
-  arg: DD-API-KEY: stub-key-for-tests
-  arg: -d
-  arg: {
-  "title": "ZFS Checksum Error: tank",
-  "text": "Pool: tank\nVdev: da1\nChecksum Errors: 3\nPath: /dev/da1\nVdev State: DEGRADED",
-  "priority": "normal",
-  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
-  "alert_type": "error",
-  "source_type_name": "zfs",
-  "host": "zfs-test-host"
-}
-logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Checksum Error: tank
-nc -u -w1 localhost 8125
-  data: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
---- exit 0
 === statechange-datadog.sh (sysevent.fs.zfs.statechange)
 curl argc=12
   arg: -s
@@ -480,68 +450,6 @@ logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:producti
 logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
 --- exit 0
 === ereport.fs.zfs.io-datadog.sh (ereport.fs.zfs.io)
-curl argc=12
-  arg: -s
-  arg: -m
-  arg: 10
-  arg: -X
-  arg: POST
-  arg: https://api.datadoghq.com/api/v1/events
-  arg: -H
-  arg: Content-Type: application/json
-  arg: -H
-  arg: DD-API-KEY: stub-key-for-tests
-  arg: -d
-  arg: {
-  "title": "ZFS I/O Error: tank",
-  "text": "Pool: tank\nVdev: da1\nRead Errors: 1\nWrite Errors: 2\nPath: /dev/da1\nVdev State: DEGRADED",
-  "priority": "normal",
-  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
-  "alert_type": "error",
-  "source_type_name": "zfs",
-  "host": "zfs-test-host"
-}
-logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS I/O Error: tank
-nc -u -w1 localhost 8125
-  data: zfs.io.error:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.error:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-nc -u -w1 localhost 8125
-  data: zfs.io.read_errors:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.read_errors:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-nc -u -w1 localhost 8125
-  data: zfs.io.write_errors:2|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.write_errors:2|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [ERROR] I/O error detected: tank - da1 - R:1 W:2
---- exit 0
-=== checksum-error.sh (ereport.fs.zfs.checksum)
-curl argc=12
-  arg: -s
-  arg: -m
-  arg: 10
-  arg: -X
-  arg: POST
-  arg: https://api.datadoghq.com/api/v1/events
-  arg: -H
-  arg: Content-Type: application/json
-  arg: -H
-  arg: DD-API-KEY: stub-key-for-tests
-  arg: -d
-  arg: {
-  "title": "ZFS Checksum Error: tank",
-  "text": "Pool: tank\nVdev: da1\nChecksum Errors: 3\nPath: /dev/da1\nVdev State: DEGRADED",
-  "priority": "normal",
-  "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
-  "alert_type": "error",
-  "source_type_name": "zfs",
-  "host": "zfs-test-host"
-}
-logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Checksum Error: tank
-nc -u -w1 localhost 8125
-  data: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
---- exit 0
-=== io-error.sh (ereport.fs.zfs.io)
 curl argc=12
   arg: -s
   arg: -m

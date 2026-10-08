@@ -6,11 +6,11 @@
 #   1. QEMU gets no empty argument and no bundled "-opt value" word
 #      (qemu-freebsd.sh, qemu-netbsd.sh, qemu-truenas-scale.sh), and that
 #      "-accel" is followed by its own "hvf" argument;
-#   2. ssh/scp get each "-o Option=value" as separate arguments
-#      (test-truenas-core.sh, test-truenas-scale.sh);
-#   3. colour variables hold real ESC bytes, so the converted printf '%s'
-#      calls in uninstall.sh / validate-config.sh emit colours, not literal
-#      "\033[...m" text; and no script assigns a literal \033 sequence.
+#   2. ssh/scp get each "-o Option=value" as separate arguments in the
+#      surviving TrueNAS SCALE driver;
+#   3. validate-config.sh emits real ESC colour bytes, not literal
+#      "\033[...m" text, while uninstall.sh rejects an unknown option; and
+#      no script assigns a literal \033 sequence.
 set -eu
 cd "$(git rev-parse --show-toplevel)"
 REPO=$(pwd)
@@ -112,24 +112,22 @@ for arch in arm64 x86_64; do
 done
 
 echo "2. ssh/scp argv"
-for t in core scale; do
-    dir="$WORK/run-truenas-$t"
-    mkdir -p "$dir"
-    cp "$REPO/scripts/test-truenas-$t.sh" "$dir/"
-    printf '#!/bin/sh\nexit 0\n' > "$dir/wait-for-ssh.sh"
-    chmod +x "$dir/wait-for-ssh.sh"
-    : > "$LOG"
-    (cd "$dir" && PATH="$STUBS:$PATH" ARGV_LOG="$LOG" FAKE_ARCH=x86_64 \
-        sh "./test-truenas-$t.sh" < /dev/null > "$dir/out.txt" 2>&1) ||
-        bad "test-truenas-$t.sh exited non-zero: $(tail -n 3 "$dir/out.txt")"
-    check_argv "test-truenas-$t.sh" ssh scp
-    for c in ssh scp; do
-        if has_pair "^$c\$" -o StrictHostKeyChecking=no && has_pair "^$c\$" -o UserKnownHostsFile=/dev/null; then
-            ok "test-truenas-$t.sh: $c gets each -o option separately"
-        else
-            bad "test-truenas-$t.sh: $c did not get separate -o options"
-        fi
-    done
+dir="$WORK/run-truenas-scale"
+mkdir -p "$dir"
+cp "$REPO/scripts/test-truenas-scale.sh" "$dir/"
+printf '#!/bin/sh\nexit 0\n' > "$dir/wait-for-ssh.sh"
+chmod +x "$dir/wait-for-ssh.sh"
+: > "$LOG"
+(cd "$dir" && PATH="$STUBS:$PATH" ARGV_LOG="$LOG" FAKE_ARCH=x86_64 \
+    bash "./test-truenas-scale.sh" < /dev/null > "$dir/out.txt" 2>&1) ||
+    bad "test-truenas-scale.sh exited non-zero: $(tail -n 3 "$dir/out.txt")"
+check_argv "test-truenas-scale.sh" ssh scp
+for c in ssh scp; do
+    if has_pair "^$c\$" -o StrictHostKeyChecking=no && has_pair "^$c\$" -o UserKnownHostsFile=/dev/null; then
+        ok "test-truenas-scale.sh: $c gets each -o option separately"
+    else
+        bad "test-truenas-scale.sh: $c did not get separate -o options"
+    fi
 done
 
 echo "3. colour output"
@@ -143,8 +141,13 @@ check_colour() { # check_colour LABEL FILE
         ok "$1: real ESC bytes, no literal \\033"
     fi
 }
-sh scripts/uninstall.sh --no-such-option < /dev/null > "$WORK/uninstall.txt" 2>&1 || true
-check_colour "uninstall.sh" "$WORK/uninstall.txt"
+if sh scripts/uninstall.sh --no-such-option < /dev/null > "$WORK/uninstall.txt" 2>&1; then
+    bad "uninstall.sh accepted an unknown option"
+elif grep -q '^Unknown option: --no-such-option$' "$WORK/uninstall.txt"; then
+    ok "uninstall.sh rejects an unknown option before host access"
+else
+    bad "uninstall.sh did not report the unknown option"
+fi
 (PATH="$STUBS:$PATH" ARGV_LOG="$WORK/ignored.log" FAKE_ARCH=x86_64 \
     sh scripts/validate-config.sh < /dev/null > "$WORK/validate.txt" 2>&1) || true
 check_colour "validate-config.sh" "$WORK/validate.txt"

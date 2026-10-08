@@ -1,7 +1,8 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Automate Lima VM testing for all OSes
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 VMS="debian-zfs rocky-zfs ubuntu-zfs"
 
@@ -22,26 +23,18 @@ limactl shell rocky-zfs sudo dnf install -y zfs
 for vm in $VMS; do
     echo "=== Deploying to $vm ==="
     
-    # Copy files
-    limactl copy install.sh "$vm":/tmp/
-    limactl copy config.sh "$vm":/tmp/
-    limactl copy zfs-datadog-lib.sh "$vm":/tmp/
-    limactl copy ./*-datadog.sh "$vm":/tmp/
-    limactl copy .env.local "$vm":/tmp/
-    
-    # Install
-    limactl shell "$vm" sudo bash /tmp/install.sh
+    bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$vm"
     
     # Create test pool
-    limactl shell "$vm" 'sudo mkdir -p /tmp/zfs-test && \
+    limactl shell $vm 'sudo mkdir -p /tmp/zfs-test && \
         sudo dd if=/dev/zero of=/tmp/zfs-test/disk1.img bs=1M count=256 && \
         sudo dd if=/dev/zero of=/tmp/zfs-test/disk2.img bs=1M count=256 && \
         sudo zpool create -f testpool mirror /tmp/zfs-test/disk1.img /tmp/zfs-test/disk2.img'
     
     # Run scrub
-    limactl shell "$vm" sudo zpool scrub testpool
+    limactl shell $vm sudo zpool scrub testpool
     sleep 5
-    limactl shell "$vm" sudo zpool status testpool
+    limactl shell $vm sudo zpool status testpool
     
     echo "✓ $vm complete"
 done

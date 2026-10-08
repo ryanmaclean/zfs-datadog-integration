@@ -9,42 +9,180 @@ on:
 jobs:
   shellcheck:
     name: ShellCheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      # Pinned release binary (same version used for local runs), verified
-      # by checksum. ShellCheck is only used as a CI tool, never vendored.
-      - name: Install ShellCheck v0.11.0
+      - name: Install ShellCheck
         run: |
-          v=v0.11.0
-          curl -fsSL -o /tmp/shellcheck.tar.xz \
-            "https://github.com/koalaman/shellcheck/releases/download/${v}/shellcheck-${v}.linux.x86_64.tar.xz"
-          echo "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  /tmp/shellcheck.tar.xz" | sha256sum -c -
-          tar -xJf /tmp/shellcheck.tar.xz -C /tmp
-          sudo install -m 0755 "/tmp/shellcheck-${v}/shellcheck" /usr/local/bin/shellcheck
-          shellcheck --version
+          sudo apt-get install -y shellcheck=0.9.0-1
+          test "$(shellcheck --version | awk '/^version:/ {print $2}')" = 0.9.0
+          command -v jq
 
-      # Every tracked shell script, not just scripts/. Sourced files are
-      # followed via .shellcheckrc (source-path=SCRIPTDIR).
-      - name: Run ShellCheck on all shell scripts
+      - name: Full repository ShellCheck audit (legacy findings)
+        continue-on-error: true
         run: |
-          .github/scripts/shell-scripts.sh | tr '\n' '\0' | xargs -0 shellcheck
+          echo "Checking shell scripts..."
+          find scripts/ -name "*.sh" -type f -exec shellcheck -x {} +
 
-      - name: No ShellCheck suppressions
+      - name: Fail on new ShellCheck findings
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          # Findings get fixed, not suppressed.
-          if .github/scripts/shell-scripts.sh | tr '\n' '\0' | xargs -0 grep -n 'shellcheck disable='; then
-            echo "Found '# shellcheck disable=' directives above; fix the code instead"
+          set -euo pipefail
+          for sha in "$BASE_SHA" "$HEAD_SHA"; do
+            if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]] || [[ "$sha" =~ ^0+$ ]]; then
+              echo "Invalid base/head commit SHA" >&2
+              exit 1
+            fi
+            git cat-file -e "${sha}^{commit}"
+          done
+
+          base="$RUNNER_TEMP/shellcheck-base"
+          head="$RUNNER_TEMP/shellcheck-head"
+          git worktree add --detach "$base" "$BASE_SHA"
+          git worktree add --detach "$head" "$HEAD_SHA"
+
+          fingerprints() {
+            local tree="$1" output="$2" label="$3"
+            local json="$RUNNER_TEMP/shellcheck-${label}.json"
+            local sources="$RUNNER_TEMP/shellcheck-${label}-sources.json"
+            local script_list="$RUNNER_TEMP/shellcheck-${label}-scripts.z"
+            local source_list="$RUNNER_TEMP/shellcheck-${label}-sources.z"
+            local result
+            (cd "$tree"; find scripts/ -name '*.sh' -type f -print0 | sort -z) > "$script_list" || return 1
+            scripts=()
+            while IFS= read -r -d '' script; do
+              scripts+=("$script")
+            done < "$script_list"
+            ((${#scripts[@]} > 0)) || return 1
+            (
+              cd "$tree"
+              shellcheck -x -f json "${scripts[@]}"
+            ) > "$json" || result=$?
+            if ((${result:-0} > 1)); then
+              echo "ShellCheck failed before producing diagnostics for $label" >&2
+              return 1
+            fi
+            jq -e 'type == "array"' "$json" >/dev/null
+
+            (cd "$tree"; find scripts/ -type f -print0 | sort -z) > "$source_list" || return 1
+            (
+              cd "$tree"
+              while IFS= read -r -d '' file; do
+                jq -Rs --arg file "$file" '{($file): split("\n")}' < "$file" || exit 1
+              done < "$source_list"
+            ) | jq -s 'add // {}' > "$sources"
+
+            jq -c --slurpfile sources "$sources" '
+              .[] as $d |
+              ($sources[0][$d.file] // error("unmapped diagnostic source")) as $lines |
+              ($d.endLine // $d.line) as $last |
+              if $d.line < 1 or $last < $d.line or $last > ($lines | length) then
+                error("invalid diagnostic source span")
+              else
+                {file: $d.file, code: $d.code, level: $d.level,
+                 message: $d.message,
+                 source: ($lines[($d.line - 1):$last] | join("\n"))}
+              end
+            ' "$json" | LC_ALL=C sort > "$output"
+          }
+
+          base_fingerprints="$RUNNER_TEMP/shellcheck-base-fingerprints.jsonl"
+          head_fingerprints="$RUNNER_TEMP/shellcheck-head-fingerprints.jsonl"
+          fingerprints "$base" "$base_fingerprints" base
+          fingerprints "$head" "$head_fingerprints" head
+          echo "Base findings: $(wc -l < "$base_fingerprints")"
+          echo "Head findings: $(wc -l < "$head_fingerprints")"
+
+          # --no-renames treats a rename as a deleted old path and an added new path.
+          changed_paths="$RUNNER_TEMP/shellcheck-changed-paths.z"
+          deleted_paths="$RUNNER_TEMP/shellcheck-deleted-paths.z"
+          if ! git diff --name-only -z --no-renames --diff-filter=ACMT \
+            "$BASE_SHA" "$HEAD_SHA" -- scripts/ > "$changed_paths"; then
+            echo "Cannot enumerate changed paths" >&2
             exit 1
           fi
-          echo "No suppressions"
+          if ! git diff --name-only -z --no-renames --diff-filter=D \
+            "$BASE_SHA" "$HEAD_SHA" -- scripts/ > "$deleted_paths"; then
+            echo "Cannot enumerate deleted paths" >&2
+            exit 1
+          fi
+          while IFS= read -r -d '' path; do
+            [[ "$path" == scripts/* ]] || { echo "Unexpected deleted path" >&2; exit 1; }
+            if [ -e "$head/$path" ] || [ -L "$head/$path" ]; then
+              echo "Deleted path remains in head" >&2
+              exit 1
+            fi
+          done < "$deleted_paths"
 
-      # Every shell script: #!/bin/sh, or #!/usr/bin/env bash with a
-      # '# bash-required:' line and real bash-only usage. See the script.
-      - name: Check shebang policy (POSIX sh unless bash is required)
-        run: .github/scripts/check-shebangs.sh
+          changed_keys="$RUNNER_TEMP/shellcheck-changed-keys.jsonl"
+          : > "$changed_keys"
+          while IFS= read -r -d '' path; do
+            [[ "$path" == scripts/* ]] || { echo "Unexpected changed path" >&2; exit 1; }
+            if [ -L "$head/$path" ] || [ ! -f "$head/$path" ]; then
+              echo "Changed head path is not a regular file" >&2
+              exit 1
+            fi
+            patch="$RUNNER_TEMP/shellcheck-path.patch"
+            lines="$RUNNER_TEMP/shellcheck-path-lines.txt"
+            if ! git diff --unified=0 --no-ext-diff --no-renames \
+              "$BASE_SHA" "$HEAD_SHA" -- "$path" > "$patch"; then
+              echo "Cannot inspect changed path" >&2
+              exit 1
+            fi
+            if ! awk '
+              /^@@/ {
+                if ($0 !~ /^@@ -[0-9]+(,[0-9]+)? \+[0-9]+(,[0-9]+)? @@/) exit 2
+                split($0, fields, " ")
+                span = fields[3]
+                sub(/^\+/, "", span)
+                split(span, part, ",")
+                count = (part[2] == "" ? 1 : part[2])
+                for (i = 0; i < count; i++) print part[1] + i
+              }' "$patch" > "$lines"; then
+              echo "Cannot parse changed-line hunks" >&2
+              exit 1
+            fi
+            if ! jq -Rcn --arg path "$path" 'inputs | [$path, tonumber]' \
+              "$lines" >> "$changed_keys"; then
+              echo "Cannot encode changed-line keys" >&2
+              exit 1
+            fi
+          done < "$changed_paths"
+          LC_ALL=C sort -u "$changed_keys" > "$RUNNER_TEMP/shellcheck-changed-lines.jsonl"
+          jq -c '.[] as $d |
+                 range($d.line; (($d.endLine // $d.line) + 1)) as $line |
+                 [$d.file, $line]' "$RUNNER_TEMP/shellcheck-head.json" |
+            LC_ALL=C sort -u > "$RUNNER_TEMP/shellcheck-diagnostic-lines.jsonl"
+          comm -12 "$RUNNER_TEMP/shellcheck-changed-lines.jsonl" \
+            "$RUNNER_TEMP/shellcheck-diagnostic-lines.jsonl" \
+            > "$RUNNER_TEMP/shellcheck-on-changed-lines.jsonl"
+          comm -13 "$base_fingerprints" "$head_fingerprints" > "$RUNNER_TEMP/shellcheck-new.jsonl"
+          if [ -s "$RUNNER_TEMP/shellcheck-new.jsonl" ] || \
+             [ -s "$RUNNER_TEMP/shellcheck-on-changed-lines.jsonl" ]; then
+            echo "New ShellCheck findings (including duplicate counts):" >&2
+            cat "$RUNNER_TEMP/shellcheck-new.jsonl" >&2
+            echo "Findings on added or modified lines:" >&2
+            cat "$RUNNER_TEMP/shellcheck-on-changed-lines.jsonl" >&2
+            exit 1
+          fi
+          echo "No new ShellCheck findings"
 
+      - name: Check declared shell dialect
+        run: |
+          echo "Checking each script with its declared shell..."
+          for script in scripts/*.sh; do
+            header=$(head -n 1 "$script") || exit 1
+            case "$header" in
+              '#!/bin/sh') sh -n "$script" ;;
+              '#!/bin/bash'|'#!/usr/bin/env bash') bash -n "$script" ;;
+              *) echo "Unsupported shell header in $script: $header" >&2; exit 1 ;;
+            esac
+          done
   syntax-check:
     name: Syntax Validation
     runs-on: ubuntu-latest

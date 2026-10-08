@@ -2,7 +2,7 @@
 # bash-required: BASH_SOURCE, array references, echo flags, local, RANDOM, brace expansion, export -f, declare, arrays, +=, &>
 #
 # Parallel Testing of Golden Images
-# Tests all built images simultaneously
+# Tests eligible images as local VM smoke only
 #
 
 set -e
@@ -27,7 +27,7 @@ echo "========================================"
 echo "Parallel Golden Image Testing"
 echo "========================================"
 echo ""
-echo "Testing all built golden images"
+echo "Testing eligible built images (local VM smoke only)"
 echo "Max parallel tests: $MAX_PARALLEL"
 echo "Results directory: $RESULTS_DIR"
 echo ""
@@ -71,7 +71,7 @@ test_image() {
     if [ $ssh_ready -eq 0 ]; then
         echo "✗ $os_name: SSH timeout" | tee -a "$log_file"
         kill "$vm_pid" 2>/dev/null || true
-        echo '{"status":"FAIL","reason":"SSH timeout"}' > "$result_file"
+        echo '{"status":"SMOKE_FAIL","proof_level":"local_vm_smoke","datadog_intake_verified":false,"reason":"SSH timeout"}' > "$result_file"
         return 1
     fi
     
@@ -90,12 +90,12 @@ test_image() {
     local duration=$((end_time - start_time))
     
     if [ $test_result -eq 0 ]; then
-        echo "✓ $os_name: PASS (${duration}s)" | tee -a "$log_file"
-        echo "{\"status\":\"PASS\",\"duration\":${duration}}" > "$result_file"
+        echo "✓ $os_name: SMOKE PASS (${duration}s)" | tee -a "$log_file"
+        echo "{\"status\":\"SMOKE_PASS\",\"proof_level\":\"local_vm_smoke\",\"datadog_intake_verified\":false,\"duration\":${duration}}" > "$result_file"
         return 0
     else
-        echo "✗ $os_name: FAIL (${duration}s)" | tee -a "$log_file"
-        echo "{\"status\":\"FAIL\",\"duration\":${duration}}" > "$result_file"
+        echo "✗ $os_name: SMOKE FAIL (${duration}s)" | tee -a "$log_file"
+        echo "{\"status\":\"SMOKE_FAIL\",\"proof_level\":\"local_vm_smoke\",\"datadog_intake_verified\":false,\"duration\":${duration}}" > "$result_file"
         return 1
     fi
 }
@@ -103,11 +103,17 @@ test_image() {
 export -f test_image
 export RESULTS_DIR
 
-# Find all built images
+# Find eligible images for local VM smoke testing
 declare -a IMAGES=()
 for output_dir in output-*/; do
     if [ -d "$output_dir" ]; then
         os_name=$(basename "$output_dir" | sed 's/^output-//')
+        case "$os_name" in
+            freebsd*|truenas-core*)
+                log_info "Skipping $os_name: native FreeBSD/CORE ZFS event delivery is unverified"
+                continue
+                ;;
+        esac
         image_file=$(find "$output_dir" -name "*.qcow2" -type f | head -1)
         if [ -n "$image_file" ]; then
             IMAGES+=("${os_name}:${image_file}")
@@ -116,14 +122,14 @@ for output_dir in output-*/; do
 done
 
 if [ ${#IMAGES[@]} -eq 0 ]; then
-    log_error "No golden images found. Run ./build-all-images.sh first."
+    log_error "No eligible smoke-test images found. FreeBSD/CORE require native event delivery proof."
     exit 1
 fi
 
 log_info "Found ${#IMAGES[@]} images to test"
 echo ""
 
-# Test all images in parallel
+# Smoke-test all eligible images in parallel
 if command -v parallel &> /dev/null; then
     log_info "Using GNU Parallel for maximum speed"
     printf '%s\n' "${IMAGES[@]}" | parallel -j "$MAX_PARALLEL" --colsep ':' test_image '{1}' '{2}'
@@ -155,13 +161,13 @@ for result_file in "$RESULTS_DIR"/*.json; do
         status=$(jq -r '.status' "$result_file" 2>/dev/null || echo "UNKNOWN")
         os_name=$(basename "$result_file" .json)
         
-        if [ "$status" = "PASS" ]; then
+        if [ "$status" = "SMOKE_PASS" ]; then
             PASSED=$((PASSED + 1))
             duration=$(jq -r '.duration' "$result_file")
-            echo -e "${GREEN}✓${NC} $os_name: PASS (${duration}s)"
+            echo -e "${GREEN}✓${NC} $os_name: SMOKE PASS (${duration}s)"
         else
             FAILED=$((FAILED + 1))
-            echo -e "${RED}✗${NC} $os_name: FAIL"
+            echo -e "${RED}✗${NC} $os_name: SMOKE FAIL"
         fi
     fi
 done
@@ -174,10 +180,9 @@ echo "Success Rate: $((PASSED * 100 / TOTAL))%"
 echo ""
 
 if [ $PASSED -eq $TOTAL ]; then
-    log_success "All tests passed! 🎉"
+    log_success "All eligible VM smoke tests passed."
     echo ""
-    echo "✅ ZFS Datadog integration validated across all platforms"
-    echo "✅ Production-ready for deployment"
+    echo "Datadog event intake and production readiness remain unverified."
 else
     log_error "$FAILED tests failed. Review logs in $RESULTS_DIR"
 fi
@@ -187,7 +192,7 @@ cat > "${RESULTS_DIR}/report.html" <<EOF
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Multi-OS Test Results</title>
+    <title>Local VM Smoke Test Results</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .pass { color: green; }
@@ -198,7 +203,8 @@ cat > "${RESULTS_DIR}/report.html" <<EOF
     </style>
 </head>
 <body>
-    <h1>Multi-OS Test Results</h1>
+    <h1>Local VM Smoke Test Results</h1>
+    <p>These results do not verify Datadog event intake or production readiness.</p>
     <p>Date: $(date)</p>
     <p>Total: $TOTAL | Passed: $PASSED | Failed: $FAILED | Success Rate: $((PASSED * 100 / TOTAL))%</p>
     <table>
@@ -211,10 +217,10 @@ for result_file in "$RESULTS_DIR"/*.json; do
         status=$(jq -r '.status' "$result_file" 2>/dev/null || echo "UNKNOWN")
         duration=$(jq -r '.duration // 0' "$result_file" 2>/dev/null)
         
-        if [ "$status" = "PASS" ]; then
-            echo "<tr><td>$os_name</td><td class='pass'>✓ PASS</td><td>${duration}s</td></tr>" >> "${RESULTS_DIR}/report.html"
+        if [ "$status" = "SMOKE_PASS" ]; then
+            echo "<tr><td>$os_name</td><td class='pass'>✓ SMOKE PASS</td><td>${duration}s</td></tr>" >> "${RESULTS_DIR}/report.html"
         else
-            echo "<tr><td>$os_name</td><td class='fail'>✗ FAIL</td><td>${duration}s</td></tr>" >> "${RESULTS_DIR}/report.html"
+            echo "<tr><td>$os_name</td><td class='fail'>✗ SMOKE FAIL</td><td>${duration}s</td></tr>" >> "${RESULTS_DIR}/report.html"
         fi
     fi
 done

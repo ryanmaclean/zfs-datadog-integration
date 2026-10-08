@@ -22,11 +22,13 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 # ---------------------------------------------------------------- shipped set
-# Parse LIB and ZEDLETS from install.sh so this test follows the installer.
+# Parse all shipped sources from install.sh. HANDLERS are installed under
+# hidden names and reached only through the enabled ereport wrappers.
 lib=$(sed -n "s/^LIB='\\(.*\\)'\$/\\1/p" scripts/install.sh)
 zedlets=$(sed -n "/^ZEDLETS='/,/'\$/p" scripts/install.sh | tr -d "'" | sed 's/^ZEDLETS=//')
-if [ -z "$lib" ] || [ -z "$zedlets" ]; then
-    echo "Could not read LIB/ZEDLETS from scripts/install.sh" >&2
+handlers=$(sed -n "s/^HANDLERS='\\(.*\\)'\$/\\1/p" scripts/install.sh)
+if [ -z "$lib" ] || [ -z "$zedlets" ] || [ -z "$handlers" ]; then
+    echo "Could not read LIB/ZEDLETS/HANDLERS from scripts/install.sh" >&2
     exit 1
 fi
 
@@ -68,6 +70,16 @@ mkdir "$zed"
 for f in $lib $zedlets; do
     cp "scripts/$f" "$zed/$f"
     chmod +x "$zed/$f"
+done
+for f in $handlers; do
+    cp "scripts/$f" "$zed/.$f"
+    chmod +x "$zed/.$f"
+done
+for forbidden in all-datadog.sh checksum-error.sh io-error.sh; do
+    if [ -e "$zed/$forbidden" ] || [ -L "$zed/$forbidden" ]; then
+        echo "Unexpected active route: $forbidden" >&2
+        exit 1
+    fi
 done
 sed 's/^DD_API_KEY=.*/DD_API_KEY="stub-key-for-tests"/' scripts/config.sh.example > "$zed/config.sh"
 

@@ -3,11 +3,12 @@
 # ZFS Datadog Integration Installation Script
 # Installs zedlets and configures the ZFS Event Daemon (ZED)
 #
-# POSIX sh — runs on Linux, FreeBSD, NetBSD, TrueNAS CORE/SCALE, illumos.
+# POSIX sh — ZED hosts only; FreeBSD base is intentionally fail-closed.
 #
 # Override autodetection with environment variables:
 #   ZED_DIR=/path/to/zed.d   ./install.sh
-#   SKIP_RESTART=1           ./install.sh
+# This installer deliberately rejects existing integration files. Upgrades
+# require a separately verified migration; never activate beside old routes.
 #
 
 set -e
@@ -36,30 +37,32 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-OS=$(uname -s)
+OS=$(uname -s) || { err "Cannot determine host OS"; exit 1; }
+[ -n "$OS" ] || { err "Host OS was empty"; exit 1; }
+
+# Base FreeBSD uses zfsd/devd; copying ZED zedlets cannot enable delivery.
+# Refuse before destination discovery, directory/config writes or restart.
+if [ "$OS" = "FreeBSD" ]; then
+    err "FreeBSD native ZFS event delivery is not installed by this ZED installer"
+    printf 'No ZED files or ZFS services were changed.\n' >&2
+    exit 1
+fi
+if [ "$OS" != "Linux" ]; then
+    err "This installer has no verified ZED activation contract for $OS"
+    exit 1
+fi
+if [ -n "${SKIP_RESTART:-}" ]; then
+    err "SKIP_RESTART cannot establish an active single-route installation"
+    exit 1
+fi
 
 # --------------------------------------------------------------- ZED dir ----
 # Linux distributions create /etc/zfs/zed.d as part of packaging ZED, so on
 # Linux an absent directory genuinely means ZED is not installed.
 #
-# FreeBSD is different: it ships zfsd(8) rather than ZED, and on FreeBSD 15
-# NEITHER /etc/zfs/zed.d nor /usr/local/etc/zfs/zed.d exists by default. The
-# directory is something you create. Refusing to install because it is missing
-# is wrong on the platform this script exists to support, so on FreeBSD we
-# create it when ZFS is actually present.
-ZED_DIR_CREATED=0
-
-if [ -n "${ZED_DIR}" ]; then
-    # Explicit override: trust the caller, but create it if needed.
-    if [ ! -d "$ZED_DIR" ]; then
-        if mkdir -p "$ZED_DIR" 2>/dev/null; then
-            ZED_DIR_CREATED=1
-            ok "Created $ZED_DIR (ZED_DIR was set explicitly)"
-        else
-            err "ZED_DIR was set to '$ZED_DIR' and it could not be created"
-            exit 1
-        fi
-    fi
+# A ZED destination must be configured for the target platform.
+if [ -n "${ZED_DIR:-}" ]; then
+    [ -d "$ZED_DIR" ] || { err "Configured ZED directory does not exist"; exit 1; }
 else
     for candidate in /etc/zfs/zed.d /usr/local/etc/zfs/zed.d; do
         if [ -d "$candidate" ]; then
@@ -69,24 +72,33 @@ else
     done
 fi
 
-if [ -z "${ZED_DIR}" ] && [ "$OS" = "FreeBSD" ]; then
-    # Gate on ZFS actually being present — never create a directory on a host
-    # that has no pools to report on.
-    if command -v zpool >/dev/null 2>&1; then
-        ZED_DIR=/usr/local/etc/zfs/zed.d
-        if mkdir -p "$ZED_DIR" 2>/dev/null; then
-            ZED_DIR_CREATED=1
-            ok "Created $ZED_DIR (FreeBSD ships no zedlet directory by default)"
-        else
-            err "Could not create $ZED_DIR"
-            exit 1
-        fi
-    else
-        err "No zedlet directory and no zpool(8) on this host"
-        printf 'ZFS does not appear to be installed. Nothing to monitor.\n'
+# A root-run copy is safe only below root-owned, non-writable ancestry. On
+# other platforms stat differs, so the OS gate above refuses instead of
+# guessing. The directory must already exist; installer never creates it.
+case "$ZED_DIR" in /*) ;; *) err "ZED_DIR must be absolute"; exit 1 ;; esac
+case "$ZED_DIR" in
+    /|*/|*//*|*/./*|*/../*|*/.|*/..|*[!A-Za-z0-9_./-]*)
+        err "ZED_DIR must be a simple absolute directory path"
         exit 1
-    fi
-fi
+        ;;
+esac
+trust_path=$ZED_DIR
+while :; do
+    [ ! -L "$trust_path" ] || { err "Symlink in ZED path: $trust_path"; exit 1; }
+    [ -d "$trust_path" ] || { err "Missing ZED path component: $trust_path"; exit 1; }
+    trust_meta=$(stat -c '%u:%a' "$trust_path") || exit 1
+    trust_uid=${trust_meta%%:*}
+    trust_mode=${trust_meta#*:}
+    [ "$trust_uid" = 0 ] || { err "Non-root ZED path component: $trust_path"; exit 1; }
+    case "$trust_mode" in *[!0-7]*|'') err "Invalid ZED path mode"; exit 1 ;; esac
+    trust_bits=$((0$trust_mode))
+    [ "$((trust_bits & 0022))" -eq 0 ] || {
+        err "Writable ZED path component: $trust_path"
+        exit 1
+    }
+    [ "$trust_path" = / ] && break
+    trust_path=$(dirname "$trust_path")
+done
 
 if [ -z "${ZED_DIR}" ]; then
     err "Could not find a zed.d directory"
@@ -99,6 +111,44 @@ fi
 # "cd; pwd" instead of ${BASH_SOURCE[0]} — works under any POSIX sh.
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
+# Root execution from a user-writable checkout (especially /tmp) would let a
+# different user swap a handler between preflight and staging. Require a
+# sealed root-owned source tree; image builders may copy their payload into
+# /root first, then invoke this script there.
+source_path=$SCRIPT_DIR
+while :; do
+    if [ -L "$source_path" ] || [ ! -d "$source_path" ]; then
+        err "Unsafe source path: $source_path"; exit 1;
+    fi
+    source_meta=$(stat -c '%u:%a' "$source_path") || exit 1
+    [ "${source_meta%%:*}" = 0 ] || { err "Non-root source path: $source_path"; exit 1; }
+    source_mode=${source_meta#*:}
+    source_bits=$((0$source_mode))
+    [ "$((source_bits & 0022))" -eq 0 ] || {
+        err "Writable source path: $source_path"; exit 1;
+    }
+    [ "$source_path" = / ] && break
+    source_path=$(dirname "$source_path")
+done
+
+# A failed or interrupted run leaves the lock for manual inspection. Never
+# steal it: a concurrent installer could otherwise replace another run's files.
+umask 077
+lock="$ZED_DIR/.zfs-datadog-install.lock"
+if ! mkdir -m 700 "$lock" 2>/dev/null; then
+    err "Installation lock exists: $lock"
+    exit 1
+fi
+lock_owned=1
+release_lock() {
+    if [ "$lock_owned" -eq 1 ]; then
+        rmdir "$lock" || err "Could not release installation lock: $lock"
+        lock_owned=0
+    fi
+}
+trap 'release_lock' EXIT
+trap 'exit 1' HUP INT TERM
+
 printf '%sZFS Datadog Integration Installer%s\n' "$GREEN" "$NC"
 printf '==================================\n'
 printf 'OS:      %s\n' "$OS"
@@ -109,14 +159,11 @@ printf 'Checking dependencies...\n'
 MISSING=''
 command -v curl >/dev/null 2>&1 || MISSING="$MISSING curl"
 command -v nc   >/dev/null 2>&1 || MISSING="$MISSING nc"
+command -v openssl >/dev/null 2>&1 || MISSING="$MISSING openssl"
 
 if [ -n "$MISSING" ]; then
     err "Missing dependencies:$MISSING"
     case "$OS" in
-        FreeBSD)
-            # nc(1) is in FreeBSD base; curl is not.
-            printf 'Install with: pkg install%s\n' "$MISSING"
-            ;;
         Linux)
             printf 'Install curl and a netcat (netcat-openbsd or nmap-ncat) via your package manager.\n'
             ;;
@@ -130,17 +177,12 @@ ok "All dependencies found"
 printf '\n'
 
 # --------------------------------------------------------------- payload ----
-# The library plus every zedlet in the repo.
-#
-# NOTE: the ereport.fs.zfs.* files are the ZED dispatch entry points. ZED
-# matches a zedlet to an event by filename prefix, so checksum-error.sh and
-# io-error.sh are never invoked on their own — the wrappers exec them. Omitting
-# the wrappers silently disables checksum and I/O error reporting, which is
-# what the previous version of this script did.
+# Only the two ereport wrappers are enabled for checksum and I/O. The
+# executable handlers are dotfiles, which ZED ignores by definition. The
+# former all-datadog router and public helper names are upgrade conflicts.
 LIB='zfs-datadog-lib.sh'
 
-ZEDLETS='all-datadog.sh
-statechange-datadog.sh
+ZEDLETS='statechange-datadog.sh
 scrub_start-datadog.sh
 scrub_finish-datadog.sh
 resilver_start-datadog.sh
@@ -151,14 +193,14 @@ pool_destroy-datadog.sh
 vdev_attach-datadog.sh
 vdev_remove-datadog.sh
 ereport.fs.zfs.checksum-datadog.sh
-ereport.fs.zfs.io-datadog.sh
-checksum-error.sh
-io-error.sh'
+ereport.fs.zfs.io-datadog.sh'
+HANDLERS='checksum-error.sh io-error.sh'
+OLD_ROUTES='all-datadog.sh checksum-error.sh io-error.sh'
 
 printf 'Checking source files...\n'
 MISSING_SRC=''
-for f in $LIB $ZEDLETS; do
-    [ -f "$SCRIPT_DIR/$f" ] || MISSING_SRC="$MISSING_SRC $f"
+for f in $LIB $ZEDLETS $HANDLERS; do
+    [ -f "$SCRIPT_DIR/$f" ] && [ ! -L "$SCRIPT_DIR/$f" ] || MISSING_SRC="$MISSING_SRC $f"
 done
 if [ -n "$MISSING_SRC" ]; then
     err "Missing source files:$MISSING_SRC"
@@ -166,145 +208,188 @@ if [ -n "$MISSING_SRC" ]; then
 fi
 ok "All source files found"
 printf '\n'
+for f in install.sh payload.sha256 $LIB $ZEDLETS $HANDLERS config.sh config.sh.example; do
+    [ -f "$SCRIPT_DIR/$f" ] || continue
+    [ ! -L "$SCRIPT_DIR/$f" ] || { err "Symlinked source file: $f"; exit 1; }
+    src_meta=$(stat -c '%u:%a' "$SCRIPT_DIR/$f") || exit 1
+    [ "${src_meta%%:*}" = 0 ] || { err "Non-root source file: $f"; exit 1; }
+    src_mode=${src_meta#*:}
+    src_bits=$((0$src_mode))
+    [ "$((src_bits & 0022))" -eq 0 ] || { err "Writable source file: $f"; exit 1; }
+done
 
-# ---------------------------------------------------------------- config ----
-# config.sh holds the API key. Never clobber an existing one.
-printf 'Handling configuration...\n'
-if [ -f "$ZED_DIR/config.sh" ]; then
-    ok "Existing $ZED_DIR/config.sh left untouched"
-    CONFIG_IS_NEW=0
-elif [ -f "$SCRIPT_DIR/config.sh" ]; then
-    cp "$SCRIPT_DIR/config.sh" "$ZED_DIR/config.sh"
-    ok "Installed config.sh"
-    CONFIG_IS_NEW=1
-elif [ -f "$SCRIPT_DIR/config.sh.example" ]; then
-    cp "$SCRIPT_DIR/config.sh.example" "$ZED_DIR/config.sh"
-    ok "Created config.sh from config.sh.example"
-    CONFIG_IS_NEW=1
-else
-    err "No config.sh or config.sh.example found in $SCRIPT_DIR"
+# Callers must pin the reviewed manifest digest outside this uploaded script.
+# The caller verifies install.sh itself before root execution. Once running,
+# this check binds every payload byte to that reviewed manifest before service
+# or destination changes.
+case "${ZFS_DD_EXPECTED_MANIFEST_SHA:-}" in
+    ????????????????????????????????????????????????????????????????) ;;
+    *) err "Expected payload manifest SHA-256 is required"; exit 1 ;;
+esac
+case "$ZFS_DD_EXPECTED_MANIFEST_SHA" in
+    *[!0-9a-f]*) err "Invalid payload manifest SHA-256"; exit 1 ;;
+esac
+manifest="$SCRIPT_DIR/payload.sha256"
+command -v openssl >/dev/null 2>&1 || { err "openssl is required"; exit 1; }
+manifest_digest=$(openssl dgst -sha256 "$manifest") || exit 1
+[ "${manifest_digest##*= }" = "$ZFS_DD_EXPECTED_MANIFEST_SHA" ] || {
+    err "Payload manifest differs from reviewed digest"; exit 1;
+}
+payload_count=0
+payload_seen=' '
+while read -r expected name extra; do
+    [ -z "${extra:-}" ] || { err "Malformed payload manifest"; exit 1; }
+    case "$expected" in
+        ????????????????????????????????????????????????????????????????) ;;
+        *) err "Malformed payload hash"; exit 1 ;;
+    esac
+    case "$expected" in *[!0-9a-f]*) err "Malformed payload hash"; exit 1 ;; esac
+    case "$name" in
+        install.sh|config.sh|zfs-datadog-lib.sh|checksum-error.sh|io-error.sh|\
+        statechange-datadog.sh|scrub_start-datadog.sh|scrub_finish-datadog.sh|\
+        resilver_start-datadog.sh|resilver_finish-datadog.sh|\
+        config_sync-datadog.sh|pool_import-datadog.sh|pool_destroy-datadog.sh|\
+        vdev_attach-datadog.sh|vdev_remove-datadog.sh|\
+        ereport.fs.zfs.checksum-datadog.sh|ereport.fs.zfs.io-datadog.sh) ;;
+        *) err "Unknown payload name: $name"; exit 1 ;;
+    esac
+    case "$payload_seen" in *" $name "*) err "Duplicate payload name: $name"; exit 1 ;; esac
+    payload_seen="$payload_seen$name "
+    file_digest=$(openssl dgst -sha256 "$SCRIPT_DIR/$name") || exit 1
+    [ "${file_digest##*= }" = "$expected" ] || {
+        err "Payload differs from reviewed manifest: $name"; exit 1;
+    }
+    payload_count=$((payload_count + 1))
+done < "$manifest"
+[ "$payload_count" -eq 17 ] || { err "Incomplete payload manifest"; exit 1; }
+
+# Refuse old and partial installations before touching a configuration or
+# ZED. An unknown or modified old route cannot be retired by filename alone.
+for f in $LIB $ZEDLETS $OLD_ROUTES .checksum-error.sh .io-error.sh config.sh .env.local .zfs-datadog.manifest; do
+    if [ -e "$ZED_DIR/$f" ] || [ -L "$ZED_DIR/$f" ]; then
+        err "Existing integration path requires reviewed migration: $ZED_DIR/$f"
+        exit 1
+    fi
+done
+if ! command -v systemctl >/dev/null 2>&1 ||
+   ! systemctl is-active --quiet zfs-zed; then
+    err "A running systemd zfs-zed service is required for safe activation"
     exit 1
 fi
-chmod 600 "$ZED_DIR/config.sh"
-printf '\n'
 
-# --------------------------------------------------------------- install ----
-printf 'Installing to %s...\n' "$ZED_DIR"
-cp "$SCRIPT_DIR/$LIB" "$ZED_DIR/$LIB"
-chmod 644 "$ZED_DIR/$LIB"          # sourced, not executed
-printf '  %s\n' "$LIB"
-
-for f in $ZEDLETS; do
-    cp "$SCRIPT_DIR/$f" "$ZED_DIR/$f"
-    chmod 755 "$ZED_DIR/$f"
-    printf '  %s\n' "$f"
+# Stage in the root-only enabled directory under a name ZED will not scan.
+# No integration paths existed at preflight, so rollback can remove only the
+# files this invocation introduced. A stopped ZED cannot consume mixed files.
+umask 077
+stage="$ZED_DIR/.zfs-datadog-stage.$$"
+stage_owned=0
+installed=''
+zed_stopped=0
+committed=0
+cleanup() {
+    result=$1
+    trap - EXIT
+    set +e
+    if [ "$committed" -eq 0 ]; then
+        rollback_quiesced=0
+        if [ "$zed_stopped" -eq 1 ]; then
+            if ! systemctl stop zfs-zed >/dev/null 2>&1 ||
+               systemctl is-active --quiet zfs-zed; then
+                err "Rollback could not quiesce zfs-zed; installed paths preserved for recovery"
+                installed=''
+            else
+                rollback_quiesced=1
+            fi
+        fi
+        for path in $installed; do rm -f "$path"; done
+        if [ "$rollback_quiesced" -eq 1 ]; then
+            if ! systemctl start zfs-zed >/dev/null 2>&1; then
+                err "Rollback could not restart zfs-zed; inspect service state"
+            fi
+        fi
+    fi
+    if [ "$stage_owned" -eq 1 ]; then rm -rf "$stage"; fi
+    release_lock
+    exit "$result"
+}
+trap 'cleanup $?' EXIT
+trap 'exit 1' HUP INT TERM
+mkdir -m 700 "$stage"
+stage_owned=1
+for f in $LIB $ZEDLETS $HANDLERS; do
+    cp "$SCRIPT_DIR/$f" "$stage/$f"
+    cmp -s "$SCRIPT_DIR/$f" "$stage/$f" || { err "Stage verification failed: $f"; exit 1; }
 done
-ok "Files installed"
-printf '\n'
-
-# Warn if the API key still looks unset. Uses POSIX grep -E, not GNU grep -q ".\+".
-if ! grep -E '^[[:space:]]*(export[[:space:]]+)?DD_API_KEY=["'"'"']?[A-Za-z0-9]' \
-        "$ZED_DIR/config.sh" >/dev/null 2>&1; then
-    warn "DD_API_KEY does not appear to be set in $ZED_DIR/config.sh"
-fi
-
-# ----------------------------------------------------- FreeBSD: zfsd/zed ----
-# FreeBSD's fault-management daemon is zfsd(8). ZED is the OpenZFS daemon that
-# dispatches zedlets, and it is what Linux packaging installs and enables.
-# Whether zfsd consumes zedlets from this directory is NOT something this
-# script can verify, so it reports the state and names the alternative rather
-# than claiming the install is live.
-if [ "$OS" = "FreeBSD" ]; then
-    ZED_RUNNING=0
-    ZFSD_RUNNING=0
-    command -v pgrep >/dev/null 2>&1 && {
-        pgrep -q '^zed$'  2>/dev/null && ZED_RUNNING=1
-        pgrep -q '^zfsd$' 2>/dev/null && ZFSD_RUNNING=1
-    }
-
-    if [ "$ZED_RUNNING" -eq 1 ]; then
-        ok "zed is running — zedlets in $ZED_DIR should dispatch"
-    elif [ "$ZFSD_RUNNING" -eq 1 ]; then
-        warn "zfsd is running but zed is not"
-        printf '    zfsd is FreeBSD'\''s own fault daemon. Whether it dispatches the\n'
-        printf '    zedlets in %s has not been verified by this script.\n' "$ZED_DIR"
-        printf '    If events do not arrive, poll instead of waiting on a daemon:\n'
-        printf '      zpool events        # full event log, no daemon required\n'
-    else
-        warn "Neither zed nor zfsd appears to be running — nothing will dispatch these zedlets"
-        printf '    FreeBSD ships zfsd:   sysrc zfsd_enable=YES && service zfsd start\n'
-        printf '    If your OpenZFS build provides zed:\n'
-        printf '                          sysrc zed_enable=YES  && service zed start\n'
-        printf '    Or skip the daemon entirely and poll: zpool events\n'
-    fi
-
-    if [ "$ZED_DIR_CREATED" -eq 1 ]; then
-        warn "This directory did not exist before now."
-        printf '    Nothing has been proven to read it. Trigger a real event\n'
-        printf '    (zpool scrub <pool>) and confirm the event reaches Datadog\n'
-        printf '    before treating this host as monitored.\n'
-    fi
-    printf '\n'
-fi
-
-# --------------------------------------------------------------- restart ----
-if [ -n "${SKIP_RESTART}" ]; then
-    warn "SKIP_RESTART set — not restarting ZED"
+if [ -f "$SCRIPT_DIR/config.sh" ]; then
+    cp "$SCRIPT_DIR/config.sh" "$stage/config.sh"
+elif [ -f "$SCRIPT_DIR/config.sh.example" ]; then
+    cp "$SCRIPT_DIR/config.sh.example" "$stage/config.sh"
 else
-    printf 'Restarting ZFS Event Daemon...\n'
-    if [ "$OS" = "FreeBSD" ] && command -v service >/dev/null 2>&1; then
-        # Try zed, then zfsd — whichever this host actually runs.
-        if service zed restart >/dev/null 2>&1; then
-            ok "zed restarted via service(8)"
-        elif service zfsd restart >/dev/null 2>&1; then
-            ok "zfsd restarted via service(8)"
-        else
-            warn "Could not restart zed or zfsd via service(8) — start one manually"
-        fi
-    elif command -v systemctl >/dev/null 2>&1; then
-        if systemctl restart zfs-zed >/dev/null 2>&1; then
-            ok "ZED restarted via systemctl"
-        else
-            warn "systemctl could not restart zfs-zed — restart it manually"
-        fi
-    elif [ -x /etc/init.d/zfs-zed ]; then
-        if /etc/init.d/zfs-zed restart; then
-            ok "ZED restarted via init.d"
-        else
-            warn "init.d could not restart zfs-zed — restart it manually"
-        fi
-    elif command -v svcadm >/dev/null 2>&1; then
-        if svcadm restart system/fm/zfs-events 2>/dev/null; then
-            ok "ZED restarted via svcadm"
-        else
-            warn "Could not restart ZED via svcadm — restart it manually"
-        fi
-    else
-        warn "Could not determine how to restart ZED — please restart it manually"
-    fi
+    err "No configuration source"
+    exit 1
 fi
+chmod 644 "$stage/$LIB"
+chmod 600 "$stage/config.sh"
+for f in $ZEDLETS $HANDLERS; do chmod 755 "$stage/$f"; done
+
+# Manifest is the uninstall authority. It binds exact owned postimages to
+# explicit basenames; no wildcard removal or filename-only ownership claim.
+: > "$stage/.zfs-datadog.manifest"
+for f in $LIB config.sh; do
+    digest=$(openssl dgst -sha256 "$stage/$f") || exit 1
+    printf '%s %s\n' "${digest##*= }" "$f" >> "$stage/.zfs-datadog.manifest"
+done
+for f in $HANDLERS; do
+    digest=$(openssl dgst -sha256 "$stage/$f") || exit 1
+    printf '%s .%s\n' "${digest##*= }" "$f" >> "$stage/.zfs-datadog.manifest"
+done
+for f in $ZEDLETS; do
+    digest=$(openssl dgst -sha256 "$stage/$f") || exit 1
+    printf '%s %s\n' "${digest##*= }" "$f" >> "$stage/.zfs-datadog.manifest"
+done
+chmod 600 "$stage/.zfs-datadog.manifest"
+
+systemctl stop zfs-zed || { err "Cannot quiesce zfs-zed"; exit 1; }
+zed_stopped=1
+if systemctl is-active --quiet zfs-zed; then
+    err "zfs-zed is still active after stop"
+    exit 1
+fi
+for f in $LIB config.sh; do
+    ln "$stage/$f" "$ZED_DIR/$f" || { err "Activation collision: $f"; exit 1; }
+    installed="$installed $ZED_DIR/$f"
+done
+for f in $HANDLERS; do
+    ln "$stage/$f" "$ZED_DIR/.$f" || { err "Activation collision: .$f"; exit 1; }
+    installed="$installed $ZED_DIR/.$f"
+done
+for f in $ZEDLETS; do
+    ln "$stage/$f" "$ZED_DIR/$f" || { err "Activation collision: $f"; exit 1; }
+    installed="$installed $ZED_DIR/$f"
+done
+ln "$stage/.zfs-datadog.manifest" "$ZED_DIR/.zfs-datadog.manifest" || {
+    err "Manifest activation collision"
+    exit 1
+}
+installed="$installed $ZED_DIR/.zfs-datadog.manifest"
+systemctl start zfs-zed || { err "Cannot start zfs-zed after activation"; exit 1; }
+systemctl is-active --quiet zfs-zed || { err "zfs-zed did not become active"; exit 1; }
+committed=1
+rm -rf "$stage"
+stage_owned=0
+release_lock
+ok "Single-route files activated; zfs-zed is active"
 printf '\n'
 
 # ------------------------------------------------------------------ done ----
-ok "Installation complete"
+ok "File activation complete; Datadog intake is not yet verified"
 printf '\nNext steps:\n'
-if [ "$CONFIG_IS_NEW" -eq 1 ]; then
-    printf '1. Edit %s/config.sh and set DD_API_KEY\n' "$ZED_DIR"
-else
-    printf '1. Confirm DD_API_KEY is still correct in %s/config.sh\n' "$ZED_DIR"
-fi
+printf '1. Edit %s/config.sh and set DD_API_KEY\n' "$ZED_DIR"
 printf '2. Ensure the Datadog Agent is running (DogStatsD on %s)\n' "${DOGSTATSD_PORT:-8125}"
-case "$OS" in
-    FreeBSD)
-        printf '3. Watch ZED output:   tail -f /var/log/messages | grep zed\n'
-        ;;
-    *)
-        if [ -f /var/log/zfs/zed.log ]; then
-            printf '3. Watch ZED output:   tail -f /var/log/zfs/zed.log\n'
-        else
-            printf '3. Watch ZED output:   journalctl -fu zfs-zed   (or your syslog)\n'
-        fi
-        ;;
-esac
+if [ -f /var/log/zfs/zed.log ]; then
+    printf '3. Watch ZED output:   tail -f /var/log/zfs/zed.log\n'
+else
+    printf '3. Watch ZED output:   journalctl -fu zfs-zed   (or your syslog)\n'
+fi
 printf '4. Test with:           zpool scrub <poolname>\n'
 printf '\nSee README.md for more.\n'

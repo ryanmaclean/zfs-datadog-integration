@@ -55,7 +55,7 @@ echo "After boot:"
 echo "1. SSH: ssh -p 2225 root@localhost"
 echo "2. Install OpenZFS: pkg_add openzfs"
 echo "3. Load kernel module: kldload zfs"
-echo "4. Copy zedlets: scp -P 2225 *.sh root@localhost:/tmp/"
+echo "4. OpenBSD ZFS event delivery is not verified; do not copy Linux ZED zedlets."
 echo ""
 
 # Run QEMU

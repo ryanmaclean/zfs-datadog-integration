@@ -1,10 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Test ZFS Datadog Integration in Lima VM
 # This script runs inside the Lima VM to test the zedlets
 #
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 VM_NAME="zfs-test"
 
@@ -59,33 +60,16 @@ INSTALL_SCRIPT
 echo ""
 echo "Copying zedlets to VM..."
 
-# Copy all necessary files to VM
-limactl copy zfs-datadog-lib.sh "$VM_NAME:/tmp/"
-limactl copy config.sh "$VM_NAME:/tmp/"
-limactl copy pool-health.sh "$VM_NAME:/tmp/"
-limactl copy scrub-finish.sh "$VM_NAME:/tmp/"
-limactl copy checksum-error.sh "$VM_NAME:/tmp/"
-limactl copy io-error.sh "$VM_NAME:/tmp/"
-limactl copy resilver-finish.sh "$VM_NAME:/tmp/"
+bash "$SCRIPT_DIR/automate-lima-complete.sh" --sealed-install "$VM_NAME"
 
 echo "Installing zedlets..."
 limactl shell "$VM_NAME" sudo bash <<'INSTALL_ZEDLETS'
 set -e
 
-# Copy files to ZED directory
-cp /tmp/zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp /tmp/config.sh /etc/zfs/zed.d/
-cp /tmp/pool-health.sh /etc/zfs/zed.d/
-cp /tmp/scrub-finish.sh /etc/zfs/zed.d/
-cp /tmp/checksum-error.sh /etc/zfs/zed.d/
-cp /tmp/io-error.sh /etc/zfs/zed.d/
-cp /tmp/resilver-finish.sh /etc/zfs/zed.d/
-
-# Set permissions
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
-# Configure for testing (mock Datadog)
+# Test-only mock config is written by this trusted driver after sealed install.
+# Quiesce ZED before changing an active sourced config.
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
 cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 #!/bin/bash
 # Test configuration - logs to file instead of Datadog
@@ -101,8 +85,8 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-echo "Restarting ZED..."
-systemctl restart zfs-zed
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 systemctl status zfs-zed --no-pager
 
 echo ""

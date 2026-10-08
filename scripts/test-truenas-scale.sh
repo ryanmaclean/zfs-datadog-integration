@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Automated TrueNAS SCALE Testing
 # Deploys and tests POSIX-compatible zedlets
@@ -6,12 +6,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SSH_PORT=2222
 SSH_HOST=localhost
-# Options shared by every ssh/scp call. POSIX sh has no arrays, so they are
-# spelled out once here and each option stays its own argument.
-tn_ssh() { ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p "$SSH_PORT" "$@"; }
-tn_scp() { scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -P "$SSH_PORT" "$@"; }
+SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
 
 # Colors
 GREEN=$(printf '\033[0;32m')
@@ -19,9 +17,9 @@ BLUE=$(printf '\033[0;34m')
 RED=$(printf '\033[0;31m')
 NC=$(printf '\033[0m')
 
-log_info() { printf '%b\n' "${BLUE}[INFO]${NC} $1"; }
-log_success() { printf '%b\n' "${GREEN}[✓]${NC} $1"; }
-log_error() { printf '%b\n' "${RED}[✗]${NC} $1"; }
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
+log_error() { echo -e "${RED}[✗]${NC} $1"; }
 
 echo "========================================"
 echo "TrueNAS SCALE Zedlet Testing"
@@ -40,41 +38,44 @@ echo ""
 
 # Copy zedlets
 log_info "Copying zedlets to TrueNAS SCALE..."
-tn_scp \
-    zfs-datadog-lib.sh \
-    config.sh \
-    statechange-datadog.sh \
-    scrub_finish-datadog.sh \
-    resilver_finish-datadog.sh \
-    all-datadog.sh \
-    checksum-error.sh \
-    io-error.sh \
-    mock-datadog-server.py \
-    root@${SSH_HOST}:/tmp/
+ssh "${SSH_OPTS[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" 'mkdir -m 700 /root/zfs-datadog-src && mkdir -m 700 /root/zfs-datadog-test'
+scp "${SSH_OPTS[@]}" -P "$SSH_PORT" \
+    "$SCRIPT_DIR/zfs-datadog-lib.sh" \
+    "$SCRIPT_DIR/config.sh" \
+    "$SCRIPT_DIR/statechange-datadog.sh" \
+    "$SCRIPT_DIR/scrub_finish-datadog.sh" \
+    "$SCRIPT_DIR/resilver_finish-datadog.sh" \
+    "$SCRIPT_DIR/install.sh" \
+    "$SCRIPT_DIR/scrub_start-datadog.sh" \
+    "$SCRIPT_DIR/resilver_start-datadog.sh" \
+    "$SCRIPT_DIR/config_sync-datadog.sh" \
+    "$SCRIPT_DIR/pool_import-datadog.sh" \
+    "$SCRIPT_DIR/pool_destroy-datadog.sh" \
+    "$SCRIPT_DIR/vdev_attach-datadog.sh" \
+    "$SCRIPT_DIR/vdev_remove-datadog.sh" \
+    "$SCRIPT_DIR/ereport.fs.zfs.checksum-datadog.sh" \
+    "$SCRIPT_DIR/ereport.fs.zfs.io-datadog.sh" \
+    "$SCRIPT_DIR/checksum-error.sh" \
+    "$SCRIPT_DIR/io-error.sh" \
+    "$SCRIPT_DIR/payload.sha256" \
+    "root@${SSH_HOST}:/root/zfs-datadog-src/"
+scp "${SSH_OPTS[@]}" -P "$SSH_PORT" "$SCRIPT_DIR/../mock-datadog-server.py" "root@${SSH_HOST}:/root/zfs-datadog-test/"
 
 log_success "Files copied"
 echo ""
 
 # Install zedlets
 log_info "Installing zedlets..."
-tn_ssh root@${SSH_HOST} bash <<'INSTALL'
+ssh "${SSH_OPTS[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" bash <<'INSTALL'
 set -e
-cd /tmp
-
-# Install to Debian/Linux path
-cp zfs-datadog-lib.sh /etc/zfs/zed.d/
-cp config.sh /etc/zfs/zed.d/
-cp statechange-datadog.sh /etc/zfs/zed.d/
-cp scrub_finish-datadog.sh /etc/zfs/zed.d/
-cp resilver_finish-datadog.sh /etc/zfs/zed.d/
-cp all-datadog.sh /etc/zfs/zed.d/
-cp checksum-error.sh /etc/zfs/zed.d/
-cp io-error.sh /etc/zfs/zed.d/
-
-chmod 755 /etc/zfs/zed.d/*.sh
-chmod 600 /etc/zfs/zed.d/config.sh
-
-# Configure
+cd /root/zfs-datadog-src
+set -- $(openssl dgst -sha256 payload.sha256)
+[ "$2" = 2f3c96fc9b7656965d3619af26d41bbfab9bbaef5dec80c2d7860da2584ba227 ]
+set -- $(openssl dgst -sha256 install.sh)
+[ "$2" = c0b4db0fc4bafb554e40f7e54f21b5bf664ef52717159c46302a44ec6a015835 ]
+ZFS_DD_EXPECTED_MANIFEST_SHA=2f3c96fc9b7656965d3619af26d41bbfab9bbaef5dec80c2d7860da2584ba227 sh ./install.sh
+systemctl stop zfs-zed
+if systemctl is-active --quiet zfs-zed; then exit 1; fi
 cat > /etc/zfs/zed.d/config.sh <<'CONFIG'
 DD_API_KEY="test-key"
 DD_API_URL="http://localhost:8080"
@@ -88,8 +89,8 @@ MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
 CONFIG
 
-# Restart ZED
-systemctl restart zfs-zed
+systemctl start zfs-zed
+systemctl is-active --quiet zfs-zed
 sleep 2
 
 echo "Zedlets installed"
@@ -100,9 +101,11 @@ echo ""
 
 # Start mock Datadog server
 log_info "Starting mock Datadog server..."
-tn_ssh root@${SSH_HOST} bash <<'START_MOCK'
+ssh "${SSH_OPTS[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" bash <<'START_MOCK'
+set -- $(openssl dgst -sha256 /root/zfs-datadog-test/mock-datadog-server.py)
+[ "$2" = 0b3de0cc401b5a64a54a86cfa09cffeb79b143e1b55f9e12bafc9c9ab8cb087b ] || exit 1
 pkill -f mock-datadog-server.py 2>/dev/null || true
-nohup python3 /tmp/mock-datadog-server.py > /tmp/mock-datadog.log 2>&1 &
+nohup python3 /root/zfs-datadog-test/mock-datadog-server.py > /tmp/mock-datadog.log 2>&1 &
 sleep 3
 START_MOCK
 
@@ -111,7 +114,7 @@ echo ""
 
 # Create test pool
 log_info "Creating test pool..."
-tn_ssh root@${SSH_HOST} bash <<'CREATE_POOL'
+ssh "${SSH_OPTS[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" bash <<'CREATE_POOL'
 set -e
 
 # Create disk images
@@ -131,7 +134,7 @@ echo ""
 
 # Trigger scrub
 log_info "Triggering scrub event..."
-tn_ssh root@${SSH_HOST} bash <<'SCRUB'
+ssh "${SSH_OPTS[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" bash <<'SCRUB'
 zpool scrub testpool
 while zpool status testpool | grep -q "scan: scrub in progress"; do
     sleep 1
@@ -145,11 +148,11 @@ echo ""
 
 # Check results
 log_info "Checking captured events..."
-EVENTS=$(tn_ssh root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.events_received')
+EVENTS=$(ssh "${SSH_OPTS[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" "curl -s http://localhost:8080/status" | jq '.events_received')
 
 if [ "$EVENTS" -gt 0 ]; then
     log_success "Events captured: $EVENTS"
-    tn_ssh root@${SSH_HOST} "curl -s http://localhost:8080/status" | jq '.'
+    ssh "${SSH_OPTS[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" "curl -s http://localhost:8080/status" | jq '.'
 else
     log_error "No events captured"
     exit 1
