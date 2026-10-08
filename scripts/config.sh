@@ -10,9 +10,10 @@
 DOGSTATSD_HOST="${DOGSTATSD_HOST:-127.0.0.1}"
 DOGSTATSD_PORT="${DOGSTATSD_PORT:-8125}"
 
-# Default tags for all events and metrics
+# Default ZFS service tag for all events and metrics. Configure env and other
+# host-wide tags on the local Datadog Agent, which also supplies host identity.
 # Format: comma-separated key:value pairs
-DD_TAGS="${DD_TAGS:-env:production,service:zfs}"
+DD_TAGS="${DD_TAGS:-service:zfs}"
 
 # Enable/disable specific monitoring
 MONITOR_POOL_HEALTH="${MONITOR_POOL_HEALTH:-true}"

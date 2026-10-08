@@ -18,7 +18,7 @@ fi
 # Configuration with defaults
 DOGSTATSD_HOST="${DOGSTATSD_HOST:-127.0.0.1}"
 DOGSTATSD_PORT="${DOGSTATSD_PORT:-8125}"
-DD_TAGS="${DD_TAGS:-env:production}"
+DD_TAGS="${DD_TAGS:-service:zfs}"
 HOSTNAME="${HOSTNAME:-$(hostname)}"
 
 # Logging function

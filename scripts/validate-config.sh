@@ -36,7 +36,7 @@ if [ -n "$config" ]; then
         printf 'ERROR: DogStatsD port must be 1 through 65535\n' >&2
         errors=$((errors + 1))
     fi
-    tags=${DD_TAGS:-env:production,service:zfs}
+    tags=${DD_TAGS:-service:zfs}
     case "$tags" in
         ''|,*|*,|*,,*|*[!A-Za-z0-9_.,:/-]*)
             printf 'ERROR: DD_TAGS contains an invalid or empty tag\n' >&2
