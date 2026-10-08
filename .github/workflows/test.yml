@@ -93,6 +93,31 @@ jobs:
       - name: Argument and colour regression test
         run: .github/scripts/test-argv-regressions.sh
 
+      - name: Argument regression rejects quoted tracked paths
+        run: |
+          tab_name="$(printf 'scripts/pr23-tab\tcase.sh')"
+          newline_name="$(printf 'scripts/pr23-line\nbreak.sh')"
+          test ! -e "$tab_name"
+          test ! -e "$newline_name"
+          cleanup() {
+            for name in "$tab_name" "$newline_name"; do
+              git rm -q --cached -- "$name" 2>/dev/null || true
+              rm -f -- "$name"
+            done
+          }
+          trap cleanup EXIT
+          for name in "$tab_name" "$newline_name"; do
+            printf '#!/bin/sh\n' > "$name"
+            git add -- "$name"
+            if .github/scripts/test-argv-regressions.sh > /tmp/pr23-argv-test.log 2>&1; then
+              echo 'Argument regression accepted an unrepresentable script' >&2
+              exit 1
+            fi
+            grep -F 'Tracked path needs Git quoting; refusing incomplete shell-script checks' /tmp/pr23-argv-test.log
+            git rm -q --cached -- "$name"
+            rm -- "$name"
+          done
+
   shipped-zedlets:
     name: Shipped Zedlet Checks
     runs-on: ubuntu-latest

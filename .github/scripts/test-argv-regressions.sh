@@ -148,7 +148,9 @@ check_colour "uninstall.sh" "$WORK/uninstall.txt"
 (PATH="$STUBS:$PATH" ARGV_LOG="$WORK/ignored.log" FAKE_ARCH=x86_64 \
     sh scripts/validate-config.sh < /dev/null > "$WORK/validate.txt" 2>&1) || true
 check_colour "validate-config.sh" "$WORK/validate.txt"
-literal=$(.github/scripts/shell-scripts.sh | tr '\n' '\0' |
+script_list="$WORK/shell-scripts.txt"
+.github/scripts/shell-scripts.sh > "$script_list"
+literal=$(tr '\n' '\0' < "$script_list" |
     xargs -0 grep -nE "^[[:space:]]*(export |readonly |local )?[A-Za-z_][A-Za-z_0-9]*=[\"']\\\\(033|e|x1b)\[" || true)
 if [ -n "$literal" ]; then
     bad "colour variables assigned literal escape text (use \$(printf '\\033[...m')):
