@@ -12,8 +12,9 @@
 DOGSTATSD_HOST="${DOGSTATSD_HOST:-127.0.0.1}"
 DOGSTATSD_PORT="${DOGSTATSD_PORT:-8125}"
 
-# Default ZFS service tag for all events and metrics. Configure env and other
-# host-wide tags on the local Datadog Agent, which also supplies host identity.
+# Default ZFS service tag for events and metrics. Set env in the local Agent's
+# dogstatsd_tags for raw DogStatsD payloads. Top-level tags are host tags
+# attached in-app; the Agent also supplies host identity.
 # Format: comma-separated key:value pairs
 # Example override: service:zfs,team:storage
 DD_TAGS="${DD_TAGS:-service:zfs}"

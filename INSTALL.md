@@ -240,8 +240,9 @@ DOGSTATSD_PORT="8125"
 
 **Full configuration options:**
 ```sh
-# ZFS-specific tags. Set env and other host-wide tags in the local Agent's
-# datadog.yaml; the Agent also supplies host identity.
+# ZFS-specific tags. Set env in the local Agent's dogstatsd_tags for raw
+# DogStatsD payloads. Top-level tags are host tags attached in-app;
+# the Agent also supplies host identity.
 DD_TAGS="service:zfs,team:storage"
 
 # DogStatsD (requires Datadog Agent)

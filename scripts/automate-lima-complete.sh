@@ -35,13 +35,13 @@ install_sealed_lima() {
   verify_script=$(cat <<'VERIFY'
 cd /root/zfs-datadog-src
 set -- $(openssl dgst -sha256 payload.sha256)
-[ "$2" = "3a96776c5ab36faf753850e0e82f9d3a748f39b71c0b7d1dd6cf8663da1ff3f2" ] || exit 1
+[ "$2" = "77e67d33c1716d4760e5b8c67bdc91ef684937624e086498311d9dd4f72e7116" ] || exit 1
 set -- $(openssl dgst -sha256 install.sh)
 [ "$2" = "e3f8009df25e541b08fca0237f0f61e881bcb99e38723cc229b3df8a54fdbef3" ]
 VERIFY
 )
   limactl shell "$vm" sudo sh -ec "$verify_script"
-  limactl shell "$vm" sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=3a96776c5ab36faf753850e0e82f9d3a748f39b71c0b7d1dd6cf8663da1ff3f2 sh /root/zfs-datadog-src/install.sh
+  limactl shell "$vm" sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=77e67d33c1716d4760e5b8c67bdc91ef684937624e086498311d9dd4f72e7116 sh /root/zfs-datadog-src/install.sh
 }
 
 if [ "${1:-}" = --sealed-install ]; then
