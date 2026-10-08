@@ -29,12 +29,14 @@ jobs:
       # followed via .shellcheckrc (source-path=SCRIPTDIR).
       - name: Run ShellCheck on all shell scripts
         run: |
-          .github/scripts/shell-scripts.sh | tr '\n' '\0' | xargs -0 shellcheck
+          .github/scripts/shell-scripts.sh > /tmp/shell-scripts.txt
+          tr '\n' '\0' < /tmp/shell-scripts.txt | xargs -0 shellcheck
 
       - name: No ShellCheck suppressions
         run: |
           # Findings get fixed, not suppressed.
-          if .github/scripts/shell-scripts.sh | tr '\n' '\0' | xargs -0 grep -n 'shellcheck disable='; then
+          .github/scripts/shell-scripts.sh > /tmp/shell-scripts.txt
+          if tr '\n' '\0' < /tmp/shell-scripts.txt | xargs -0 grep -n 'shellcheck disable='; then
             echo "Found '# shellcheck disable=' directives above; fix the code instead"
             exit 1
           fi
@@ -50,6 +52,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Reject shell paths that line-oriented checks cannot represent
+        run: |
+          fixture=$(mktemp -d)
+          trap 'rm -rf "$fixture"' EXIT
+          cp .github/scripts/shell-scripts.sh "$fixture/lister.sh"
+          git -C "$fixture" init -q
+          printf '#!/bin/sh\n' > "$fixture/ordinary.sh"
+          git -C "$fixture" add ordinary.sh
+          (cd "$fixture" && sh ./lister.sh) > "$fixture/list"
+          grep -Fx ordinary.sh "$fixture/list"
+          for name in "$(printf 'tab\tname.sh')" "$(printf 'line\nbreak.sh')"; do
+            printf '#!/bin/sh\n' > "$fixture/$name"
+            git -C "$fixture" add -- "$name"
+            if (cd "$fixture" && sh ./lister.sh) > "$fixture/list" 2> "$fixture/error"; then
+              echo 'Lister accepted an unrepresentable tracked script' >&2
+              exit 1
+            fi
+            test ! -s "$fixture/list"
+            grep -F 'refusing incomplete shell-script checks' "$fixture/error"
+            git -C "$fixture" rm -q --cached -- "$name"
+            rm -- "$fixture/$name"
+          done
       
       - name: Validate shell syntax
         run: |
