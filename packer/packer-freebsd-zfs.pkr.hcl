@@ -1,5 +1,4 @@
 # Packer template for FreeBSD with ZFS and zedlets
-# Builds on i9-zfs-pop.local
 
 packer {
   required_plugins {
@@ -13,11 +12,6 @@ packer {
 variable "vm_name" {
   type    = string
   default = "packer-freebsd-zfs"
-}
-
-variable "iso_path" {
-  type    = string
-  default = "/tank3/vms/isos/FreeBSD-14.3-RELEASE-amd64-disc1.iso"
 }
 
 source "qemu" "freebsd-zfs" {
