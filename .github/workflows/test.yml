@@ -52,7 +52,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
       - name: Reject shell paths that line-oriented checks cannot represent
         run: |
           fixture=$(mktemp -d)
