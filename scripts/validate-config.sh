@@ -24,6 +24,7 @@ fi
 
 if [ -n "$config" ]; then
     # The configuration is a root-owned POSIX shell source when installed.
+    # shellcheck source=/dev/null
     . "$config"
     if [ "${DOGSTATSD_HOST:-127.0.0.1}" != 127.0.0.1 ]; then
         printf 'ERROR: DogStatsD host must be 127.0.0.1\n' >&2
