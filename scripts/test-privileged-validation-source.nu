@@ -34,12 +34,28 @@ def main [repo_root: string, validation_override?: string] {
         ($validation_override | path expand)
     }
     let source = (open --raw $validation)
-    let test_success = ($source | split row "<<'TEST_SUCCESS'" | get 1 | split row "\nTEST_SUCCESS" | first)
-    if not ($test_success | str contains '. /etc/zfs/zed.d/config.sh') {
-        error make {msg: 'root test must load the installed root-owned configuration'}
-    }
-    if not ($test_success | str contains '. /etc/zfs/zed.d/zfs-datadog-lib.sh') {
-        error make {msg: 'root test must load the installed root-owned library'}
+    let retired = ($source | str contains 'HOLD: comprehensive Agent-local validation has no admitted packaged Agent fixture.')
+    if $retired {
+        if not ($source | str contains 'exit 78') {
+            error make {msg: 'retired validation must fail closed with exit 78'}
+        }
+        for forbidden in ['limactl shell', 'ssh ', 'scp ', 'zpool ', 'systemctl ', 'mock-datadog-server.py', 'DD_API_URL=', 'cat > /etc/zfs/zed.d/config.sh'] {
+            if ($source | str contains $forbidden) {
+                error make {msg: $"retired validation still contains guest or direct-HTTP action: ($forbidden)"}
+            }
+        }
+    } else {
+        # A later runnable fixture must preserve the installed-postimage check.
+        if not ($source | str contains "<<'TEST_SUCCESS'") {
+            error make {msg: 'runnable validation lacks TEST_SUCCESS installed-postimage block'}
+        }
+        let test_success = ($source | split row "<<'TEST_SUCCESS'" | get 1 | split row "\nTEST_SUCCESS" | first)
+        if not ($test_success | str contains '. /etc/zfs/zed.d/config.sh') {
+            error make {msg: 'root test must load the installed root-owned configuration'}
+        }
+        if not ($test_success | str contains '. /etc/zfs/zed.d/zfs-datadog-lib.sh') {
+            error make {msg: 'root test must load the installed root-owned library'}
+        }
     }
     for script in (glob $"($repo)/scripts/*test*.sh") {
         if $script == $"($repo)/scripts/comprehensive-validation-test.sh" {
@@ -48,5 +64,9 @@ def main [repo_root: string, validation_override?: string] {
             check_privileged_blocks $script
         }
     }
-    print 'PASS: privileged VM test blocks do not source user-writable /tmp code; root validation loads installed postimage'
+    if $retired {
+        print 'PASS: retired Agent-local validation fails closed without guest actions; other privileged blocks do not source /tmp code'
+    } else {
+        print 'PASS: privileged VM test blocks do not source user-writable /tmp code; root validation loads installed postimage'
+    }
 }

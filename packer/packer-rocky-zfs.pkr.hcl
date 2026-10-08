@@ -32,6 +32,12 @@ source "qemu" "rocky-zfs" {
 build {
   sources = ["source.qemu.rocky-zfs"]
 
+  # Fail before ZFS provisioning until the packaged Agent and Agent-local
+  # intake fixture are admitted for this exact image.
+  provisioner "shell" {
+    inline = ["printf '%s\\n' 'HOLD: Rocky image lacks reviewed packaged Datadog Agent and Agent-local intake proof' >&2; exit 1"]
+  }
+
   provisioner "shell" {
     inline = [
       "sudo dnf install -y epel-release",
@@ -74,13 +80,8 @@ build {
     inline = [
       "sudo mkdir -m 700 /root/zfs-datadog-src",
       "sudo cp /tmp/zfs-datadog-upload/install.sh /tmp/zfs-datadog-upload/config.sh /tmp/zfs-datadog-upload/zfs-datadog-lib.sh /tmp/zfs-datadog-upload/statechange-datadog.sh /tmp/zfs-datadog-upload/scrub_start-datadog.sh /tmp/zfs-datadog-upload/scrub_finish-datadog.sh /tmp/zfs-datadog-upload/resilver_start-datadog.sh /tmp/zfs-datadog-upload/resilver_finish-datadog.sh /tmp/zfs-datadog-upload/config_sync-datadog.sh /tmp/zfs-datadog-upload/pool_import-datadog.sh /tmp/zfs-datadog-upload/pool_destroy-datadog.sh /tmp/zfs-datadog-upload/vdev_attach-datadog.sh /tmp/zfs-datadog-upload/vdev_remove-datadog.sh /tmp/zfs-datadog-upload/ereport.fs.zfs.checksum-datadog.sh /tmp/zfs-datadog-upload/ereport.fs.zfs.io-datadog.sh /tmp/zfs-datadog-upload/checksum-error.sh /tmp/zfs-datadog-upload/io-error.sh /tmp/zfs-datadog-upload/payload.sha256 /root/zfs-datadog-src/",
-      "sudo sh -ec 'cd /root/zfs-datadog-src; set -- $(openssl dgst -sha256 payload.sha256); [ \"$2\" = \"2f3c96fc9b7656965d3619af26d41bbfab9bbaef5dec80c2d7860da2584ba227\" ] || exit 1; set -- $(openssl dgst -sha256 install.sh); [ \"$2\" = \"c0b4db0fc4bafb554e40f7e54f21b5bf664ef52717159c46302a44ec6a015835\" ]'",
-      "sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=2f3c96fc9b7656965d3619af26d41bbfab9bbaef5dec80c2d7860da2584ba227 sh /root/zfs-datadog-src/install.sh"
+      "sudo sh -ec 'cd /root/zfs-datadog-src; set -- $(openssl dgst -sha256 payload.sha256); [ \"$2\" = \"1e74fefba1ad377d2e3d73a4ce1715d728528b01734826b1078e118aa4b333f0\" ] || exit 1; set -- $(openssl dgst -sha256 install.sh); [ \"$2\" = \"e3f8009df25e541b08fca0237f0f61e881bcb99e38723cc229b3df8a54fdbef3\" ]'",
+      "sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=1e74fefba1ad377d2e3d73a4ce1715d728528b01734826b1078e118aa4b333f0 sh /root/zfs-datadog-src/install.sh"
     ]
   }
-}
-
-variable "dd_api_key" {
-  type    = string
-  default = env("DD_API_KEY")
 }

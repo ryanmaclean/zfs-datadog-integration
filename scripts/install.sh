@@ -157,7 +157,6 @@ printf 'ZED dir: %s\n\n' "$ZED_DIR"
 # -------------------------------------------------------- dependencies ----
 printf 'Checking dependencies...\n'
 MISSING=''
-command -v curl >/dev/null 2>&1 || MISSING="$MISSING curl"
 command -v nc   >/dev/null 2>&1 || MISSING="$MISSING nc"
 command -v openssl >/dev/null 2>&1 || MISSING="$MISSING openssl"
 
@@ -165,7 +164,7 @@ if [ -n "$MISSING" ]; then
     err "Missing dependencies:$MISSING"
     case "$OS" in
         Linux)
-            printf 'Install curl and a netcat (netcat-openbsd or nmap-ncat) via your package manager.\n'
+            printf 'Install a netcat (netcat-openbsd or nmap-ncat) via your package manager.\n'
             ;;
         *)
             printf 'Install the missing tools with your package manager.\n'
@@ -276,6 +275,10 @@ if ! command -v systemctl >/dev/null 2>&1 ||
     err "A running systemd zfs-zed service is required for safe activation"
     exit 1
 fi
+if ! systemctl is-active --quiet datadog-agent; then
+    err "A running local Datadog Agent is required for event and metric handoff"
+    exit 1
+fi
 
 # Stage in the root-only enabled directory under a name ZED will not scan.
 # No integration paths existed at preflight, so rollback can remove only the
@@ -382,10 +385,10 @@ ok "Single-route files activated; zfs-zed is active"
 printf '\n'
 
 # ------------------------------------------------------------------ done ----
-ok "File activation complete; Datadog intake is not yet verified"
+ok "File activation complete; local Agent handoff and Datadog intake are not yet verified"
 printf '\nNext steps:\n'
-printf '1. Edit %s/config.sh and set DD_API_KEY\n' "$ZED_DIR"
-printf '2. Ensure the Datadog Agent is running (DogStatsD on %s)\n' "${DOGSTATSD_PORT:-8125}"
+printf '1. Confirm the Datadog Agent listens on 127.0.0.1:%s for DogStatsD\n' "${DOGSTATSD_PORT:-8125}"
+printf '2. Review tags in %s/config.sh\n' "$ZED_DIR"
 if [ -f /var/log/zfs/zed.log ]; then
     printf '3. Watch ZED output:   tail -f /var/log/zfs/zed.log\n'
 else

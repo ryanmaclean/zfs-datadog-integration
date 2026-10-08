@@ -21,7 +21,7 @@ VDEV_STATE="${ZEVENT_VDEV_STATE:-unknown}"
 VDEV_PATH="${ZEVENT_VDEV_PATH:-}"
 
 # Build tags
-TAGS=$(build_tags)
+TAGS=$(build_tags) || exit 1
 
 # Get numeric health value and alert type
 HEALTH_VALUE=$(get_pool_health_value "$VDEV_STATE")
@@ -38,11 +38,12 @@ else
 fi
 
 # Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS"
+SEND_STATUS=0
+send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS" || SEND_STATUS=1
 
 # Send metric
-send_metric "zfs.pool.health" "$HEALTH_VALUE" "gauge" "$TAGS"
+send_metric "zfs.pool.health" "$HEALTH_VALUE" "gauge" "$TAGS" || SEND_STATUS=1
 
 log_message "INFO" "Pool health event processed: $POOL - $VDEV_STATE"
 
-exit 0
+exit "$SEND_STATUS"

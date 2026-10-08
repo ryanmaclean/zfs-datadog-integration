@@ -4,32 +4,15 @@
 # 
 #
 
-# Source .env.local if it exists (for local development/testing)
-if [ -f "$(dirname "$0")/.env.local" ]; then
-    # shellcheck source=../.env.local.example  # untracked .env.local is created from this template
-    . "$(dirname "$0")/.env.local"
-elif [ -f "/etc/zfs/zed.d/.env.local" ]; then
-    # shellcheck source=../.env.local.example  # untracked .env.local is created from this template
-    . "/etc/zfs/zed.d/.env.local"
-fi
-
-# Datadog API Configuration
-DD_API_KEY="${DD_API_KEY:-}"
-DD_SITE="${DD_SITE:-datadoghq.com}"
-DD_API_URL="${DD_API_URL:-https://api.${DD_SITE}}"
-
-# DogStatsD Configuration
-# Default: localhost:8125 (Datadog Agent must be running)
-DOGSTATSD_HOST="${DOGSTATSD_HOST:-localhost}"
+# The local Datadog Agent handles intake authentication and host identity.
+# No API key or direct HTTP endpoint belongs in a ZED zedlet configuration.
+# DogStatsD is deliberately restricted to loopback by zfs-datadog-lib.sh.
+DOGSTATSD_HOST="${DOGSTATSD_HOST:-127.0.0.1}"
 DOGSTATSD_PORT="${DOGSTATSD_PORT:-8125}"
 
 # Default tags for all events and metrics
 # Format: comma-separated key:value pairs
 DD_TAGS="${DD_TAGS:-env:production,service:zfs}"
-
-# Hostname override (optional)
-# If not set, will use system hostname
-# HOSTNAME="${HOSTNAME:-}"
 
 # Enable/disable specific monitoring
 MONITOR_POOL_HEALTH="${MONITOR_POOL_HEALTH:-true}"

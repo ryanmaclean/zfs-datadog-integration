@@ -2,7 +2,7 @@
 
 ZED installation instructions for hosts with a verified ZED service. FreeBSD base and TrueNAS CORE are excluded until a native Agent event path is validated.
 
-An installer exit code, ZED restart, or handler exit code is not a Datadog intake receipt. Verify the selected `curl`/`nc` runtime licenses and a controlled event at intake before treating a host as monitored.
+An installer exit code, ZED restart, or handler exit code is not a Datadog intake receipt. Verify a controlled event at intake before treating a host as monitored.
 
 ## Table of Contents
 
@@ -30,14 +30,11 @@ An installer exit code, ZED restart, or handler exit code is not a Datadog intak
 
 ## Prerequisites
 
-**ZED hosts only:**
+**Linux ZED hosts only:**
 - ZFS or OpenZFS installed and running
 - ZFS Event Daemon (ZED) running
-- curl (for HTTP API calls)
-- Datadog account and API key ([Get one here](https://app.datadoghq.com/organization-settings/api-keys))
-
-**Optional:**
-- Datadog Agent (for metrics via DogStatsD)
+- A running local Datadog Agent with DogStatsD on 127.0.0.1:8125
+- `nc` and `openssl` available on the host
 
 ---
 
@@ -51,15 +48,14 @@ cd zfs-datadog-integration
 # 2. Install zedlets
 sudo ./scripts/install.sh
 
-# 3. Configure Datadog API key
-# Installer seeds config.sh only when absent; preserve any existing key file.
-sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
+# 3. Review local Agent endpoint and tags
+sudo vi /etc/zfs/zed.d/config.sh
 
 # 4. Validate configuration
 sudo ./scripts/validate-config.sh
 
-# 5. Restart ZED
-sudo systemctl restart zfs-zed
+# 5. Confirm both services remain active after installer activation
+sudo systemctl is-active zfs-zed datadog-agent
 
 # 6. Test (optional)
 sudo zpool scrub <poolname>
@@ -83,9 +79,8 @@ sudo apt install -y zfsutils-linux
 **Install Integration:**
 ```bash
 sudo ./scripts/install.sh
-# Installer seeds config.sh only when absent; preserve any existing key file.
-sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
-sudo systemctl restart zfs-zed
+sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
+sudo systemctl is-active zfs-zed datadog-agent
 ```
 
 **Verify:**
@@ -111,9 +106,8 @@ sudo modprobe zfs
 **Install Integration:**
 ```bash
 sudo ./scripts/install.sh
-# Installer seeds config.sh only when absent; preserve any existing key file.
-sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
-sudo systemctl restart zfs-zed
+sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
+sudo systemctl is-active zfs-zed datadog-agent
 ```
 
 **SELinux Note:**
@@ -141,9 +135,8 @@ sudo modprobe zfs
 **Install Integration:**
 ```bash
 sudo ./scripts/install.sh
-# Installer seeds config.sh only when absent; preserve any existing key file.
-sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
-sudo systemctl restart zfs-zed
+sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
+sudo systemctl is-active zfs-zed datadog-agent
 ```
 
 ---
@@ -161,9 +154,8 @@ sudo modprobe zfs
 **Install Integration:**
 ```bash
 sudo ./scripts/install.sh
-# Installer seeds config.sh only when absent; preserve any existing key file.
-sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
-sudo systemctl restart zfs-zed
+sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
+sudo systemctl is-active zfs-zed datadog-agent
 ```
 
 ---
@@ -176,7 +168,7 @@ sudo systemctl restart zfs-zed
 
 ### OpenBSD
 
-**Status:** POSIX-compatible, testing needed
+**Status:** no verified native event route; the Linux ZED installer rejects OpenBSD.
 
 OpenBSD ZFS support is experimental. Refer to [BSD-COMPATIBILITY.md](docs/BSD-COMPATIBILITY.md) for details.
 
@@ -184,7 +176,7 @@ OpenBSD ZFS support is experimental. Refer to [BSD-COMPATIBILITY.md](docs/BSD-CO
 
 ### NetBSD
 
-**Status:** POSIX-compatible, testing needed
+**Status:** no verified native event route; the Linux ZED installer rejects NetBSD.
 
 NetBSD has native ZFS support. A separately verified ZED service and integration test are required before using these ZED instructions.
 
@@ -204,9 +196,8 @@ TrueNAS SCALE is Debian-based, so standard Linux installation applies.
 3. Run installation:
 ```bash
 sudo ./scripts/install.sh
-# Installer seeds config.sh only when absent; preserve any existing key file.
-sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
-sudo systemctl restart zfs-zed
+sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
+sudo systemctl is-active zfs-zed datadog-agent
 ```
 
 **⚠️ Important:** TrueNAS updates may overwrite custom scripts. Consider:
@@ -223,30 +214,15 @@ sudo systemctl restart zfs-zed
 
 ## OpenIndiana / Illumos
 
-**Status:** Testing needed
+**Status:** no verified native event route; the Linux ZED installer rejects Illumos.
 
 OpenIndiana has native ZFS (origin of ZFS).
 
-**Installation:**
-```bash
-sudo ./scripts/install.sh
-# Path may vary on Illumos
-# Installer seeds config.sh only when absent; preserve any existing key file.
-sudo vi /etc/zfs/zed.d/config.sh  # Set DD_API_KEY
-sudo svcadm restart svc:/system/filesystem/zfs:default
-```
-
-**Note:** Datadog Agent availability for Solaris/Illumos is limited.
+Do not use the Linux installer or restart the ZFS service to infer event delivery.
 
 ---
 
 ## Configuration
-
-### Get Datadog API Key
-
-1. Log in to [Datadog](https://app.datadoghq.com)
-2. Go to **Organization Settings** → **API Keys**
-3. Create or copy an API key
 
 ### Configure Integration
 
@@ -258,23 +234,17 @@ sudo vi /etc/zfs/zed.d/config.sh
 
 **Minimum configuration:**
 ```sh
-DD_API_KEY="your_32_character_api_key"
-DD_SITE="datadoghq.com"  # Or datadoghq.eu for EU
+DOGSTATSD_HOST="127.0.0.1"
+DOGSTATSD_PORT="8125"
 ```
 
 **Full configuration options:**
 ```sh
-# Datadog Site
-DD_SITE="datadoghq.com"  # US1
-# DD_SITE="datadoghq.eu"  # EU
-# DD_SITE="us3.datadoghq.com"  # US3
-# DD_SITE="us5.datadoghq.com"  # US5
-
 # Custom tags
 DD_TAGS="env:production,service:zfs,datacenter:us-east-1"
 
 # DogStatsD (requires Datadog Agent)
-DOGSTATSD_HOST="localhost"
+DOGSTATSD_HOST="127.0.0.1"
 DOGSTATSD_PORT="8125"
 
 # Enable/disable monitoring
@@ -297,23 +267,14 @@ sudo ./scripts/validate-config.sh
 
 This checks:
 - Configuration file exists
-- API key is set
+- DogStatsD endpoint and tags are valid
 - ZED is running
 - Zedlets are installed
-- Network connectivity to Datadog
+- Local Datadog Agent service is running
 
 ### Test Event Sending
 
-```bash
-# Trigger a scrub (safe on any pool)
-sudo zpool scrub <poolname>
-
-# Wait for scrub to complete (or cancel it)
-sudo zpool scrub -s <poolname>
-
-# Check ZED logs
-sudo journalctl -u zfs-zed -n 50  # Linux
-```
+Coordinate a controlled ZFS event with the host owner. Check ZED and Agent logs, then verify the event at Datadog intake. Do not initiate or cancel a scrub solely to test this integration without a maintenance plan.
 
 ### Check Datadog
 
@@ -351,12 +312,10 @@ export ZEVENT_SUBCLASS="scrub_finish"
 sudo /etc/zfs/zed.d/scrub_finish-datadog.sh
 ```
 
-**Check network connectivity:**
+**Check local Agent service and logs:**
 ```bash
-curl -X POST "https://api.datadoghq.com/api/v1/events" \
-  -H "DD-API-KEY: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Test","text":"Test event"}'
+sudo systemctl status datadog-agent
+sudo journalctl -u datadog-agent -n 100
 ```
 
 ### Permission denied
@@ -364,14 +323,6 @@ curl -X POST "https://api.datadoghq.com/api/v1/events" \
 Ensure scripts are executable:
 ```bash
 sudo chmod +x /etc/zfs/zed.d/*-datadog.sh
-```
-
-### API key invalid
-
-Validate your API key:
-```bash
-curl -X GET "https://api.datadoghq.com/api/v1/validate" \
-  -H "DD-API-KEY: YOUR_API_KEY"
 ```
 
 ### Scripts not running
@@ -408,7 +359,7 @@ sudo ./scripts/uninstall.sh --dry-run
 # Linux
 sudo rm -f /etc/zfs/zed.d/*-datadog.sh
 sudo rm -f /etc/zfs/zed.d/config.sh
-sudo systemctl restart zfs-zed
+sudo systemctl is-active zfs-zed datadog-agent
 ```
 
 ---
