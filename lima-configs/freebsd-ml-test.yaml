@@ -1,5 +1,5 @@
 # FreeBSD VM for ML Code Assistant Testing
-# Uses remote ZFS storage for VM images
+# No explicit NAS mount
 
 vmType: "vz"
 os: null
@@ -14,10 +14,8 @@ cpus: 2
 memory: "2GiB"
 disk: "20GiB"
 
-# Mount remote storage
+# Read-only home and local temporary scratch
 mounts:
-  - location: "/Volumes/tank3"
-    writable: false
   - location: "~"
     writable: false
   - location: "/tmp/lima"
