@@ -20,6 +20,9 @@ POOL="${ZEVENT_POOL:-unknown}"
 ERRORS="${ZEVENT_POOL_RESILVER_ERRORS:-0}"
 START_TIME="${ZEVENT_POOL_RESILVER_START:-0}"
 END_TIME="${ZEVENT_POOL_RESILVER_END:-0}"
+for NUMBER in "$ERRORS" "$START_TIME" "$END_TIME"; do
+    valid_nonnegative_integer "$NUMBER" || exit 1
+done
 
 # Calculate duration
 if [ "$START_TIME" -gt 0 ] && [ "$END_TIME" -gt 0 ]; then
@@ -33,7 +36,8 @@ else
 fi
 
 # Build tags
-TAGS=$(build_tags)
+TAGS=$(build_tags) || exit 1
+SEND_STATUS=0
 
 # Determine alert type based on errors
 if [ "$ERRORS" -eq 0 ]; then
@@ -49,16 +53,16 @@ TITLE="ZFS Resilver Completed: $POOL"
 TEXT="Pool: $POOL\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_HOURS}h ${DURATION_MINS}m"
 
 # Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS"
+send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS" || SEND_STATUS=1
 
 # Send metrics
-send_metric "zfs.resilver.errors" "$ERRORS" "gauge" "$TAGS"
+send_metric "zfs.resilver.errors" "$ERRORS" "gauge" "$TAGS" || SEND_STATUS=1
 if [ "$DURATION" -gt 0 ]; then
-    send_metric "zfs.resilver.duration" "$DURATION" "gauge" "$TAGS"
+    send_metric "zfs.resilver.duration" "$DURATION" "gauge" "$TAGS" || SEND_STATUS=1
 fi
 # Clear in-progress flag set by resilver_start-datadog.sh
-send_metric "zfs.resilver.in_progress" "0" "gauge" "$TAGS"
+send_metric "zfs.resilver.in_progress" "0" "gauge" "$TAGS" || SEND_STATUS=1
 
 log_message "INFO" "Resilver completion event processed: $POOL - $ERRORS errors"
 
-exit 0
+exit "$SEND_STATUS"

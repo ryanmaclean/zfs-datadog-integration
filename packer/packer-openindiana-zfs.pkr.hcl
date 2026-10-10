@@ -45,19 +45,9 @@ build {
     ]
   }
 
-  provisioner "file" {
-    destination = "/tmp/"
-  }
-
+  # The Linux ZED installer has no verified activation contract here.
   provisioner "shell" {
-    inline = [
-      "mkdir -p /etc/zfs/zed.d",
-      "cp /tmp/*.sh /etc/zfs/zed.d/",
-      "cp /tmp/.env.local /etc/zfs/zed.d/",
-      "chmod 755 /etc/zfs/zed.d/*.sh",
-      "chmod 600 /etc/zfs/zed.d/config.sh /etc/zfs/zed.d/.env.local",
-      "svcadm restart zfs-zed"
-    ]
+    inline = ["echo 'Native ZFS event route is not verified for this OS' >&2; exit 1"]
   }
 }
 

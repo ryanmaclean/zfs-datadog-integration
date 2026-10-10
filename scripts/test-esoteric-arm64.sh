@@ -43,8 +43,8 @@ echo "   ${BLUE}★${NC} VZ backend - 2x faster than QEMU"
 echo "   ${BLUE}★${NC} Lightweight and fast"
 echo "   ${BLUE}★${NC} Best performance + esoteric combo"
 echo ""
-echo "${GREEN}2)${NC} ${MAGENTA}FreeBSD 14.0 ARM64${NC} ${CYAN}(Production-ready, native ZFS)${NC}"
-echo "   ${BLUE}★${NC} Best choice - fully functional"
+echo "${GREEN}2)${NC} ${MAGENTA}FreeBSD 14.0 ARM64${NC} ${CYAN}(ZED integration unavailable here)${NC}"
+echo "   ${BLUE}★${NC} Base FreeBSD uses zfsd/devd; this helper cannot deploy native event delivery"
 echo "   ${BLUE}★${NC} Native ZFS built into kernel"
 echo "   ${BLUE}★${NC} Excellent ARM64 support"
 echo ""
@@ -66,32 +66,23 @@ case "$choice" in
         VM_NAME="alpine-arm64"
         LIMA_FILE="examples/lima/lima-alpine-arm64.yaml"
         OS_NAME="Alpine Linux ARM64 (musl)"
-        ZED_PATH="/etc/zfs/zed.d"
-        SERVICE_CMD="rc-service zfs-zed restart"
         DIFFICULTY="${GREEN}Easy + Esoteric${NC}"
         ;;
     2)
-        VM_NAME="freebsd-arm64"
-        LIMA_FILE="examples/lima/lima-freebsd-arm64.yaml"
-        OS_NAME="FreeBSD 14.0 ARM64"
-        ZED_PATH="/usr/local/etc/zfs/zed.d"
-        SERVICE_CMD="service zfs restart"
-        DIFFICULTY="${GREEN}Easy${NC}"
+        printf 'Error: FreeBSD native ZFS event delivery is not installed by this ZED test helper.\n' >&2
+        printf 'No VM, ZED files, or ZFS services were changed.\n' >&2
+        exit 1
         ;;
     3)
         VM_NAME="netbsd-arm64"
         LIMA_FILE="examples/lima/lima-netbsd-arm64.yaml"
         OS_NAME="NetBSD 10.0 ARM64"
-        ZED_PATH="/usr/pkg/etc/zfs/zed.d"
-        SERVICE_CMD="/etc/rc.d/zed restart"
         DIFFICULTY="${YELLOW}Medium${NC}"
         ;;
     4)
         VM_NAME="openbsd-arm64"
         LIMA_FILE="examples/lima/lima-openbsd-arm64.yaml"
         OS_NAME="OpenBSD 7.6 ARM64"
-        ZED_PATH="/usr/local/etc/zfs/zed.d"
-        SERVICE_CMD="rcctl restart zed"
         DIFFICULTY="${RED}EXTREME${NC}"
         ;;
     *)
@@ -184,69 +175,6 @@ echo ""
 echo "${GREEN}✓ ZFS test completed!${NC}"
 echo ""
 
-# Deploy integration
-echo "${CYAN}Deploying ZFS Datadog Integration...${NC}"
-echo ""
-
-# Copy scripts to VM
-echo "Copying zedlet scripts..."
-limactl copy scripts/zfs-datadog-lib.sh "$VM_NAME:/tmp/"
-limactl copy scripts/scrub_finish-datadog.sh "$VM_NAME:/tmp/"
-limactl copy scripts/resilver_finish-datadog.sh "$VM_NAME:/tmp/"
-limactl copy scripts/statechange-datadog.sh "$VM_NAME:/tmp/"
-limactl copy scripts/config.sh.example "$VM_NAME:/tmp/config.sh"
-
-# Install in VM
-limactl shell "$VM_NAME" -- sh -c "
-    echo '=== Installing zedlets ==='
-    
-    # Create ZED directory if needed
-    sudo mkdir -p $ZED_PATH
-    
-    # Copy files
-    sudo cp /tmp/zfs-datadog-lib.sh $ZED_PATH/
-    sudo cp /tmp/scrub_finish-datadog.sh $ZED_PATH/
-    sudo cp /tmp/resilver_finish-datadog.sh $ZED_PATH/
-    sudo cp /tmp/statechange-datadog.sh $ZED_PATH/
-    sudo cp /tmp/config.sh $ZED_PATH/
-    
-    # Make executable
-    sudo chmod +x $ZED_PATH/*.sh
-    
-    echo ''
-    echo '✓ Zedlets installed to $ZED_PATH'
-    echo ''
-    echo 'Next steps:'
-    echo '1. Edit $ZED_PATH/config.sh with your Datadog API key'
-    echo '2. Restart ZED: sudo $SERVICE_CMD'
-    echo '3. Test: sudo zpool scrub <poolname>'
-"
-
-echo ""
-echo "${GREEN}╔══════════════════════════════════════════╗${NC}"
-echo "${GREEN}║           SETUP COMPLETE! 🎉             ║${NC}"
-echo "${GREEN}╚══════════════════════════════════════════╝${NC}"
-echo ""
-echo "${CYAN}VM Information:${NC}"
-echo "  Name: $VM_NAME"
-echo "  OS: $OS_NAME"
-echo "  ZED Path: $ZED_PATH"
-echo "  Service: $SERVICE_CMD"
-echo ""
-echo "${CYAN}Access VM:${NC}"
-echo "  ${YELLOW}limactl shell $VM_NAME${NC}"
-echo ""
-echo "${CYAN}Test ZFS Event:${NC}"
-echo "  ${YELLOW}limactl shell $VM_NAME -- sudo zpool scrub testpool${NC}"
-echo ""
-echo "${CYAN}Configure Datadog:${NC}"
-echo "  ${YELLOW}limactl shell $VM_NAME -- sudo vi $ZED_PATH/config.sh${NC}"
-echo ""
-echo "${CYAN}Stop VM:${NC}"
-echo "  ${YELLOW}limactl stop $VM_NAME${NC}"
-echo ""
-echo "${CYAN}Delete VM:${NC}"
-echo "  ${YELLOW}limactl delete $VM_NAME${NC}"
-echo ""
-echo "${MAGENTA}You're now running ZFS on $OS_NAME! 🚀${NC}"
-echo ""
+# Native event delivery for this selected OS is not verified.
+printf 'ZFS VM test passed; Datadog ZFS deployment is blocked until a native event route is proven for %s.\n' "$OS_NAME" >&2
+exit 1

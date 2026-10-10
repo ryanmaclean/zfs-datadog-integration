@@ -6,11 +6,10 @@
 #   1. QEMU gets no empty argument and no bundled "-opt value" word
 #      (qemu-freebsd.sh, qemu-netbsd.sh, qemu-truenas-scale.sh), and that
 #      "-accel" is followed by its own "hvf" argument;
-#   2. ssh/scp get each "-o Option=value" as separate arguments
-#      (test-truenas-core.sh, test-truenas-scale.sh);
-#   3. colour variables hold real ESC bytes, so the converted printf '%s'
-#      calls in uninstall.sh / validate-config.sh emit colours, not literal
-#      "\033[...m" text; and no script assigns a literal \033 sequence.
+#   2. the retired TrueNAS SCALE driver exits 78 before any guest call;
+#   3. validate-config.sh emits readable plain diagnostics without ANSI
+#      escapes in non-TTY output, while uninstall.sh rejects an unknown
+#      option; and no script assigns a literal \033 sequence.
 set -eu
 cd "$(git rev-parse --show-toplevel)"
 REPO=$(pwd)
@@ -41,7 +40,7 @@ exit 0
 STUB
 chmod +x "$STUBS/_record"
 for c in qemu-system-x86_64 qemu-system-aarch64 qemu-img curl wget xz gunzip \
-         mkisofs genisoimage hdiutil brew ssh scp jq sleep nc; do
+         mkisofs genisoimage hdiutil brew ssh scp jq sleep nc systemctl; do
     ln -s _record "$STUBS/$c"
 done
 cat > "$STUBS/uname" <<'STUB'
@@ -111,43 +110,50 @@ for arch in arm64 x86_64; do
     fi
 done
 
-echo "2. ssh/scp argv"
-for t in core scale; do
-    dir="$WORK/run-truenas-$t"
-    mkdir -p "$dir"
-    cp "$REPO/scripts/test-truenas-$t.sh" "$dir/"
-    printf '#!/bin/sh\nexit 0\n' > "$dir/wait-for-ssh.sh"
-    chmod +x "$dir/wait-for-ssh.sh"
-    : > "$LOG"
-    (cd "$dir" && PATH="$STUBS:$PATH" ARGV_LOG="$LOG" FAKE_ARCH=x86_64 \
-        sh "./test-truenas-$t.sh" < /dev/null > "$dir/out.txt" 2>&1) ||
-        bad "test-truenas-$t.sh exited non-zero: $(tail -n 3 "$dir/out.txt")"
-    check_argv "test-truenas-$t.sh" ssh scp
-    for c in ssh scp; do
-        if has_pair "^$c\$" -o StrictHostKeyChecking=no && has_pair "^$c\$" -o UserKnownHostsFile=/dev/null; then
-            ok "test-truenas-$t.sh: $c gets each -o option separately"
-        else
-            bad "test-truenas-$t.sh: $c did not get separate -o options"
-        fi
-    done
-done
+echo "2. retired TrueNAS driver"
+dir="$WORK/run-truenas-scale"
+mkdir -p "$dir"
+cp "$REPO/scripts/test-truenas-scale.sh" "$dir/"
+: > "$LOG"
+(cd "$dir" && PATH="$STUBS:$PATH" ARGV_LOG="$LOG" FAKE_ARCH=x86_64 \
+    bash "./test-truenas-scale.sh" < /dev/null > "$dir/out.txt" 2>&1) && status=0 || status=$?
+if [ "$status" -eq 78 ]; then
+    ok "test-truenas-scale.sh exits 78 before guest access"
+else
+    bad "test-truenas-scale.sh exited $status instead of 78"
+fi
+if [ -s "$LOG" ]; then
+    bad "test-truenas-scale.sh invoked a guest/network stub: $(cat "$LOG")"
+else
+    ok "test-truenas-scale.sh invoked no ssh/scp or other stub"
+fi
 
-echo "3. colour output"
+echo "3. non-TTY diagnostics"
 esc=$(printf '\033')
-check_colour() { # check_colour LABEL FILE
+check_plain() { # check_plain LABEL FILE
     if grep -q '\\033\[' "$2"; then
         bad "$1: printed a literal \\033 sequence"
-    elif ! grep -q "$esc\[" "$2"; then
-        bad "$1: no ANSI colour sequence in output"
+    elif grep -q "$esc\[" "$2"; then
+        bad "$1: printed ANSI colour in non-TTY output"
+    elif ! grep -q '^ZFS Datadog local Agent configuration$' "$2" ||
+         ! grep -q '^Errors: ' "$2" ||
+         ! grep -q '^ERROR: installed config.sh was not found at ' "$2"; then
+        bad "$1: missing readable installed-route diagnostic"
     else
-        ok "$1: real ESC bytes, no literal \\033"
+        ok "$1: readable plain non-TTY diagnostics"
     fi
 }
-sh scripts/uninstall.sh --no-such-option < /dev/null > "$WORK/uninstall.txt" 2>&1 || true
-check_colour "uninstall.sh" "$WORK/uninstall.txt"
+if sh scripts/uninstall.sh --no-such-option < /dev/null > "$WORK/uninstall.txt" 2>&1; then
+    bad "uninstall.sh accepted an unknown option"
+elif grep -q '^Unknown option: --no-such-option$' "$WORK/uninstall.txt"; then
+    ok "uninstall.sh rejects an unknown option before host access"
+else
+    bad "uninstall.sh did not report the unknown option"
+fi
 (PATH="$STUBS:$PATH" ARGV_LOG="$WORK/ignored.log" FAKE_ARCH=x86_64 \
+    ZED_DIR="$WORK/missing-zed" \
     sh scripts/validate-config.sh < /dev/null > "$WORK/validate.txt" 2>&1) || true
-check_colour "validate-config.sh" "$WORK/validate.txt"
+check_plain "validate-config.sh" "$WORK/validate.txt"
 script_list="$WORK/shell-scripts.txt"
 .github/scripts/shell-scripts.sh > "$script_list"
 literal=$(tr '\n' '\0' < "$script_list" |
