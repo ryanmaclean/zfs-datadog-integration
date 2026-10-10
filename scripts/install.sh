@@ -394,5 +394,5 @@ if [ -f /var/log/zfs/zed.log ]; then
 else
     printf '3. Watch ZED output:   journalctl -fu zfs-zed   (or your syslog)\n'
 fi
-printf '4. Test with:           zpool scrub <poolname>\n'
+printf '4. Verify a controlled event at Datadog intake under an approved disposable fixture; coordinate live events with the host owner and a maintenance plan.\n'
 printf '\nSee README.md for more.\n'
