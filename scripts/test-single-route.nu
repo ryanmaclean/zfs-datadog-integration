@@ -14,8 +14,8 @@ def require_one [profile: string, files: list<string>, event_class: string] {
 def main [repo_root: string] {
     let repo = ($repo_root | path expand)
     let install = (open --raw $"($repo)/scripts/install.sh")
-    let pinned_manifest = '77e67d33c1716d4760e5b8c67bdc91ef684937624e086498311d9dd4f72e7116'
-    let pinned_installer = 'e3f8009df25e541b08fca0237f0f61e881bcb99e38723cc229b3df8a54fdbef3'
+    let pinned_manifest = 'a795f5176e7b9ff23fc7270ad08876a490e346957edb6c51788b77ae8b4e69a1'
+    let pinned_installer = '05fddf48cd287456bb108eeca44228ec47d7cd3752acbeba67fce09712f686e8'
     let manifest = (open --raw $"($repo)/scripts/payload.sha256")
     if (($manifest | hash sha256) != $pinned_manifest) {
         error make {msg: 'reviewed payload manifest digest changed'}

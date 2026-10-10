@@ -113,8 +113,8 @@ build {
     inline = [
       "sudo mkdir -m 700 /root/zfs-datadog-src",
       "sudo cp /tmp/zfs-datadog-upload/install.sh /tmp/zfs-datadog-upload/config.sh /tmp/zfs-datadog-upload/zfs-datadog-lib.sh /tmp/zfs-datadog-upload/statechange-datadog.sh /tmp/zfs-datadog-upload/scrub_start-datadog.sh /tmp/zfs-datadog-upload/scrub_finish-datadog.sh /tmp/zfs-datadog-upload/resilver_start-datadog.sh /tmp/zfs-datadog-upload/resilver_finish-datadog.sh /tmp/zfs-datadog-upload/config_sync-datadog.sh /tmp/zfs-datadog-upload/pool_import-datadog.sh /tmp/zfs-datadog-upload/pool_destroy-datadog.sh /tmp/zfs-datadog-upload/vdev_attach-datadog.sh /tmp/zfs-datadog-upload/vdev_remove-datadog.sh /tmp/zfs-datadog-upload/ereport.fs.zfs.checksum-datadog.sh /tmp/zfs-datadog-upload/ereport.fs.zfs.io-datadog.sh /tmp/zfs-datadog-upload/checksum-error.sh /tmp/zfs-datadog-upload/io-error.sh /tmp/zfs-datadog-upload/payload.sha256 /root/zfs-datadog-src/",
-      "sudo sh -ec 'cd /root/zfs-datadog-src; set -- $(openssl dgst -sha256 payload.sha256); [ \"$2\" = \"77e67d33c1716d4760e5b8c67bdc91ef684937624e086498311d9dd4f72e7116\" ] || exit 1; set -- $(openssl dgst -sha256 install.sh); [ \"$2\" = \"e3f8009df25e541b08fca0237f0f61e881bcb99e38723cc229b3df8a54fdbef3\" ]'",
-      "sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=77e67d33c1716d4760e5b8c67bdc91ef684937624e086498311d9dd4f72e7116 sh /root/zfs-datadog-src/install.sh"
+      "sudo sh -ec 'cd /root/zfs-datadog-src; set -- $(openssl dgst -sha256 payload.sha256); [ \"$2\" = \"a795f5176e7b9ff23fc7270ad08876a490e346957edb6c51788b77ae8b4e69a1\" ] || exit 1; set -- $(openssl dgst -sha256 install.sh); [ \"$2\" = \"05fddf48cd287456bb108eeca44228ec47d7cd3752acbeba67fce09712f686e8\" ]'",
+      "sudo env ZFS_DD_EXPECTED_MANIFEST_SHA=a795f5176e7b9ff23fc7270ad08876a490e346957edb6c51788b77ae8b4e69a1 sh /root/zfs-datadog-src/install.sh"
     ]
   }
 
