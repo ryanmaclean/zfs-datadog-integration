@@ -6,19 +6,15 @@ OpenZFS ZED event monitoring on hosts with a verified ZED service. FreeBSD base 
 
 ## Quick Start
 
-```bash
-# Install on Ubuntu/Debian
-sudo ./scripts/install.sh
+On an approved Linux ZED host, follow the [installation Quick Start](INSTALL.md#quick-start-ubuntudebian).
+It pins a reviewed commit in a root-owned source tree, configures and reviews
+`scripts/config.sh` and the payload manifest before installation, and passes
+the approved manifest digest to the installer. Confirm the local Agent and ZED
+services remain active, then verify a controlled event at Datadog intake.
 
-# Review local Agent endpoint and tags in the installed configuration
-sudo vi /etc/zfs/zed.d/config.sh
-
-# Validate configuration
-sudo ./scripts/validate-config.sh
-
-# Confirm both services remain active after installation
-sudo systemctl is-active zfs-zed datadog-agent
-```
+The installer hashes the installed `config.sh` into its ownership manifest.
+Configure and review the source copy before installation; editing the installed
+copy later makes normal uninstall refuse the modified file.
 
 **📖 [Full Installation Guide](INSTALL.md)** - Detailed instructions for all operating systems
 

@@ -40,27 +40,56 @@ An installer exit code, ZED restart, or handler exit code is not a Datadog intak
 
 ## Quick Start (Ubuntu/Debian)
 
+Use only an approved, full commit SHA and a reviewed configuration. The
+installer requires every source-directory ancestor to be root-owned and not
+group/world writable; a normal clone in a user's home directory fails this
+check. Prepare the source under `/root`. Do not use a floating branch or this
+draft PR as approval to deploy.
+
 ```bash
-# 1. Clone repository
-git clone https://github.com/ryanmaclean/zfs-datadog-integration.git
-cd zfs-datadog-integration
+# 1. Replace this value with the full SHA approved for this deployment.
+REVIEWED_COMMIT='<approved-40-character-commit-sha>'
+sudo git clone --no-checkout https://github.com/ryanmaclean/zfs-datadog-integration.git \
+  /root/zfs-datadog-integration
+sudo git -C /root/zfs-datadog-integration checkout --detach "$REVIEWED_COMMIT"
+test "$(sudo git -C /root/zfs-datadog-integration rev-parse HEAD)" = "$REVIEWED_COMMIT" || exit 1
 
-# 2. Install zedlets
-sudo ./scripts/install.sh
-
-# 3. Review local Agent endpoint and tags
-sudo vi /etc/zfs/zed.d/config.sh
-
-# 4. Validate configuration
-sudo ./scripts/validate-config.sh
-
-# 5. Confirm both services remain active after installer activation
-sudo systemctl is-active zfs-zed datadog-agent
-
-# 6. Test (optional)
-sudo zpool scrub <poolname>
-# Check Datadog for events
+# 2. Configure the root-owned source copy before activation. Keep API keys out.
+sudo vi /root/zfs-datadog-integration/scripts/config.sh
+sudo openssl dgst -sha256 /root/zfs-datadog-integration/scripts/config.sh
 ```
+
+The installer checks all 17 source payloads against `scripts/payload.sha256`
+and requires its independently approved SHA-256 in
+`ZFS_DD_EXPECTED_MANIFEST_SHA`. If `scripts/config.sh` changed, replace only
+its digest entry in the manifest with the new reviewed digest. Independently
+review the exact configured file, all manifest entries, the installer digest,
+and the final manifest digest without publishing configuration contents. Do
+not treat a self-computed digest as independent approval. The manifest must
+still contain exactly the installer's 17 expected names and matching hashes.
+Once approved, do not change the source tree before installation.
+
+```bash
+# Only if config.sh changed, update its hash entry and review the manifest.
+sudo vi /root/zfs-datadog-integration/scripts/payload.sha256
+sudo openssl dgst -sha256 /root/zfs-datadog-integration/scripts/payload.sha256
+```
+
+```bash
+# 3. Set the externally approved digest of the reviewed payload.sha256.
+APPROVED_MANIFEST_SHA='<approved-64-character-sha256>'
+test "$(sudo git -C /root/zfs-datadog-integration rev-parse HEAD)" = "$REVIEWED_COMMIT" || exit 1
+sudo ZFS_DD_EXPECTED_MANIFEST_SHA="$APPROVED_MANIFEST_SHA" \
+  /root/zfs-datadog-integration/scripts/install.sh
+sudo /root/zfs-datadog-integration/scripts/validate-config.sh
+sudo systemctl is-active zfs-zed datadog-agent
+```
+
+Do not edit `/etc/zfs/zed.d/config.sh` after installation: the installer
+records its digest in the ownership manifest, and normal uninstall will
+refuse a changed file. Arrange any later configuration update as a reviewed
+replacement/rollback, not an in-place edit. For delivery testing, follow the
+host-owner and maintenance gate under [Test Event Sending](#test-event-sending).
 
 ---
 
@@ -76,16 +105,14 @@ sudo apt update
 sudo apt install -y zfsutils-linux
 ```
 
-**Install Integration:**
-```bash
-sudo ./scripts/install.sh
-sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
-sudo systemctl is-active zfs-zed datadog-agent
-```
+**Install Integration:** Follow the Quick Start's reviewed root-owned source,
+configured payload manifest, and approved digest steps; do not run the
+installer from a user-owned checkout. Confirm `zfs-zed` and `datadog-agent`
+remain active afterward.
 
 **Verify:**
 ```bash
-sudo ./scripts/validate-config.sh
+sudo /root/zfs-datadog-integration/scripts/validate-config.sh
 sudo systemctl status zfs-zed
 ```
 
@@ -103,12 +130,10 @@ sudo dnf install -y kernel-devel zfs
 sudo modprobe zfs
 ```
 
-**Install Integration:**
-```bash
-sudo ./scripts/install.sh
-sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
-sudo systemctl is-active zfs-zed datadog-agent
-```
+**Install Integration:** Follow the Quick Start's reviewed root-owned source,
+configured payload manifest, and approved digest steps; do not run the
+installer from a user-owned checkout. Confirm `zfs-zed` and `datadog-agent`
+remain active afterward.
 
 **SELinux Note:**
 If SELinux is enforcing, you may need to adjust policies:
@@ -132,12 +157,10 @@ paru -S zfs-dkms zfs-utils
 sudo modprobe zfs
 ```
 
-**Install Integration:**
-```bash
-sudo ./scripts/install.sh
-sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
-sudo systemctl is-active zfs-zed datadog-agent
-```
+**Install Integration:** Follow the Quick Start's reviewed root-owned source,
+configured payload manifest, and approved digest steps; do not run the
+installer from a user-owned checkout. Confirm `zfs-zed` and `datadog-agent`
+remain active afterward.
 
 ---
 
@@ -151,12 +174,10 @@ sudo dnf install -y kernel-devel zfs
 sudo modprobe zfs
 ```
 
-**Install Integration:**
-```bash
-sudo ./scripts/install.sh
-sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
-sudo systemctl is-active zfs-zed datadog-agent
-```
+**Install Integration:** Follow the Quick Start's reviewed root-owned source,
+configured payload manifest, and approved digest steps; do not run the
+installer from a user-owned checkout. Confirm `zfs-zed` and `datadog-agent`
+remain active afterward.
 
 ---
 
@@ -192,13 +213,13 @@ TrueNAS SCALE is Debian-based, so standard Linux installation applies.
 
 **Installation:**
 1. SSH into TrueNAS SCALE
-2. Clone repository to persistent location
-3. Run installation:
-```bash
-sudo ./scripts/install.sh
-sudo vi /etc/zfs/zed.d/config.sh  # Review tags and loopback port
-sudo systemctl is-active zfs-zed datadog-agent
-```
+2. Prepare a reviewed, root-owned source tree on an approved persistent path,
+   with every source ancestor root-owned; configure its source `config.sh`
+   before installation as in the Quick Start. Do not assume `/root` persists
+   across SCALE upgrades.
+3. Only after platform-specific review, run that tree's `scripts/install.sh`
+   and confirm both `zfs-zed` and `datadog-agent` remain active. A service
+   check is not Datadog intake proof.
 
 **⚠️ Important:** TrueNAS updates may overwrite custom scripts. Consider:
 - Using Init/Shutdown Scripts in TrueNAS UI to reinstall after updates
@@ -226,10 +247,12 @@ Do not use the Linux installer or restart the ZFS service to infer event deliver
 
 ### Configure Integration
 
-Edit the configuration file:
+Before installation, edit and review the private **source** configuration
+file. The installer hashes this copy into its ownership manifest; do not edit
+the installed file in place afterward.
 ```bash
 # Linux
-sudo vi /etc/zfs/zed.d/config.sh
+sudo vi /root/zfs-datadog-integration/scripts/config.sh
 ```
 
 **Minimum configuration:**
@@ -264,7 +287,7 @@ MONITOR_IO_ERRORS="true"
 ### Validate Configuration
 
 ```bash
-sudo ./scripts/validate-config.sh
+sudo /root/zfs-datadog-integration/scripts/validate-config.sh
 ```
 
 This checks:
