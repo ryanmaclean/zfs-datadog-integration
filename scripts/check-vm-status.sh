@@ -44,7 +44,7 @@ printf '%s' "  TrueNAS CORE (port 2223): "
 if nc -z -w 1 localhost 2223 2>/dev/null; then
     if ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 2223 root@localhost "echo test" 2>/dev/null; then
         echo "✓ Ready"
-        echo "    Run: ./test-truenas-core.sh"
+        echo "    Native ZFS event delivery test disabled pending a verified FreeBSD route"
     else
         echo "⏳ Port open, waiting for SSH"
     fi
@@ -77,4 +77,4 @@ echo "3. Configure network (DHCP should work)"
 echo "4. After reboot, enable SSH in web UI"
 echo "5. Run automated tests:"
 echo "   ./test-truenas-scale.sh"
-echo "   ./test-truenas-core.sh"
+echo "   TrueNAS CORE event delivery test is disabled pending a verified FreeBSD route"
