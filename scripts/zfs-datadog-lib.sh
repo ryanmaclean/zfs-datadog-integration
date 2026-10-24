@@ -199,11 +199,78 @@ get_alert_type() {
     esac
 }
 
+# Readable vdev state for the current zevent.
+# ZED exports the vdev_state nvpair as the numeric vdev_state_t value and adds
+# the readable name as ZEVENT_VDEV_STATE_STR (cmd/zed/zed_event.c), so prefer
+# the name and map a bare number (replayed or hand-built events) the same way
+# zpool_state_to_name() does. Prints nothing when the event has no vdev state.
+zevent_vdev_state() (
+    _vs_state=${ZEVENT_VDEV_STATE_STR:-${ZEVENT_VDEV_STATE:-}}
+    case "$_vs_state" in
+        '') return 0 ;;
+        *[!0-9]*) printf '%s\n' "$_vs_state" ;;
+        1|2) echo OFFLINE ;;
+        3) echo REMOVED ;;
+        4) echo UNAVAIL ;;
+        5) echo FAULTED ;;
+        6) echo DEGRADED ;;
+        7) echo ONLINE ;;
+        *) echo UNKNOWN ;;
+    esac
+)
+
+# Result of the finished scrub or resilver on a pool, as "errors seconds".
+# Real scrub_finish and resilver_finish zevents carry only the pool name, GUID,
+# state and history context: no error count and no start or end time. Like
+# upstream scrub_finish-notify.sh, read the scan line of zpool status instead
+# ("scrub repaired 0B in 00:00:01 with 0 errors on ...", or "N days HH:MM:SS"
+# for long scans). Fails, printing nothing, unless that line describes a
+# finished scan of the requested kind, so callers never report a guessed 0.
+# Usage: zpool_scan_result pool scrub|resilver
+zpool_scan_result() (
+    _sr_pool=$1
+    _sr_kind=$2
+    valid_zfs_tag_value "$_sr_pool" || return 1
+    case "$_sr_kind" in scrub|resilver) ;; *) return 1 ;; esac
+    _sr_line=$(LC_ALL=C "${ZPOOL:-zpool}" status "$_sr_pool" 2>/dev/null |
+        sed -n 's/^[[:space:]]*scan: //p') || return 1
+    _sr_result=$(printf '%s\n' "$_sr_line" | awk -v kind="$_sr_kind" '
+        NR > 1 { bad = 1; exit }
+        {
+            if (kind == "scrub") {
+                if ($1 != "scrub" || $2 != "repaired") { bad = 1; exit }
+                i = 4
+            } else {
+                if ($1 != "resilvered") { bad = 1; exit }
+                i = 3
+            }
+            if ($i != "in") { bad = 1; exit }
+            i++
+            days = 0
+            if ($(i + 1) == "days") {
+                days = $i
+                i += 2
+            }
+            if (split($i, t, ":") != 3) { bad = 1; exit }
+            if ($(i + 1) != "with" || $(i + 3) != "errors" || $(i + 4) != "on") { bad = 1; exit }
+            errors = $(i + 2)
+            if (days !~ /^[0-9]+$/ || errors !~ /^[0-9]+$/) { bad = 1; exit }
+            if (t[1] !~ /^[0-9]+$/ || t[2] !~ /^[0-9]+$/ || t[3] !~ /^[0-9]+$/) { bad = 1; exit }
+            printf "%s %d\n", errors, days * 86400 + t[1] * 3600 + t[2] * 60 + t[3]
+            found = 1
+        }
+        END { exit (bad || !found) }') || return 1
+    valid_nonnegative_integer "${_sr_result% *}" || return 1
+    valid_nonnegative_integer "${_sr_result#* }" || return 1
+    printf '%s\n' "$_sr_result"
+)
+
 # Build tags from ZFS event environment variables
 build_tags() (
     _bt_base_tags="$DD_TAGS"
     _bt_pool="${ZEVENT_POOL:-unknown}"
     _bt_vdev="${ZEVENT_VDEV_PATH:-}"
+    _bt_vdev_state=$(zevent_vdev_state)
 
     valid_agent_tags "$_bt_base_tags" || return 1
     valid_zfs_tag_value "$_bt_pool" || return 1
@@ -220,9 +287,9 @@ build_tags() (
         _bt_tags="${_bt_tags},vdev:${_bt_vdev_name}"
     fi
 
-    if [ -n "${ZEVENT_VDEV_STATE}" ]; then
-        valid_zfs_tag_value "$ZEVENT_VDEV_STATE" || return 1
-        _bt_tags="${_bt_tags},vdev_state:${ZEVENT_VDEV_STATE}"
+    if [ -n "$_bt_vdev_state" ]; then
+        valid_zfs_tag_value "$_bt_vdev_state" || return 1
+        _bt_tags="${_bt_tags},vdev_state:${_bt_vdev_state}"
     fi
 
     valid_agent_tags "$_bt_tags" || return 1
