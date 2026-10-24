@@ -72,12 +72,13 @@ while read -r expected name extra; do
     esac
     case "$expected" in *[!0-9a-f]*) die 'Malformed SHA-256 in manifest' ;; esac
     case "$name" in
-        zfs-datadog-lib.sh|config.sh|.checksum-error.sh|.io-error.sh|\
+        zfs-datadog-lib.sh|config.sh|.checksum-error.sh|.io-error.sh|.data-error.sh|\
         statechange-datadog.sh|scrub_start-datadog.sh|scrub_finish-datadog.sh|\
         resilver_start-datadog.sh|resilver_finish-datadog.sh|\
         config_sync-datadog.sh|pool_import-datadog.sh|pool_destroy-datadog.sh|\
         vdev_attach-datadog.sh|vdev_remove-datadog.sh|\
-        ereport.fs.zfs.checksum-datadog.sh|ereport.fs.zfs.io-datadog.sh) ;;
+        ereport.fs.zfs.checksum-datadog.sh|ereport.fs.zfs.io-datadog.sh|\
+        ereport.fs.zfs.data-datadog.sh) ;;
         *) die "Unknown manifest target: $name" ;;
     esac
     case "$seen" in *" $name "*) die "Duplicate manifest target: $name" ;; esac
@@ -93,7 +94,7 @@ while read -r expected name extra; do
     fi
     count=$((count + 1))
 done < "$manifest"
-[ "$count" -eq 16 ] || die "Incomplete manifest: $count of 16 expected paths"
+[ "$count" -eq 18 ] || die "Incomplete manifest: $count of 18 expected paths"
 
 if [ "$dry_run" -eq 1 ]; then
     printf 'Verified %s owned paths; would stop ZED and remove them%s.\n' \

@@ -78,7 +78,7 @@ for f in $handlers; do
     cp "scripts/$f" "$zed/.$f"
     chmod +x "$zed/.$f"
 done
-for forbidden in all-datadog.sh checksum-error.sh io-error.sh; do
+for forbidden in all-datadog.sh checksum-error.sh io-error.sh data-error.sh; do
     if [ -e "$zed/$forbidden" ] || [ -L "$zed/$forbidden" ]; then
         echo "Unexpected active route: $forbidden" >&2
         exit 1
@@ -181,6 +181,7 @@ run_suite() {
     export STUB_LOG="$out"
     for script in lib-driver.sh $zedlets; do
         case "$script" in
+            ereport.fs.zfs.data-datadog.sh) class=ereport.fs.zfs.data ;;
             *checksum*) class=ereport.fs.zfs.checksum ;;
             *io*) class=ereport.fs.zfs.io ;;
             all-datadog.sh) class=ereport.fs.zfs.checksum ;;
@@ -201,7 +202,7 @@ run_suite() {
         # The count also proves a failure does not suppress the later metrics
         # of a multi-signal ZFS event or retry any one datagram ambiguously.
         case "$script" in
-            statechange-datadog.sh|ereport.fs.zfs.checksum-datadog.sh) expected=2 ;;
+            statechange-datadog.sh|ereport.fs.zfs.checksum-datadog.sh|ereport.fs.zfs.data-datadog.sh) expected=2 ;;
             scrub_start-datadog.sh|resilver_start-datadog.sh) expected=3 ;;
             scrub_finish-datadog.sh|resilver_finish-datadog.sh|ereport.fs.zfs.io-datadog.sh) expected=4 ;;
             *) expected=1 ;;
@@ -228,8 +229,44 @@ run_suite() {
                     printf 'FAIL  I/O wrapper did not reach hidden handler\n' >&2
                     fail=1
                 fi ;;
+            ereport.fs.zfs.data-datadog.sh)
+                if ! awk -v first="$((before + 1))" 'NR >= first && /^  data: zfs[.]data[.]error:/ { found=1 } END { exit !found }' "$out"; then
+                    printf 'FAIL  data wrapper did not reach hidden handler\n' >&2
+                    fail=1
+                fi ;;
         esac
     done
+
+    # ereport.fs.zfs.data (FreeBSD emits one per unreadable block) carries the
+    # failed zio's fields and no vdev. Missing, empty, non-numeric or hostile
+    # values must become "unknown" and must never reach the wire; the switch
+    # in config.sh must silence the zedlet entirely.
+    script=ereport.fs.zfs.data-datadog.sh
+    class=ereport.fs.zfs.data
+    echo "=== data-hostile $script ($class)" >> "$out"
+    before=$(wc -l < "$out")
+    rc=0
+    run_zedlet "$script" "$class" "ZEVENT_ZIO_TYPE=0x1 [RE|AD]" 'ZEVENT_ZIO_ERR=9;7' \
+        ZEVENT_ZIO_BLKID=-1 ZEVENT_ZIO_OBJECT= ZEVENT_ZIO_LEVEL=007 > /dev/null 2>&1 || rc=$?
+    echo "--- exit $rc" >> "$out"
+    if [ "$rc" -ne 0 ]; then
+        printf 'FAIL  %s: hostile data fields exit=%s\n' "$script" "$rc" >&2
+        fail=1
+    fi
+    if awk -v first="$((before + 1))" 'NR >= first && /^  data: / && /(RE[|]AD|9;7|-1|007)/ { bad=1 } END { exit !bad }' "$out"; then
+        printf 'FAIL  %s: hostile zevent value reached a datagram\n' "$script" >&2
+        fail=1
+    fi
+    echo "=== data-disabled $script ($class)" >> "$out"
+    before=$(wc -l < "$out")
+    rc=0
+    run_zedlet "$script" "$class" MONITOR_DATA_ERRORS=false > /dev/null 2>&1 || rc=$?
+    sends=$(awk -v first="$((before + 1))" 'NR >= first && /^nc / { count++ } END { print count + 0 }' "$out")
+    echo "--- exit $rc sends $sends" >> "$out"
+    if [ "$rc" -ne 0 ] || [ "$sends" -ne 0 ]; then
+        printf 'FAIL  %s: MONITOR_DATA_ERRORS=false exit=%s sends=%s\n' "$script" "$rc" "$sends" >&2
+        fail=1
+    fi
 
     # A finish zevent whose pool no longer shows a finished scan (a new scan
     # already started, or zpool status failed) must not claim 0 errors.
@@ -258,17 +295,39 @@ run_zedlet() {
     rz_script=$1
     rz_class=$2
     shift 2
-    env -i PATH="$work/bin:/usr/bin:/bin" STUB_LOG="$out" HOME="$work" \
-        HOSTNAME=zfs-test-host \
-        ZEVENT_CLASS="$rz_class" ZEVENT_SUBCLASS="${rz_class##*.}" ZEVENT_EID=42 \
-        ZEVENT_TIME="1700000000 0" ZEVENT_TIME_SECS=1700000000 \
-        ZEVENT_TIME_STRING="2023-11-14 22:13:20+0000" \
-        ZEVENT_POOL=tank ZEVENT_POOL_GUID=123 \
-        ZEVENT_VDEV_PATH=/dev/da1 ZEVENT_VDEV_STATE=6 \
-        ZEVENT_VDEV_STATE_STR=DEGRADED ZEVENT_POOL_STATE_STR=DEGRADED \
-        ZEVENT_VDEV_CKSUM_ERRORS=3 ZEVENT_VDEV_READ_ERRORS=1 \
-        ZEVENT_VDEV_WRITE_ERRORS=2 \
-        "$@" "$sh_under_test" "$zed/$rz_script"
+    case "$rz_class" in
+        ereport.fs.zfs.data)
+            # Shaped like a real FreeBSD 15 data ereport (zfs-fleet-1024,
+            # fbsd16-test-01): pool and zio_* fields only, no vdev fields.
+            env -i PATH="$work/bin:/usr/bin:/bin" STUB_LOG="$out" HOME="$work" \
+                HOSTNAME=zfs-test-host \
+                ZEVENT_CLASS="$rz_class" ZEVENT_SUBCLASS="$rz_class" ZEVENT_EID=58 \
+                ZEVENT_TIME="1700000000 0" ZEVENT_TIME_SECS=1700000000 \
+                ZEVENT_TIME_STRING="2023-11-14 22:13:20+0000" \
+                ZEVENT_POOL=tank ZEVENT_POOL_GUID=123 \
+                ZEVENT_POOL_STATE=0 ZEVENT_POOL_CONTEXT=0 ZEVENT_POOL_FAILMODE=wait \
+                ZEVENT_ZIO_ERR=97 "ZEVENT_ZIO_FLAGS=0x8081 [DONT_AGGREGATE CANFAIL IO_RETRY]" \
+                "ZEVENT_ZIO_STAGE=0x4000000 [DONE]" "ZEVENT_ZIO_PIPELINE=0x4100000 [READY DONE]" \
+                ZEVENT_ZIO_DELAY=0 ZEVENT_ZIO_TIMESTAMP=0 ZEVENT_ZIO_DELTA=0 \
+                "ZEVENT_ZIO_TYPE=0x1 [READ]" "ZEVENT_ZIO_PRIORITY=0x0 [SYNC_READ]" \
+                ZEVENT_ZIO_OBJSET=54 ZEVENT_ZIO_OBJECT=2 ZEVENT_ZIO_LEVEL=0 \
+                ZEVENT_ZIO_BLKID=0 \
+                "$@" "$sh_under_test" "$zed/$rz_script"
+            ;;
+        *)
+            env -i PATH="$work/bin:/usr/bin:/bin" STUB_LOG="$out" HOME="$work" \
+                HOSTNAME=zfs-test-host \
+                ZEVENT_CLASS="$rz_class" ZEVENT_SUBCLASS="${rz_class##*.}" ZEVENT_EID=42 \
+                ZEVENT_TIME="1700000000 0" ZEVENT_TIME_SECS=1700000000 \
+                ZEVENT_TIME_STRING="2023-11-14 22:13:20+0000" \
+                ZEVENT_POOL=tank ZEVENT_POOL_GUID=123 \
+                ZEVENT_VDEV_PATH=/dev/da1 ZEVENT_VDEV_STATE=6 \
+                ZEVENT_VDEV_STATE_STR=DEGRADED ZEVENT_POOL_STATE_STR=DEGRADED \
+                ZEVENT_VDEV_CKSUM_ERRORS=3 ZEVENT_VDEV_READ_ERRORS=1 \
+                ZEVENT_VDEV_WRITE_ERRORS=2 \
+                "$@" "$sh_under_test" "$zed/$rz_script"
+            ;;
+    esac
 }
 
 shells=${*:-sh}

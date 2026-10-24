@@ -74,7 +74,8 @@ for route in zfs-datadog-lib.sh statechange-datadog.sh \
              config_sync-datadog.sh pool_import-datadog.sh \
              pool_destroy-datadog.sh vdev_attach-datadog.sh \
              vdev_remove-datadog.sh ereport.fs.zfs.checksum-datadog.sh \
-             ereport.fs.zfs.io-datadog.sh .checksum-error.sh .io-error.sh; do
+             ereport.fs.zfs.io-datadog.sh ereport.fs.zfs.data-datadog.sh \
+             .checksum-error.sh .io-error.sh .data-error.sh; do
     if [ ! -f "$zed_dir/$route" ] || [ -L "$zed_dir/$route" ]; then
         printf 'ERROR: missing installed route %s\n' "$route" >&2
         errors=$((errors + 1))
