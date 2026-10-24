@@ -18,7 +18,7 @@ fi
 # Extract event information
 POOL="${ZEVENT_POOL:-unknown}"
 VDEV_PATH="${ZEVENT_VDEV_PATH:-unknown}"
-VDEV_STATE="${ZEVENT_VDEV_STATE:-}"
+VDEV_STATE=$(zevent_vdev_state)
 CHECKSUM_ERRORS="${ZEVENT_VDEV_CKSUM_ERRORS:-1}"
 valid_nonnegative_integer "$CHECKSUM_ERRORS" || exit 1
 

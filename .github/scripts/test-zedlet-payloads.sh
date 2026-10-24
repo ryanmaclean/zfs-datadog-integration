@@ -48,6 +48,23 @@ cat > "$work/bin/hostname" <<'EOF'
 #!/bin/sh
 echo zfs-test-host
 EOF
+# zpool stands in for "zpool status <pool>": it prints the scan line of the
+# finished scan matching the zevent subclass, or STUB_ZPOOL_SCAN when set.
+cat > "$work/bin/zpool" <<'EOF'
+#!/bin/sh
+printf 'zpool %s\n' "$*" >> "$STUB_LOG"
+[ "$1" = status ] || exit 2
+if [ -n "${STUB_ZPOOL_SCAN+x}" ]; then
+    scan=$STUB_ZPOOL_SCAN
+else
+    case "${ZEVENT_SUBCLASS:-}" in
+        scrub_finish) scan='scrub repaired 0B in 02:03:04 with 4 errors on Tue Nov 14 22:13:20 2023' ;;
+        resilver_finish) scan='resilvered 12.5M in 00:10:00 with 0 errors on Tue Nov 14 22:13:20 2023' ;;
+        *) scan='none requested' ;;
+    esac
+fi
+printf '  pool: %s\n state: ONLINE\n  scan: %s\nconfig:\n\n' "$2" "$scan"
+EOF
 chmod +x "$work/bin/"*
 
 # ------------------------------------------------------------------ ZED dir
@@ -110,6 +127,46 @@ for s in ONLINE degraded FAULTED offline UNAVAIL removed bogus; do
 done
 echo "case: build_tags" >> "$STUB_LOG"
 printf '  %s\n' "$(build_tags)" >> "$STUB_LOG"
+echo "case: numeric ZED vdev_state mapped like zpool_state_to_name" >> "$STUB_LOG"
+saved_state=$ZEVENT_VDEV_STATE
+saved_state_str=$ZEVENT_VDEV_STATE_STR
+unset ZEVENT_VDEV_STATE_STR
+for n in 0 1 2 3 4 5 6 7 8; do
+    ZEVENT_VDEV_STATE=$n
+    vs=$(zevent_vdev_state)
+    printf '  %s -> %s %s %s\n' "$n" "$vs" "$(get_pool_health_value "$vs")" \
+        "$(get_alert_type "$vs")" >> "$STUB_LOG"
+done
+echo "case: ZEVENT_VDEV_STATE_STR preferred over the number" >> "$STUB_LOG"
+ZEVENT_VDEV_STATE=5
+ZEVENT_VDEV_STATE_STR=FAULTED
+printf '  %s\n' "$(build_tags)" >> "$STUB_LOG"
+echo "case: no vdev state, no vdev_state tag" >> "$STUB_LOG"
+unset ZEVENT_VDEV_STATE ZEVENT_VDEV_STATE_STR
+printf '  %s\n' "$(build_tags)" >> "$STUB_LOG"
+ZEVENT_VDEV_STATE=$saved_state
+ZEVENT_VDEV_STATE_STR=$saved_state_str
+echo "case: zpool status scan line parsing" >> "$STUB_LOG"
+for scan in \
+    'scrub repaired 0B in 00:00:01 with 0 errors on Tue Nov 14 22:13:20 2023' \
+    'scrub repaired 1.5M in 2 days 03:04:05 with 206 errors on Tue Nov 14 22:13:20 2023' \
+    'resilvered 12.5M in 00:10:00 with 0 errors on Tue Nov 14 22:13:20 2023' \
+    'scrub canceled on Tue Nov 14 22:13:20 2023' \
+    'scrub in progress since Tue Nov 14 22:13:20 2023' \
+    'none requested'; do
+    STUB_ZPOOL_SCAN=$scan
+    export STUB_ZPOOL_SCAN
+    for kind in scrub resilver; do
+        if r=$(zpool_scan_result tank "$kind"); then
+            printf '  %s: %s\n' "$kind" "$r"
+        else
+            printf '  %s: rc=1\n' "$kind"
+        fi >> "$STUB_LOG"
+    done
+done
+unset STUB_ZPOOL_SCAN
+echo "case: invalid pool name never reaches zpool" >> "$STUB_LOG"
+report zpool_scan_result 'tank;id' scrub
 echo "case: invalid pool tag rejected" >> "$STUB_LOG"
 ZEVENT_POOL='tank,host:forged'
 report build_tags
@@ -132,18 +189,7 @@ run_suite() {
         esac
         echo "=== $script ($class)" >> "$out"
         rc=0
-        env -i PATH="$work/bin:/usr/bin:/bin" STUB_LOG="$out" HOME="$work" \
-            HOSTNAME=zfs-test-host \
-            ZEVENT_CLASS="$class" ZEVENT_SUBCLASS="${class##*.}" ZEVENT_EID=42 \
-            ZEVENT_TIME="1700000000 0" ZEVENT_POOL=tank ZEVENT_POOL_GUID=123 \
-            ZEVENT_VDEV_PATH=/dev/da1 ZEVENT_VDEV_STATE=DEGRADED \
-            ZEVENT_VDEV_STATE_STR=DEGRADED ZEVENT_POOL_STATE_STR=DEGRADED \
-            ZEVENT_VDEV_CKSUM_ERRORS=3 ZEVENT_VDEV_READ_ERRORS=1 \
-            ZEVENT_VDEV_WRITE_ERRORS=2 ZEVENT_POOL_SCRUB_ERRORS=4 \
-            ZEVENT_POOL_SCRUB_START=1700000000 ZEVENT_POOL_SCRUB_END=1700007384 \
-            ZEVENT_POOL_RESILVER_ERRORS=0 ZEVENT_POOL_RESILVER_START=1700000000 \
-            ZEVENT_POOL_RESILVER_END=1700000600 \
-            "$sh_under_test" "$zed/$script" > /dev/null 2>&1 || rc=$?
+        run_zedlet "$script" "$class" > /dev/null 2>&1 || rc=$?
         echo "--- exit $rc" >> "$out"
         if [ "$rc" -ne 0 ]; then
             printf 'FAIL  %s: successful socket stub returned exit=%s\n' "$script" "$rc" >&2
@@ -163,18 +209,7 @@ run_suite() {
         echo "=== failed-nc $script ($class)" >> "$out"
         before=$(wc -l < "$out")
         rc=0
-        env -i PATH="$work/bin:/usr/bin:/bin" STUB_LOG="$out" STUB_NC_RC=7 HOME="$work" \
-            HOSTNAME=zfs-test-host \
-            ZEVENT_CLASS="$class" ZEVENT_SUBCLASS="${class##*.}" ZEVENT_EID=42 \
-            ZEVENT_TIME="1700000000 0" ZEVENT_POOL=tank ZEVENT_POOL_GUID=123 \
-            ZEVENT_VDEV_PATH=/dev/da1 ZEVENT_VDEV_STATE=DEGRADED \
-            ZEVENT_VDEV_STATE_STR=DEGRADED ZEVENT_POOL_STATE_STR=DEGRADED \
-            ZEVENT_VDEV_CKSUM_ERRORS=3 ZEVENT_VDEV_READ_ERRORS=1 \
-            ZEVENT_VDEV_WRITE_ERRORS=2 ZEVENT_POOL_SCRUB_ERRORS=4 \
-            ZEVENT_POOL_SCRUB_START=1700000000 ZEVENT_POOL_SCRUB_END=1700007384 \
-            ZEVENT_POOL_RESILVER_ERRORS=0 ZEVENT_POOL_RESILVER_START=1700000000 \
-            ZEVENT_POOL_RESILVER_END=1700000600 \
-            "$sh_under_test" "$zed/$script" > /dev/null 2>&1 || rc=$?
+        run_zedlet "$script" "$class" STUB_NC_RC=7 > /dev/null 2>&1 || rc=$?
         sends=$(awk -v first="$((before + 1))" 'NR >= first && /^nc / { count++ } END { print count + 0 }' "$out")
         printf '%s\n' "--- failed-nc exit $rc sends $sends expected $expected" >> "$out"
         if [ "$rc" -ne 1 ] || [ "$sends" -ne "$expected" ]; then
@@ -195,6 +230,45 @@ run_suite() {
                 fi ;;
         esac
     done
+
+    # A finish zevent whose pool no longer shows a finished scan (a new scan
+    # already started, or zpool status failed) must not claim 0 errors.
+    for script in scrub_finish-datadog.sh resilver_finish-datadog.sh; do
+        class=sysevent.fs.zfs.${script%-datadog.sh}
+        echo "=== result-unavailable $script ($class)" >> "$out"
+        rc=0
+        run_zedlet "$script" "$class" \
+            STUB_ZPOOL_SCAN='scrub in progress since Tue Nov 14 22:13:20 2023' \
+            > /dev/null 2>&1 || rc=$?
+        echo "--- exit $rc" >> "$out"
+        if [ "$rc" -ne 0 ]; then
+            printf 'FAIL  %s: unavailable scan result exit=%s\n' "$script" "$rc" >&2
+            fail=1
+        fi
+    done
+}
+
+# Run one shipped zedlet with the environment a real ZED gives it
+# (cmd/zed/zed_event.c): vdev_state is the numeric vdev_state_t with the
+# readable name in ZEVENT_VDEV_STATE_STR, ZEVENT_TIME is "seconds nanoseconds"
+# plus TIME_SECS and TIME_STRING, and scrub_finish and resilver_finish carry no
+# error count or start/end time. Extra NAME=value arguments are added last.
+# Usage: run_zedlet script class [NAME=value ...]
+run_zedlet() {
+    rz_script=$1
+    rz_class=$2
+    shift 2
+    env -i PATH="$work/bin:/usr/bin:/bin" STUB_LOG="$out" HOME="$work" \
+        HOSTNAME=zfs-test-host \
+        ZEVENT_CLASS="$rz_class" ZEVENT_SUBCLASS="${rz_class##*.}" ZEVENT_EID=42 \
+        ZEVENT_TIME="1700000000 0" ZEVENT_TIME_SECS=1700000000 \
+        ZEVENT_TIME_STRING="2023-11-14 22:13:20+0000" \
+        ZEVENT_POOL=tank ZEVENT_POOL_GUID=123 \
+        ZEVENT_VDEV_PATH=/dev/da1 ZEVENT_VDEV_STATE=6 \
+        ZEVENT_VDEV_STATE_STR=DEGRADED ZEVENT_POOL_STATE_STR=DEGRADED \
+        ZEVENT_VDEV_CKSUM_ERRORS=3 ZEVENT_VDEV_READ_ERRORS=1 \
+        ZEVENT_VDEV_WRITE_ERRORS=2 \
+        "$@" "$sh_under_test" "$zed/$rz_script"
 }
 
 shells=${*:-sh}
