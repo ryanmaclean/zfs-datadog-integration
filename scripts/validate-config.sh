@@ -1,182 +1,86 @@
 #!/bin/sh
-# ZFS Datadog Integration - Configuration Validator
-# Validates configuration and checks connectivity
+# Validate the Linux ZED to local Datadog Agent route without sending data.
+set -eu
 
-set -e
+errors=0
+warns=0
+zed_dir=${ZED_DIR:-/etc/zfs/zed.d}
 
-# Colors
-RED=$(printf '\033[0;31m')
-GREEN=$(printf '\033[0;32m')
-YELLOW=$(printf '\033[1;33m')
-NC=$(printf '\033[0m')
+printf 'ZFS Datadog local Agent configuration\n'
+printf '=====================================\n'
 
-ERRORS=0
-WARNINGS=0
-
-# Detect OS and set paths
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    OS_TYPE="$ID"
-else
-    OS_TYPE="unknown"
+if [ "$(uname -s)" != Linux ]; then
+    printf 'ERROR: this ZED route is supported only on Linux\n' >&2
+    errors=$((errors + 1))
 fi
 
-case "$OS_TYPE" in
-    freebsd|truenas)
-        ZED_DIR="/usr/local/etc/zfs/zed.d"
-        ;;
-    *)
-        ZED_DIR="/etc/zfs/zed.d"
-        ;;
-esac
-
-printf '%sZFS Datadog Configuration Validator%s\n' "$GREEN" "$NC"
-printf '====================================\n\n'
-
-# Check if config exists
-printf '1. Checking configuration file...\n'
-if [ -f "$ZED_DIR/config.sh" ]; then
-    printf '   %s✓%s Found: %s/config.sh\n' "$GREEN" "$NC" "$ZED_DIR"
-    . "$ZED_DIR/config.sh"
-elif [ -f "$(dirname "$0")/config.sh" ]; then
-    printf '   %s✓%s Found: %s/config.sh\n' "$GREEN" "$NC" "$(dirname "$0")"
-    . "$(dirname "$0")/config.sh"
+if [ -f "$zed_dir/config.sh" ] && [ ! -L "$zed_dir/config.sh" ]; then
+    config=$zed_dir/config.sh
 else
-    printf '   %s✗%s Configuration file not found\n' "$RED" "$NC"
-    printf '     Expected: %s/config.sh\n' "$ZED_DIR"
-    printf '     Run: sudo cp config.sh.example config.sh\n'
-    ERRORS=$((ERRORS + 1))
+    printf 'ERROR: installed config.sh was not found at %s/config.sh\n' "$zed_dir" >&2
+    errors=$((errors + 1))
+    config=
 fi
 
-# Validate DD_API_KEY
-printf '\n2. Validating Datadog API Key...\n'
-if [ -z "$DD_API_KEY" ]; then
-    printf '   %s✗%s DD_API_KEY is not set\n' "$RED" "$NC"
-    ERRORS=$((ERRORS + 1))
-elif [ "$DD_API_KEY" = "your_api_key_here" ]; then
-    printf '   %s✗%s DD_API_KEY is still set to placeholder value\n' "$RED" "$NC"
-    printf '     Get your key from: https://app.datadoghq.com/organization-settings/api-keys\n'
-    ERRORS=$((ERRORS + 1))
-elif [ ${#DD_API_KEY} -ne 32 ]; then
-    printf '   %s⚠%s  DD_API_KEY length is %s (expected 32)\n' "$YELLOW" "$NC" "${#DD_API_KEY}"
-    printf '     This may be valid but is unusual\n'
-    WARNINGS=$((WARNINGS + 1))
-else
-    printf '   %s✓%s DD_API_KEY is set (%s chars)\n' "$GREEN" "$NC" "${#DD_API_KEY}"
+if [ -n "$config" ]; then
+    # The configuration is a root-owned POSIX shell source when installed.
+    # shellcheck source=/dev/null
+    . "$config"
+    if [ "${DOGSTATSD_HOST:-127.0.0.1}" != 127.0.0.1 ]; then
+        printf 'ERROR: DogStatsD host must be 127.0.0.1\n' >&2
+        errors=$((errors + 1))
+    fi
+    port=${DOGSTATSD_PORT:-8125}
+    case "$port" in ''|*[!0-9]*|0?*) port=invalid ;; esac
+    if [ "${#port}" -gt 5 ] || [ "$port" = invalid ] ||
+       [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        printf 'ERROR: DogStatsD port must be 1 through 65535\n' >&2
+        errors=$((errors + 1))
+    fi
+    tags=${DD_TAGS:-service:zfs}
+    case "$tags" in
+        ''|,*|*,|*,,*|*[!A-Za-z0-9_.,:/-]*)
+            printf 'ERROR: DD_TAGS contains an invalid or empty tag\n' >&2
+            errors=$((errors + 1)) ;;
+    esac
+    case ",$tags," in *,host:*)
+        printf 'ERROR: DD_TAGS must not override Agent host identity\n' >&2
+        errors=$((errors + 1)) ;;
+    esac
+    [ "${#tags}" -le 512 ] || {
+        printf 'ERROR: DD_TAGS exceeds 512 bytes\n' >&2
+        errors=$((errors + 1))
+    }
+    printf 'Config: %s\n' "$config"
 fi
 
-# Check DD_SITE
-printf '\n3. Checking Datadog Site...\n'
-if [ -n "$DD_SITE" ]; then
-    printf '   %s✓%s DD_SITE: %s\n' "$GREEN" "$NC" "$DD_SITE"
-else
-    printf '   %s⚠%s  DD_SITE not set, using default: datadoghq.com\n' "$YELLOW" "$NC"
-    WARNINGS=$((WARNINGS + 1))
+if ! command -v nc >/dev/null 2>&1; then
+    printf 'ERROR: nc is required for local DogStatsD handoff\n' >&2
+    errors=$((errors + 1))
 fi
-
-# Check ZED
-printf '\n4. Checking ZFS Event Daemon...\n'
-if command -v zed >/dev/null 2>&1; then
-    printf '   %s✓%s ZED binary found\n' "$GREEN" "$NC"
-else
-    printf '   %s✗%s ZED binary not found\n' "$RED" "$NC"
-    printf '     Install OpenZFS/ZFS first\n'
-    ERRORS=$((ERRORS + 1))
+if ! command -v systemctl >/dev/null 2>&1 ||
+   ! systemctl is-active --quiet datadog-agent; then
+    printf 'ERROR: local datadog-agent service is not active\n' >&2
+    errors=$((errors + 1))
 fi
-
-# Check if ZED is running
-case "$OS_TYPE" in
-    freebsd|truenas)
-        if service zfs status >/dev/null 2>&1; then
-            printf '   %s✓%s ZED is running\n' "$GREEN" "$NC"
-        else
-            printf '   %s⚠%s  ZED may not be running\n' "$YELLOW" "$NC"
-            WARNINGS=$((WARNINGS + 1))
-        fi
-        ;;
-    *)
-        if systemctl is-active --quiet zfs-zed 2>/dev/null; then
-            printf '   %s✓%s ZED is running (systemd)\n' "$GREEN" "$NC"
-        elif service zfs-zed status >/dev/null 2>&1; then
-            printf '   %s✓%s ZED is running (init)\n' "$GREEN" "$NC"
-        else
-            printf '   %s⚠%s  ZED may not be running\n' "$YELLOW" "$NC"
-            WARNINGS=$((WARNINGS + 1))
-        fi
-        ;;
-esac
-
-# Check zedlets
-printf '\n5. Checking installed zedlets...\n'
-ZEDLETS_FOUND=0
-for zedlet in scrub_finish-datadog.sh resilver_finish-datadog.sh statechange-datadog.sh; do
-    if [ -f "$ZED_DIR/$zedlet" ]; then
-        ZEDLETS_FOUND=$((ZEDLETS_FOUND + 1))
+if ! command -v systemctl >/dev/null 2>&1 ||
+   ! systemctl is-active --quiet zfs-zed; then
+    printf 'ERROR: zfs-zed service is not active\n' >&2
+    errors=$((errors + 1))
+fi
+for route in zfs-datadog-lib.sh statechange-datadog.sh \
+             scrub_start-datadog.sh scrub_finish-datadog.sh \
+             resilver_start-datadog.sh resilver_finish-datadog.sh \
+             config_sync-datadog.sh pool_import-datadog.sh \
+             pool_destroy-datadog.sh vdev_attach-datadog.sh \
+             vdev_remove-datadog.sh ereport.fs.zfs.checksum-datadog.sh \
+             ereport.fs.zfs.io-datadog.sh .checksum-error.sh .io-error.sh; do
+    if [ ! -f "$zed_dir/$route" ] || [ -L "$zed_dir/$route" ]; then
+        printf 'ERROR: missing installed route %s\n' "$route" >&2
+        errors=$((errors + 1))
     fi
 done
 
-if [ $ZEDLETS_FOUND -eq 0 ]; then
-    printf '   %s✗%s No zedlets found in %s\n' "$RED" "$NC" "$ZED_DIR"
-    printf '     Run: sudo ./install.sh\n'
-    ERRORS=$((ERRORS + 1))
-elif [ $ZEDLETS_FOUND -lt 3 ]; then
-    printf '   %s⚠%s  Found %s/3 core zedlets\n' "$YELLOW" "$NC" "$ZEDLETS_FOUND"
-    WARNINGS=$((WARNINGS + 1))
-else
-    printf '   %s✓%s Found %s core zedlets\n' "$GREEN" "$NC" "$ZEDLETS_FOUND"
-fi
-
-# Check network connectivity to Datadog
-printf '\n6. Testing Datadog API connectivity...\n'
-if [ -n "$DD_API_KEY" ] && [ "$DD_API_KEY" != "your_api_key_here" ]; then
-    if command -v curl >/dev/null 2>&1; then
-        DD_URL="${DD_API_URL:-https://api.datadoghq.com}"
-        if curl -s -m 5 -H "DD-API-KEY: $DD_API_KEY" "$DD_URL/api/v1/validate" >/dev/null 2>&1; then
-            printf '   %s✓%s Successfully connected to Datadog API\n' "$GREEN" "$NC"
-        else
-            printf '   %s⚠%s  Could not connect to Datadog API\n' "$YELLOW" "$NC"
-            printf '     Check network connectivity and API key\n'
-            WARNINGS=$((WARNINGS + 1))
-        fi
-    else
-        printf '   %s⚠%s  curl not found, skipping connectivity test\n' "$YELLOW" "$NC"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-else
-    printf '   %s⚠%s  Skipping (API key not configured)\n' "$YELLOW" "$NC"
-    WARNINGS=$((WARNINGS + 1))
-fi
-
-# Check Datadog Agent (optional)
-printf '\n7. Checking Datadog Agent (optional)...\n'
-if command -v datadog-agent >/dev/null 2>&1; then
-    printf '   %s✓%s Datadog Agent found\n' "$GREEN" "$NC"
-    if datadog-agent status >/dev/null 2>&1; then
-        printf '   %s✓%s Datadog Agent is running\n' "$GREEN" "$NC"
-    else
-        printf '   %s⚠%s  Datadog Agent is not running\n' "$YELLOW" "$NC"
-        printf '     Metrics via DogStatsD will not work\n'
-        WARNINGS=$((WARNINGS + 1))
-    fi
-else
-    printf '   %s⚠%s  Datadog Agent not found\n' "$YELLOW" "$NC"
-    printf '     Events will work, but metrics will not\n'
-    WARNINGS=$((WARNINGS + 1))
-fi
-
-# Summary
-printf '\n'
-printf '====================================\n'
-if [ $ERRORS -eq 0 ] && [ $WARNINGS -eq 0 ]; then
-    printf '%s✓ All checks passed!%s\n' "$GREEN" "$NC"
-    printf '\nConfiguration is valid and ready to use.\n'
-    exit 0
-elif [ $ERRORS -eq 0 ]; then
-    printf '%s⚠ Validation completed with %s warning(s)%s\n' "$YELLOW" "$WARNINGS" "$NC"
-    printf '\nConfiguration should work, but check warnings above.\n'
-    exit 0
-else
-    printf '%s✗ Validation failed with %s error(s) and %s warning(s)%s\n' "$RED" "$ERRORS" "$WARNINGS" "$NC"
-    printf '\nPlease fix the errors above before using the integration.\n'
-    exit 1
-fi
+printf 'Errors: %s; warnings: %s\n' "$errors" "$warns"
+printf 'Local service checks do not prove DogStatsD parsing or Datadog intake.\n'
+[ "$errors" -eq 0 ]

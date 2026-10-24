@@ -21,9 +21,12 @@ VDEV_PATH="${ZEVENT_VDEV_PATH:-unknown}"
 VDEV_STATE="${ZEVENT_VDEV_STATE:-}"
 READ_ERRORS="${ZEVENT_VDEV_READ_ERRORS:-0}"
 WRITE_ERRORS="${ZEVENT_VDEV_WRITE_ERRORS:-0}"
+valid_nonnegative_integer "$READ_ERRORS" || exit 1
+valid_nonnegative_integer "$WRITE_ERRORS" || exit 1
 
 # Build tags
-TAGS=$(build_tags)
+TAGS=$(build_tags) || exit 1
+SEND_STATUS=0
 
 # Prepare event details
 VDEV_NAME=$(basename "$VDEV_PATH")
@@ -35,20 +38,20 @@ if [ -n "$VDEV_STATE" ]; then
 fi
 
 # Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS"
+send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS" || SEND_STATUS=1
 
 # Send metrics
 # Always emit the canonical zfs.io.error counter (1 per ereport event)
-send_metric "zfs.io.error" "1" "counter" "$TAGS"
+send_metric "zfs.io.error" "1" "counter" "$TAGS" || SEND_STATUS=1
 
 if [ "$READ_ERRORS" -gt 0 ]; then
-    send_metric "zfs.io.read_errors" "$READ_ERRORS" "counter" "$TAGS"
+    send_metric "zfs.io.read_errors" "$READ_ERRORS" "counter" "$TAGS" || SEND_STATUS=1
 fi
 
 if [ "$WRITE_ERRORS" -gt 0 ]; then
-    send_metric "zfs.io.write_errors" "$WRITE_ERRORS" "counter" "$TAGS"
+    send_metric "zfs.io.write_errors" "$WRITE_ERRORS" "counter" "$TAGS" || SEND_STATUS=1
 fi
 
 log_message "ERROR" "I/O error detected: $POOL - $VDEV_NAME - R:$READ_ERRORS W:$WRITE_ERRORS"
 
-exit 0
+exit "$SEND_STATUS"
