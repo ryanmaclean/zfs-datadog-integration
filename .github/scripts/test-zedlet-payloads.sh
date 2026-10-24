@@ -70,6 +70,8 @@ done
 cp scripts/config.sh.example "$zed/config.sh"
 
 # Library-level checks, run from inside the ZED dir so $0 resolves there.
+# BSD od -c pads its last line with blanks; trim them so the IFS case is
+# byte-identical on GNU and BSD userlands.
 cat > "$zed/lib-driver.sh" <<'EOF2'
 #!/bin/sh
 # Assignments are made as separate commands, never as prefixes on a function
@@ -86,7 +88,7 @@ report send_datadog_event "T2" "body" "info" "" "low" "pool_import"
 DD_TAGS=$saved_tags
 echo "case: caller variables and IFS untouched" >> "$STUB_LOG"
 printf '  %s %s %s %s ifs=%s\n' "$title" "$tags" "$priority" "$retry" \
-    "$(printf '%s' "$IFS" | od -An -c | tr -s ' ')" >> "$STUB_LOG"
+    "$(printf '%s' "$IFS" | od -An -c | tr -s ' ' | sed 's/ *$//')" >> "$STUB_LOG"
 echo "case: local socket failure is returned after one attempt" >> "$STUB_LOG"
 STUB_NC_RC=7
 export STUB_NC_RC
@@ -118,7 +120,13 @@ chmod +x "$zed/lib-driver.sh"
 
 # -------------------------------------------------------------------- runner
 run_suite() {
-    sh_under_test=$1
+    # Resolve the shell before env -i narrows PATH: on FreeBSD, NetBSD and
+    # other BSDs, bash and dash live under /usr/local/bin or /usr/pkg/bin.
+    sh_under_test=$(command -v "$1") || {
+        printf 'FAIL  shell not found: %s\n' "$1" >&2
+        fail=1
+        return 0
+    }
     out=$2
     : > "$out"
     export STUB_LOG="$out"
