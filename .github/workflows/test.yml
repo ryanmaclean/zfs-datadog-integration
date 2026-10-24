@@ -3,8 +3,10 @@ name: Test
 on:
   push:
     branches: [ main, master, develop ]
+  # Stacked PRs target the branch they build on, not master, so ci/** and
+  # fix/** bases run CI too. Without them a PR into #24's branch got no checks.
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, 'ci/**', 'fix/**' ]
 
 jobs:
   shellcheck:
@@ -135,6 +137,15 @@ jobs:
       # generated from the pre-cleanup scripts.
       - name: Zedlet payload regression test
         run: .github/scripts/test-zedlet-payloads.sh
+
+      # Real nc, real loopback listener: one UDP datagram must not cost a
+      # second (nc -w1 waited out its timeout after EOF), and must arrive.
+      - name: DogStatsD handoff latency test
+        run: UDP_LATENCY_REQUIRE_NC=1 .github/scripts/test-udp-latency.sh
+
+      # The source tarball must stay small: unrelated trees are export-ignore.
+      - name: Source export size test
+        run: .github/scripts/test-export-archive.sh
 
   mock-server-test:
     name: Loopback DogStatsD smoke (mock receiver)

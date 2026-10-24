@@ -35,6 +35,13 @@ log_message() {
 # Refuse nonlocal destinations and ambiguous port or tag values before a send.
 # A successful UDP write means only that the local handoff was attempted; it
 # does not prove Agent parsing or Datadog intake. Never retry a datagram here.
+#
+# Datagrams go out with nc -u -w0. With -w1 both FreeBSD nc and OpenBSD or
+# Debian netcat-openbsd keep waiting one full second after stdin EOF for a
+# UDP reply that never comes, so a three-datagram zedlet took about 3 s. -w0
+# returns as soon as the datagram is written and still delivers it (checked
+# against a local listener on FreeBSD 15.1 nc and netcat-openbsd 1.226). The
+# exit status is unchanged: UDP never reports an absent receiver either way.
 valid_agent_endpoint() (
     [ "$DOGSTATSD_HOST" = 127.0.0.1 ] || return 1
     case "$DOGSTATSD_PORT" in ''|*[!0-9]*) return 1 ;; esac
@@ -121,7 +128,7 @@ send_datadog_event() (
     [ "${#_ev_packet}" -le 8192 ] || {
         log_message ERROR 'Event exceeds local datagram limit'; return 1;
     }
-    if printf '%s' "$_ev_packet" | nc -u -w1 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" 2>/dev/null; then
+    if printf '%s' "$_ev_packet" | nc -u -w0 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" 2>/dev/null; then
         log_message INFO 'Event handed to local Agent socket'
         return 0
     fi
@@ -161,7 +168,7 @@ send_metric() (
     [ "${#_sm_packet}" -le 8192 ] || {
         log_message ERROR 'Metric exceeds local datagram limit'; return 1;
     }
-    if printf '%s' "$_sm_packet" | nc -u -w1 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" 2>/dev/null; then
+    if printf '%s' "$_sm_packet" | nc -u -w0 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" 2>/dev/null; then
         log_message DEBUG 'Metric handed to local Agent socket'
         return 0
     fi

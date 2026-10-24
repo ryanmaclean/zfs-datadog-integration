@@ -1,0 +1,22 @@
+# Source downloads (git archive, GitHub's tarball and zip) carry only what the
+# ZED integration needs. The trees below are unrelated to it and made the
+# tarball about 80 MB (the editor extension's node_modules alone is 270 MB
+# unpacked), too heavy for the small hosts the installer targets. Nothing is
+# removed from history: a git clone still has every file.
+# Check with: .github/scripts/test-export-archive.sh
+/code-app-ml-extension export-ignore
+/tauri-ios-example export-ignore
+/macos-vm export-ignore
+/kernels export-ignore
+/iso-builds export-ignore
+/esoteric-os export-ignore
+/vfkit-configs export-ignore
+/lima-configs export-ignore
+/omnios-setup export-ignore
+/custom-os export-ignore
+/arm64-setup export-ignore
+/demo export-ignore
+/docker export-ignore
+/.code export-ignore
+*.vsix export-ignore
+*.log export-ignore
