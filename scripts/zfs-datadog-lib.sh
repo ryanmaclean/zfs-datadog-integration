@@ -39,15 +39,37 @@ log_message() {
 # Datagrams go out with nc -u -w0. With -w1 both FreeBSD nc and OpenBSD or
 # Debian netcat-openbsd keep waiting one full second after stdin EOF for a
 # UDP reply that never comes, so a three-datagram zedlet took about 3 s. -w0
-# returns as soon as the datagram is written and still delivers it (checked
-# against a local listener on FreeBSD 15.1 nc and netcat-openbsd 1.226). The
-# exit status is unchanged: UDP never reports an absent receiver either way.
+# returns as soon as the datagram is written (checked against a local
+# listener on FreeBSD 15.1 and 16.0 nc and netcat-openbsd 1.226; GNU
+# netcat-traditional is untested). The exit status is unchanged: UDP never
+# reports an absent receiver either way.
+#
+# -w0 also makes nc's first poll() non-blocking, and nc returns without
+# sending when stdin is not readable yet. Fed from `printf | nc` that drops
+# the datagram whenever nc polls before printf has written, which happened
+# for 1 to 4 of 20 sends on a loaded FreeBSD 16 host. send_local_datagram
+# therefore writes the datagram to a private mktemp file first: a regular
+# file is always readable, so nc sees the whole datagram on its first poll.
 valid_agent_endpoint() (
     [ "$DOGSTATSD_HOST" = 127.0.0.1 ] || return 1
     case "$DOGSTATSD_PORT" in ''|*[!0-9]*) return 1 ;; esac
     case "$DOGSTATSD_PORT" in 0?*) return 1 ;; esac
     [ "${#DOGSTATSD_PORT}" -le 5 ] || return 1
     [ "$DOGSTATSD_PORT" -ge 1 ] && [ "$DOGSTATSD_PORT" -le 65535 ]
+)
+
+# Hand one datagram to the loopback Agent. Usage: send_local_datagram "packet"
+# The temporary file is created 0600 by mktemp and removed before returning.
+send_local_datagram() (
+    _ld_file=$(mktemp "${TMPDIR:-/tmp}/zfs-datadog.XXXXXX") || return 1
+    if printf '%s' "$1" > "$_ld_file"; then
+        nc -u -w0 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" < "$_ld_file" 2>/dev/null
+        _ld_rc=$?
+    else
+        _ld_rc=1
+    fi
+    rm -f "$_ld_file"
+    return "$_ld_rc"
 )
 
 valid_agent_tags() (
@@ -128,7 +150,7 @@ send_datadog_event() (
     [ "${#_ev_packet}" -le 8192 ] || {
         log_message ERROR 'Event exceeds local datagram limit'; return 1;
     }
-    if printf '%s' "$_ev_packet" | nc -u -w0 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" 2>/dev/null; then
+    if send_local_datagram "$_ev_packet"; then
         log_message INFO 'Event handed to local Agent socket'
         return 0
     fi
@@ -168,7 +190,7 @@ send_metric() (
     [ "${#_sm_packet}" -le 8192 ] || {
         log_message ERROR 'Metric exceeds local datagram limit'; return 1;
     }
-    if printf '%s' "$_sm_packet" | nc -u -w0 "$DOGSTATSD_HOST" "$DOGSTATSD_PORT" 2>/dev/null; then
+    if send_local_datagram "$_sm_packet"; then
         log_message DEBUG 'Metric handed to local Agent socket'
         return 0
     fi
