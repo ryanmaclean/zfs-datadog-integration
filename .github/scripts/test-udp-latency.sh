@@ -48,16 +48,19 @@ command -v nc > /dev/null 2>&1 || skip "nc is not installed"
 work=$(mktemp -d)
 listener=''
 hog_pids=''
-cleanup() {
+stop_hogs() {
     for p in $hog_pids; do kill "$p" 2> /dev/null || true; done
     for p in $hog_pids; do wait "$p" 2> /dev/null || true; done
+    hog_pids=''
+}
+stop_listener() {
     if [ -n "$listener" ]; then
         kill "$listener" 2> /dev/null || true
         wait "$listener" 2> /dev/null || true
+        listener=''
     fi
-    rm -rf "$work"
 }
-trap cleanup EXIT
+trap 'stop_hogs; stop_listener; rm -rf "$work"' EXIT
 mkdir "$work/bin"
 # The lib logs through logger; keep the test out of the host's syslog.
 printf '#!/bin/sh\nexit 0\n' > "$work/bin/logger"
@@ -113,10 +116,9 @@ while [ "$round" -lt "$rounds" ]; do
     round=$((round + 1))
     send_round "$((1000 + round))"
 done
-for p in $hog_pids; do kill "$p" 2> /dev/null || true; done
-for p in $hog_pids; do wait "$p" 2> /dev/null || true; done
-hog_pids=''
+stop_hogs
 sleep 1
+stop_listener
 
 # Datagrams carry no newline, so the receiver output is one concatenated run.
 missing=''
