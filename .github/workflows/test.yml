@@ -3,8 +3,10 @@ name: Test
 on:
   push:
     branches: [ main, master, develop ]
+  # Stacked PRs target the branch they build on, not master, so ci/** and
+  # fix/** bases run CI too. Without them a PR into #24's branch got no checks.
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, 'ci/**', 'fix/**' ]
 
 jobs:
   shellcheck:
