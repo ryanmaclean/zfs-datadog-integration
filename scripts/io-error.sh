@@ -34,21 +34,28 @@ if [ -n "$VDEV_STATE" ]; then
     TEXT="${TEXT}\nVdev State: $VDEV_STATE"
 fi
 
+# Track local sender failures; UDP success does not confirm backend delivery.
+IO_SEND_STATUS=0
+
 # Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS"
+send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS" || IO_SEND_STATUS=1
 
 # Send metrics
 # Always emit the canonical zfs.io.error counter (1 per ereport event)
-send_metric "zfs.io.error" "1" "counter" "$TAGS"
+send_metric "zfs.io.error" "1" "counter" "$TAGS" || IO_SEND_STATUS=1
 
 if [ "$READ_ERRORS" -gt 0 ]; then
-    send_metric "zfs.io.read_errors" "$READ_ERRORS" "counter" "$TAGS"
+    send_metric "zfs.io.read_errors" "$READ_ERRORS" "counter" "$TAGS" || IO_SEND_STATUS=1
 fi
 
 if [ "$WRITE_ERRORS" -gt 0 ]; then
-    send_metric "zfs.io.write_errors" "$WRITE_ERRORS" "counter" "$TAGS"
+    send_metric "zfs.io.write_errors" "$WRITE_ERRORS" "counter" "$TAGS" || IO_SEND_STATUS=1
 fi
 
 log_message "ERROR" "I/O error detected: $POOL - $VDEV_NAME - R:$READ_ERRORS W:$WRITE_ERRORS"
 
-exit 0
+if [ "$IO_SEND_STATUS" -ne 0 ]; then
+    log_message "ERROR" "I/O error reporting failed: $POOL - $VDEV_NAME - one or more senders failed"
+fi
+
+exit "$IO_SEND_STATUS"
