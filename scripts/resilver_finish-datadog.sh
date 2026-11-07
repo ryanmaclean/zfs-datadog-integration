@@ -48,17 +48,24 @@ fi
 TITLE="ZFS Resilver Completed: $POOL"
 TEXT="Pool: $POOL\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_HOURS}h ${DURATION_MINS}m"
 
+# Attempt every sender, retaining any failure for the final exit status.
+SEND_STATUS=0
+
 # Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS"
+send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS" || SEND_STATUS=1
 
 # Send metrics
-send_metric "zfs.resilver.errors" "$ERRORS" "gauge" "$TAGS"
+send_metric "zfs.resilver.errors" "$ERRORS" "gauge" "$TAGS" || SEND_STATUS=1
 if [ "$DURATION" -gt 0 ]; then
-    send_metric "zfs.resilver.duration" "$DURATION" "gauge" "$TAGS"
+    send_metric "zfs.resilver.duration" "$DURATION" "gauge" "$TAGS" || SEND_STATUS=1
 fi
 # Clear in-progress flag set by resilver_start-datadog.sh
-send_metric "zfs.resilver.in_progress" "0" "gauge" "$TAGS"
+send_metric "zfs.resilver.in_progress" "0" "gauge" "$TAGS" || SEND_STATUS=1
 
 log_message "INFO" "Resilver completion event processed: $POOL - $ERRORS errors"
 
-exit 0
+if [ "$SEND_STATUS" -ne 0 ]; then
+    log_message "ERROR" "Resilver completion sender failure: $POOL"
+fi
+
+exit "$SEND_STATUS"
