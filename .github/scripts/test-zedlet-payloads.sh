@@ -143,6 +143,48 @@ run_suite() {
     done
 }
 
+# Missing and empty timestamps must not look like a measured zero duration.
+run_missing_timestamp_cases() {
+    sh_under_test=$1
+    for missing in start end both; do
+        for state in unset empty; do
+            out="$work/missing.$sh_under_test.$missing.$state"
+            : > "$out"
+            rc=0
+            (
+                unset ZEVENT_POOL_SCRUB_START ZEVENT_POOL_SCRUB_END
+                case "$missing" in
+                    start) set -- ZEVENT_POOL_SCRUB_END=1700007384 ;;
+                    end) set -- ZEVENT_POOL_SCRUB_START=1700000000 ;;
+                    both) set -- ;;
+                esac
+                if [ "$state" = empty ]; then
+                    case "$missing" in
+                        start) set -- "$@" ZEVENT_POOL_SCRUB_START= ;;
+                        end) set -- "$@" ZEVENT_POOL_SCRUB_END= ;;
+                        both) set -- ZEVENT_POOL_SCRUB_START= ZEVENT_POOL_SCRUB_END= ;;
+                    esac
+                fi
+                env -i PATH="$work/bin:/usr/bin:/bin" STUB_LOG="$out" HOME="$work" \
+                    HOSTNAME=zfs-test-host ZEVENT_POOL=tank ZEVENT_POOL_SCRUB_ERRORS=0 \
+                    "$@" "$sh_under_test" "$zed/scrub_finish-datadog.sh"
+            ) > /dev/null 2>&1 || rc=$?
+            if [ "$rc" -eq 0 ] &&
+                grep -Fq 'Duration: unknown' "$out" &&
+                grep -Fq 'Status: completed successfully' "$out" &&
+                grep -Fq 'zfs.scrub.errors:0|g' "$out" &&
+                grep -Fq 'zfs.scrub.in_progress:0|g' "$out" &&
+                ! grep -Fq 'zfs.scrub.duration:' "$out" &&
+                ! grep -Fq 'Duration: 0h 0m' "$out"; then
+                echo "ok    $sh_under_test: $state $missing timestamp(s): unknown duration, completion metrics preserved"
+            else
+                echo "FAIL  $sh_under_test: $state $missing timestamp(s): exit $rc or incorrect payload"
+                fail=1
+            fi
+        done
+    done
+}
+
 shells=${*:-sh}
 if [ $# -eq 0 ]; then
     for extra in dash bash; do
@@ -152,6 +194,7 @@ fi
 
 fail=0
 for s in $shells; do
+    run_missing_timestamp_cases "$s"
     run_suite "$s" "$work/transcript.$s"
     if [ -n "${ZEDLET_PAYLOADS_WRITE:-}" ]; then
         cp "$work/transcript.$s" "$ZEDLET_PAYLOADS_WRITE"
