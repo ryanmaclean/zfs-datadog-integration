@@ -1,0 +1,31 @@
+name: Scrub start sender regression
+on:
+  pull_request:
+    paths:
+      - scripts/scrub_start-datadog.sh
+      - scripts/zfs-datadog-lib.sh
+      - .github/tests/scrub-start-delivery.nu
+      - .github/workflows/scrub-start-delivery.yml
+  push:
+    paths:
+      - scripts/scrub_start-datadog.sh
+      - scripts/zfs-datadog-lib.sh
+      - .github/tests/scrub-start-delivery.nu
+      - .github/workflows/scrub-start-delivery.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Download Nushell 0.115.1
+        run: curl -fsSL -o /tmp/nu-scrub-start-0.115.1.tar.gz https://github.com/nushell/nushell/releases/download/0.115.1/nu-0.115.1-x86_64-unknown-linux-gnu.tar.gz
+      - name: Verify Nushell archive
+        run: echo 'd11d825241f6504a3617c535fa725a9dd6d009c86d7b19fb3168b47635b9d8b0  /tmp/nu-scrub-start-0.115.1.tar.gz' | sha256sum -c -
+      - name: Extract Nushell
+        run: tar -xzf /tmp/nu-scrub-start-0.115.1.tar.gz -C /tmp
+      - name: Run isolated sender regression
+        run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu --no-config-file .github/tests/scrub-start-delivery.nu
