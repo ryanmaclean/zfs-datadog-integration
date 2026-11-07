@@ -23,17 +23,25 @@ EID="${ZEVENT_EID:-0}"
 # Build tags
 TAGS=$(build_tags)
 
+SEND_STATUS=0
+
 # Emit counter — one increment per scrub start
-send_metric "zfs.scrub.start" "1" "counter" "$TAGS"
+send_metric "zfs.scrub.start" "1" "counter" "$TAGS" || SEND_STATUS=1
 
 # Emit in-progress flag — cleared by scrub_finish-datadog.sh
-send_metric "zfs.scrub.in_progress" "1" "gauge" "$TAGS"
+send_metric "zfs.scrub.in_progress" "1" "gauge" "$TAGS" || SEND_STATUS=1
 
 # Send informational event to Datadog Events API
 TITLE="ZFS Scrub Started: $POOL"
 TEXT="Pool: $POOL\nEvent ID: $EID\nStarted at: $TIMESTAMP"
-send_datadog_event "$TITLE" "$TEXT" "info" "$TAGS"
+send_datadog_event "$TITLE" "$TEXT" "info" "$TAGS" || SEND_STATUS=1
 
+if [ "$SEND_STATUS" -ne 0 ]; then
+    log_message "ERROR" "Scrub start sender failure: pool=$POOL eid=$EID (one or more sends failed)"
+    exit "$SEND_STATUS"
+fi
+
+# Sender success does not confirm UDP delivery to the backend.
 log_message "INFO" "Scrub start event processed: pool=$POOL eid=$EID"
 
 exit 0
