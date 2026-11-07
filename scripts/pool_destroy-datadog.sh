@@ -26,4 +26,4 @@ PRIORITY="normal"
 # Send event
 send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$(build_tags)" "$PRIORITY" "$EVENT_TYPE"
 
-exit 0
+exit $?
