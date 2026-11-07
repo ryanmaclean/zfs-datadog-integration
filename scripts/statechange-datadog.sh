@@ -37,11 +37,21 @@ else
     TEXT="Pool: $POOL\nNew State: $VDEV_STATE"
 fi
 
+# Attempt both outputs even if one fails.
+SEND_FAILED=0
+
 # Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS"
+send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS" || SEND_FAILED=1
 
 # Send metric
-send_metric "zfs.pool.health" "$HEALTH_VALUE" "gauge" "$TAGS"
+send_metric "zfs.pool.health" "$HEALTH_VALUE" "gauge" "$TAGS" || SEND_FAILED=1
+
+if [ "$SEND_FAILED" -ne 0 ]; then
+    log_message "ERROR" "Pool health submission failed: $POOL - $VDEV_STATE"
+    exit 1
+fi
+
+# Successful UDP submission does not establish backend delivery.
 
 log_message "INFO" "Pool health event processed: $POOL - $VDEV_STATE"
 
