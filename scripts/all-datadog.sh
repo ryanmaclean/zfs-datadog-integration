@@ -37,5 +37,3 @@ case "$EVENT_CLASS" in
         exit 0
         ;;
 esac
-
-exit 0

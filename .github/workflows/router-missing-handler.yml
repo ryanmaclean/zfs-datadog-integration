@@ -3,13 +3,13 @@ on:
   pull_request:
     paths:
       - scripts/all-datadog.sh
-      - .github/tests/router-missing-handler-delivery.nu
-      - .github/workflows/router-missing-handler-delivery.yml
+      - .github/tests/router-missing-handler.nu
+      - .github/workflows/router-missing-handler.yml
   push:
     paths:
       - scripts/all-datadog.sh
-      - .github/tests/router-missing-handler-delivery.nu
-      - .github/workflows/router-missing-handler-delivery.yml
+      - .github/tests/router-missing-handler.nu
+      - .github/workflows/router-missing-handler.yml
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,4 +26,4 @@ jobs:
       - name: Extract Nushell
         run: tar -xzf /tmp/nu-router-missing-handler-0.115.1.tar.gz -C /tmp
       - name: Run isolated sender regression
-        run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu --no-config-file .github/tests/router-missing-handler-delivery.nu
+        run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu --no-config-file .github/tests/router-missing-handler.nu
