@@ -38,6 +38,7 @@ cat > "$work/bin/curl" <<'EOF'
     echo "curl argc=$#"
     for a in "$@"; do printf '  arg: %s\n' "$a"; done
 } >> "$STUB_LOG"
+printf '%s' 202
 exit "${STUB_CURL_RC:-0}"
 EOF
 cat > "$work/bin/nc" <<'EOF'
