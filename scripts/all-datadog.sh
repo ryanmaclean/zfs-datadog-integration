@@ -12,10 +12,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Get event class
 EVENT_CLASS="${ZEVENT_CLASS:-}"
 
-if command -v logger >/dev/null 2>&1; then
-    logger -t zfs-datadog "[DEBUG] all-datadog received event class: $EVENT_CLASS"
-fi
-
 # Route to appropriate handler based on event class
 case "$EVENT_CLASS" in
     *checksum*)
@@ -24,6 +20,8 @@ case "$EVENT_CLASS" in
             command -v logger >/dev/null 2>&1 && logger -t zfs-datadog "[DEBUG] routing checksum event to checksum-error.sh"
             exec "$SCRIPT_DIR/checksum-error.sh"
         fi
+        printf '%s\n' 'zfs-datadog: checksum handler unavailable' >&2
+        exit 1
         ;;
     *io*)
         # Handle I/O errors
@@ -31,6 +29,8 @@ case "$EVENT_CLASS" in
             command -v logger >/dev/null 2>&1 && logger -t zfs-datadog "[DEBUG] routing io event to io-error.sh"
             exec "$SCRIPT_DIR/io-error.sh"
         fi
+        printf '%s\n' 'zfs-datadog: io handler unavailable' >&2
+        exit 1
         ;;
     *)
         # Not a checksum or I/O error, ignore
