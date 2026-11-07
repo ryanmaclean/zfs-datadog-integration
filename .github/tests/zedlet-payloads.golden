@@ -144,7 +144,6 @@ case: build_tags
   env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 --- exit 0
 === all-datadog.sh (ereport.fs.zfs.checksum)
-logger -t zfs-datadog [DEBUG] all-datadog received event class: ereport.fs.zfs.checksum
 logger -t zfs-datadog [DEBUG] routing checksum event to checksum-error.sh
 curl argc=12
   arg: -s
