@@ -26,10 +26,10 @@ if [ "$START_TIME" -gt 0 ] && [ "$END_TIME" -gt 0 ]; then
     DURATION=$((END_TIME - START_TIME))
     DURATION_HOURS=$((DURATION / 3600))
     DURATION_MINS=$(((DURATION % 3600) / 60))
+    DURATION_TEXT="${DURATION_HOURS}h ${DURATION_MINS}m"
 else
     DURATION=0
-    DURATION_HOURS=0
-    DURATION_MINS=0
+    DURATION_TEXT="unknown"
 fi
 
 # Build tags
@@ -46,7 +46,7 @@ fi
 
 # Prepare event details
 TITLE="ZFS Resilver Completed: $POOL"
-TEXT="Pool: $POOL\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_HOURS}h ${DURATION_MINS}m"
+TEXT="Pool: $POOL\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_TEXT}"
 
 # Send event to Datadog
 send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS"
