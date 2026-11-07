@@ -1,8 +1,12 @@
 === lib-driver.sh (none)
 case: unknown priority falls back to normal, event_type tag appended
 logger -t zfs-datadog [WARN] Unknown priority 'urgent', falling back to normal
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -25,8 +29,12 @@ curl argc=12
 logger -t zfs-datadog [INFO] Event sent to Datadog: T1
   rc=0
 case: low priority, event_type with empty tags
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -51,8 +59,12 @@ logger -t zfs-datadog [INFO] Event sent to Datadog: T2
 case: caller variables and IFS untouched
   caller-title caller-tags caller-priority caller-retry ifs= \t \n
 case: curl fails on every attempt
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -74,8 +86,12 @@ curl argc=12
 }
 logger -t zfs-datadog [WARN] Failed to send event (attempt 1/3), retrying in 1s...
 sleep 1
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -97,8 +113,12 @@ curl argc=12
 }
 logger -t zfs-datadog [WARN] Failed to send event (attempt 2/3), retrying in 2s...
 sleep 2
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -118,7 +138,7 @@ curl argc=12
   "source_type_name": "zfs",
   "host": "zfs-test-host"
 }
-logger -t zfs-datadog [ERROR] Failed to send event after 3 attempts: 
+logger -t zfs-datadog [ERROR] Failed to send event after 3 attempts
   rc=1
 case: missing API key
 logger -t zfs-datadog [ERROR] DD_API_KEY not set, cannot send event
@@ -146,8 +166,12 @@ case: build_tags
 === all-datadog.sh (ereport.fs.zfs.checksum)
 logger -t zfs-datadog [DEBUG] all-datadog received event class: ereport.fs.zfs.checksum
 logger -t zfs-datadog [DEBUG] routing checksum event to checksum-error.sh
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -174,8 +198,12 @@ logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:producti
 logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
 --- exit 0
 === statechange-datadog.sh (sysevent.fs.zfs.statechange)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -208,8 +236,12 @@ logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.start:1|c|#env:production,s
 nc -u -w1 localhost 8125
   data: zfs.scrub.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -233,8 +265,12 @@ logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Scrub Started: tank
 logger -t zfs-datadog [INFO] Scrub start event processed: pool=tank eid=42
 --- exit 0
 === scrub_finish-datadog.sh (sysevent.fs.zfs.scrub_finish)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -273,8 +309,12 @@ logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.start:1|c|#env:productio
 nc -u -w1 localhost 8125
   data: zfs.resilver.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -298,8 +338,12 @@ logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Resilver Started: tank
 logger -t zfs-datadog [INFO] Resilver start event processed: pool=tank eid=42
 --- exit 0
 === resilver_finish-datadog.sh (sysevent.fs.zfs.resilver_finish)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -332,8 +376,12 @@ logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.in_progress:0|g|#env:pro
 logger -t zfs-datadog [INFO] Resilver completion event processed: tank - 0 errors
 --- exit 0
 === config_sync-datadog.sh (sysevent.fs.zfs.config_sync)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -356,8 +404,12 @@ curl argc=12
 logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Config Sync: tank
 --- exit 0
 === pool_import-datadog.sh (sysevent.fs.zfs.pool_import)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -380,8 +432,12 @@ curl argc=12
 logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Pool Imported: tank
 --- exit 0
 === pool_destroy-datadog.sh (sysevent.fs.zfs.pool_destroy)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -404,8 +460,12 @@ curl argc=12
 logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Pool Destroyed: tank
 --- exit 0
 === vdev_attach-datadog.sh (sysevent.fs.zfs.vdev_attach)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -428,8 +488,12 @@ curl argc=12
 logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Device Attached: tank
 --- exit 0
 === vdev_remove-datadog.sh (sysevent.fs.zfs.vdev_remove)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -452,8 +516,12 @@ curl argc=12
 logger -t zfs-datadog [INFO] Event sent to Datadog: ZFS Device Removed: tank
 --- exit 0
 === ereport.fs.zfs.checksum-datadog.sh (ereport.fs.zfs.checksum)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -480,8 +548,12 @@ logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:producti
 logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
 --- exit 0
 === ereport.fs.zfs.io-datadog.sh (ereport.fs.zfs.io)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -514,8 +586,12 @@ logger -t zfs-datadog [DEBUG] Metric sent: zfs.io.write_errors:2|c|#env:producti
 logger -t zfs-datadog [ERROR] I/O error detected: tank - da1 - R:1 W:2
 --- exit 0
 === checksum-error.sh (ereport.fs.zfs.checksum)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X
@@ -542,8 +618,12 @@ logger -t zfs-datadog [DEBUG] Metric sent: zfs.checksum.errors:3|c|#env:producti
 logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
 --- exit 0
 === io-error.sh (ereport.fs.zfs.io)
-curl argc=12
+curl argc=16
   arg: -s
+  arg: -o
+  arg: /dev/null
+  arg: -w
+  arg: %{http_code}
   arg: -m
   arg: 10
   arg: -X

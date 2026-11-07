@@ -116,15 +116,20 @@ EOF2
     _ev_max_retries=3
     _ev_retry=0
     _ev_wait_time=1
-    _ev_response=
 
     while [ $_ev_retry -lt $_ev_max_retries ]; do
-        if _ev_response=$(curl -s -m 10 -X POST "${DD_API_URL}/api/v1/events" \
+        if _ev_http_status=$(curl -s -o /dev/null -w '%{http_code}' -m 10 -X POST "${DD_API_URL}/api/v1/events" \
             -H "Content-Type: application/json" \
             -H "DD-API-KEY: ${DD_API_KEY}" \
-            -d "$_ev_json_payload" 2>&1); then
-            log_message "INFO" "Event sent to Datadog: $_ev_title"
-            return 0
+            -d "$_ev_json_payload" 2>/dev/null); then
+            # Transport success alone includes redirects and some auth failures.
+            # Accept only an explicit three-digit HTTP 2xx response.
+            case "$_ev_http_status" in
+                2[0-9][0-9])
+                    log_message "INFO" "Event sent to Datadog: $_ev_title"
+                    return 0
+                    ;;
+            esac
         fi
 
         _ev_retry=$((_ev_retry + 1))
@@ -135,7 +140,7 @@ EOF2
         fi
     done
 
-    log_message "ERROR" "Failed to send event after $_ev_max_retries attempts: $_ev_response"
+    log_message "ERROR" "Failed to send event after $_ev_max_retries attempts"
     return 1
 }
 
