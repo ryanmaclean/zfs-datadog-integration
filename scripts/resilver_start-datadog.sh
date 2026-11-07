@@ -22,12 +22,13 @@ EID="${ZEVENT_EID:-0}"
 
 # Build tags
 TAGS=$(build_tags)
+PROGRESS_TAGS=$(build_pool_tags)
 
 # Emit counter — one increment per resilver start
 send_metric "zfs.resilver.start" "1" "counter" "$TAGS"
 
 # Emit in-progress flag — cleared by resilver_finish-datadog.sh
-send_metric "zfs.resilver.in_progress" "1" "gauge" "$TAGS"
+send_metric "zfs.resilver.in_progress" "1" "gauge" "$PROGRESS_TAGS"
 
 # Send warning event to Datadog Events API (resilver = disk replaced/re-added)
 TITLE="ZFS Resilver Started: $POOL"

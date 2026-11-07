@@ -206,8 +206,8 @@ nc -u -w1 localhost 8125
   data: zfs.scrub.start:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.start:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 nc -u -w1 localhost 8125
-  data: zfs.scrub.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+  data: zfs.scrub.in_progress:1|g|#env:production,service:zfs,pool:tank,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.in_progress:1|g|#env:production,service:zfs,pool:tank,host:zfs-test-host
 curl argc=12
   arg: -s
   arg: -m
@@ -262,8 +262,8 @@ nc -u -w1 localhost 8125
   data: zfs.scrub.duration:7384|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.duration:7384|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 nc -u -w1 localhost 8125
-  data: zfs.scrub.in_progress:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.in_progress:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+  data: zfs.scrub.in_progress:0|g|#env:production,service:zfs,pool:tank,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.scrub.in_progress:0|g|#env:production,service:zfs,pool:tank,host:zfs-test-host
 logger -t zfs-datadog [INFO] Scrub completion event processed: tank - 4 errors
 --- exit 0
 === resilver_start-datadog.sh (sysevent.fs.zfs.resilver_start)
@@ -271,8 +271,8 @@ nc -u -w1 localhost 8125
   data: zfs.resilver.start:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.start:1|c|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 nc -u -w1 localhost 8125
-  data: zfs.resilver.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.in_progress:1|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+  data: zfs.resilver.in_progress:1|g|#env:production,service:zfs,pool:tank,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.in_progress:1|g|#env:production,service:zfs,pool:tank,host:zfs-test-host
 curl argc=12
   arg: -s
   arg: -m
@@ -327,8 +327,8 @@ nc -u -w1 localhost 8125
   data: zfs.resilver.duration:600|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.duration:600|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
 nc -u -w1 localhost 8125
-  data: zfs.resilver.in_progress:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
-logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.in_progress:0|g|#env:production,service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED,host:zfs-test-host
+  data: zfs.resilver.in_progress:0|g|#env:production,service:zfs,pool:tank,host:zfs-test-host
+logger -t zfs-datadog [DEBUG] Metric sent: zfs.resilver.in_progress:0|g|#env:production,service:zfs,pool:tank,host:zfs-test-host
 logger -t zfs-datadog [INFO] Resilver completion event processed: tank - 0 errors
 --- exit 0
 === config_sync-datadog.sh (sysevent.fs.zfs.config_sync)

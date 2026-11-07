@@ -34,6 +34,7 @@ fi
 
 # Build tags
 TAGS=$(build_tags)
+PROGRESS_TAGS=$(build_pool_tags)
 
 # Determine alert type based on errors
 if [ "$ERRORS" -eq 0 ]; then
@@ -57,7 +58,7 @@ if [ "$DURATION" -gt 0 ]; then
     send_metric "zfs.scrub.duration" "$DURATION" "gauge" "$TAGS"
 fi
 # Clear in-progress flag set by scrub_start-datadog.sh
-send_metric "zfs.scrub.in_progress" "0" "gauge" "$TAGS"
+send_metric "zfs.scrub.in_progress" "0" "gauge" "$PROGRESS_TAGS"
 
 log_message "INFO" "Scrub completion event processed: $POOL - $ERRORS errors"
 

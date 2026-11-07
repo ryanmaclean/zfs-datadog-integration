@@ -22,12 +22,13 @@ EID="${ZEVENT_EID:-0}"
 
 # Build tags
 TAGS=$(build_tags)
+PROGRESS_TAGS=$(build_pool_tags)
 
 # Emit counter — one increment per scrub start
 send_metric "zfs.scrub.start" "1" "counter" "$TAGS"
 
 # Emit in-progress flag — cleared by scrub_finish-datadog.sh
-send_metric "zfs.scrub.in_progress" "1" "gauge" "$TAGS"
+send_metric "zfs.scrub.in_progress" "1" "gauge" "$PROGRESS_TAGS"
 
 # Send informational event to Datadog Events API
 TITLE="ZFS Scrub Started: $POOL"
