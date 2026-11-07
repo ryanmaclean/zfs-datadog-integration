@@ -207,6 +207,13 @@ get_alert_type() {
     esac
 }
 
+# Stable scan progress identity. Preserve every configured static tag verbatim.
+# Existing series cannot be retracted; this flag does not track concurrent scans
+# or freshness, and missing pool identity still collapses to pool:unknown.
+build_pool_tags() {
+    printf '%s\n' "$DD_TAGS,pool:${ZEVENT_POOL:-unknown}"
+}
+
 # Build tags from ZFS event environment variables
 build_tags() {
     _bt_base_tags="$DD_TAGS"
