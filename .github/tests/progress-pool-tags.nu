@@ -61,12 +61,16 @@ def main [] {
                             let eventtags = $'($stable)(if $vdev == "" { "" } else { $",vdev:($vdev | path basename)" }),vdev_state:($state)'
                             let value = (if $phase == start { 1 } else { 0 })
                             let progress = $'zfs.($scan).in_progress:($value)|g|#($stable),host:synthetic-host'
-                            let others = (if $phase == start { [$'zfs.($scan).start:1|c|#($eventtags),host:synthetic-host'] } else { [$'zfs.($scan).errors:0|g|#($eventtags),host:synthetic-host' $'zfs.($scan).duration:60|g|#($eventtags),host:synthetic-host'] })
+                            let others = (if $phase == start { [$'zfs.($scan).start:1|c|#($eventtags),host:synthetic-host'] } else { [$'zfs.($scan).duration:60|g|#($eventtags),host:synthetic-host'] })
                             let actual = (open --raw $metrics | lines)
                             check ($actual == ($others | append $progress)) $'metric values/tags/order: ($actual) stderr=($result.stderr)'
                             let event = (open --raw $events | from json)
                             check ($event.tags == ($eventtags | split row ',')) 'event tags changed'
                             check ($event.host == 'synthetic-host') 'event host changed'
+                            if $phase == finish {
+                                check ($event.alert_type == 'info') 'missing error count must not imply success'
+                                check ($event.text | str contains 'Errors Found: unknown') 'missing error count must remain unknown'
+                            }
                             $identities = ($identities | append ($actual | last | split row '|#' | last))
                             $runs = $runs + 1
                         }
