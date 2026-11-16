@@ -33,12 +33,18 @@ if [ -n "$VDEV_STATE" ]; then
     TEXT="${TEXT}\nVdev State: $VDEV_STATE"
 fi
 
-# Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS"
+# Attempt both senders and retain any reporting failure.
+REPORT_STATUS=0
+send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS" || REPORT_STATUS=1
 
 # Send metric
-send_metric "zfs.checksum.errors" "$CHECKSUM_ERRORS" "counter" "$TAGS"
+send_metric "zfs.checksum.errors" "$CHECKSUM_ERRORS" "counter" "$TAGS" || REPORT_STATUS=1
 
 log_message "ERROR" "Checksum error detected: $POOL - $VDEV_NAME - $CHECKSUM_ERRORS errors"
 
-exit 0
+if [ "$REPORT_STATUS" -ne 0 ]; then
+    log_message "ERROR" "Checksum error reporting failed: $POOL - $VDEV_NAME"
+fi
+
+# UDP submission success does not confirm backend delivery.
+exit "$REPORT_STATUS"

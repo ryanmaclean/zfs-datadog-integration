@@ -26,14 +26,15 @@ if [ "$START_TIME" -gt 0 ] && [ "$END_TIME" -gt 0 ]; then
     DURATION=$((END_TIME - START_TIME))
     DURATION_HOURS=$((DURATION / 3600))
     DURATION_MINS=$(((DURATION % 3600) / 60))
+    DURATION_TEXT="${DURATION_HOURS}h ${DURATION_MINS}m"
 else
     DURATION=0
-    DURATION_HOURS=0
-    DURATION_MINS=0
+    DURATION_TEXT="unknown"
 fi
 
 # Build tags
 TAGS=$(build_tags)
+PROGRESS_TAGS=$(build_pool_tags)
 
 # Determine alert type based on errors
 if [ "$ERRORS" -eq 0 ]; then
@@ -46,19 +47,26 @@ fi
 
 # Prepare event details
 TITLE="ZFS Scrub Completed: $POOL"
-TEXT="Pool: $POOL\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_HOURS}h ${DURATION_MINS}m"
+TEXT="Pool: $POOL\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_TEXT}"
+
+# Attempt every sender, retaining any failure for the final exit status.
+SEND_STATUS=0
 
 # Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS"
+send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS" || SEND_STATUS=1
 
 # Send metrics
-send_metric "zfs.scrub.errors" "$ERRORS" "gauge" "$TAGS"
+send_metric "zfs.scrub.errors" "$ERRORS" "gauge" "$TAGS" || SEND_STATUS=1
 if [ "$DURATION" -gt 0 ]; then
-    send_metric "zfs.scrub.duration" "$DURATION" "gauge" "$TAGS"
+    send_metric "zfs.scrub.duration" "$DURATION" "gauge" "$TAGS" || SEND_STATUS=1
 fi
 # Clear in-progress flag set by scrub_start-datadog.sh
-send_metric "zfs.scrub.in_progress" "0" "gauge" "$TAGS"
+send_metric "zfs.scrub.in_progress" "0" "gauge" "$PROGRESS_TAGS" || SEND_STATUS=1
 
 log_message "INFO" "Scrub completion event processed: $POOL - $ERRORS errors"
 
-exit 0
+if [ "$SEND_STATUS" -ne 0 ]; then
+    log_message "ERROR" "Scrub completion sender failure: $POOL"
+fi
+
+exit "$SEND_STATUS"
