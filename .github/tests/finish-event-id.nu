@@ -63,7 +63,7 @@ def main --wrapped [...args: string] {
                     if ($event | path exists) { rm $event }
                     '' | save -f $metrics
                     let eid_env = (if $case.value == null { [] } else { [$'ZEVENT_EID=($case.value)'] })
-                    let result = (^env -i $'PATH=($bin)' DD_API_KEY=synthetic DD_API_URL=https://synthetic.invalid HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=synthetic.invalid DOGSTATSD_PORT=8125 MONITOR_SCRUB=true MONITOR_RESILVER=true ZEVENT_POOL=tank $'EVENT=($event)' $'METRICS=($metrics)' ...$eid_env $executable ($work | path join $'($scan)_finish-datadog.sh') | complete)
+                    let result = (^env -i $'PATH=($bin)' DD_API_KEY=synthetic DD_API_URL=https://synthetic.invalid HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=synthetic.invalid DOGSTATSD_PORT=8125 MONITOR_SCRUB=true MONITOR_RESILVER=true ZEVENT_POOL=tank ZEVENT_POOL_SCRUB_ERRORS=0 ZEVENT_POOL_RESILVER_ERRORS=0 $'EVENT=($event)' $'METRICS=($metrics)' ...$eid_env $executable ($work | path join $'($scan)_finish-datadog.sh') | complete)
                     let context = $'($shell)/($scan)/($case | to nuon)'
                     assert equal $result.exit_code 0 $'exit: ($context): ($result | to nuon)'
                     assert equal $result.stdout '' $'stdout: ($context): ($result | to nuon)'

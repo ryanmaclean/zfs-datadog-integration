@@ -7,6 +7,7 @@ on:
       - scripts/zfs-datadog-lib.sh
       - .github/tests/finish-sender-failures.nu
       - .github/tests/finish-event-id.nu
+      - .github/tests/finish-result-unknown.nu
       - .github/workflows/finish-sender-failures.yml
   push:
     paths:
@@ -15,6 +16,7 @@ on:
       - scripts/zfs-datadog-lib.sh
       - .github/tests/finish-sender-failures.nu
       - .github/tests/finish-event-id.nu
+      - .github/tests/finish-result-unknown.nu
       - .github/workflows/finish-sender-failures.yml
   workflow_dispatch:
 permissions:
@@ -35,3 +37,5 @@ jobs:
         run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu --no-config-file .github/tests/finish-sender-failures.nu
       - name: Run finish event ID regression
         run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu --no-config-file .github/tests/finish-event-id.nu
+      - name: Run finish result availability regression
+        run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu --no-config-file .github/tests/finish-result-unknown.nu

@@ -271,3 +271,55 @@ build_tags() {
 }
 
 # Functions are sourced, no need to export in POSIX sh
+
+# Normalize an unsigned decimal up to a caller-supplied decimal bound.
+# Limit raw representation length before stripping leading zeros. Call via
+# command substitution because POSIX shell has no portable local variables.
+normalize_scan_number() {
+    _sn_value="$1"
+    _sn_max="$2"
+    case "$_sn_value" in
+        ''|*[!0123456789]*) printf '%s\n' unknown; return ;;
+    esac
+    if [ "${#_sn_value}" -gt 20 ]; then
+        printf '%s\n' unknown
+        return
+    fi
+    while [ "${#_sn_value}" -gt 1 ] && [ "${_sn_value#0}" != "$_sn_value" ]; do
+        _sn_value="${_sn_value#0}"
+    done
+    if [ "${#_sn_value}" -gt "${#_sn_max}" ]; then
+        printf '%s\n' unknown
+        return
+    fi
+    if [ "${#_sn_value}" -eq "${#_sn_max}" ]; then
+        _sn_rest="$_sn_value"
+        while [ -n "$_sn_rest" ]; do
+            _sn_digit="${_sn_rest%"${_sn_rest#?}"}"
+            _sn_limit="${_sn_max%"${_sn_max#?}"}"
+            if [ "$_sn_digit" -gt "$_sn_limit" ]; then
+                printf '%s\n' unknown
+                return
+            fi
+            [ "$_sn_digit" -lt "$_sn_limit" ] && break
+            _sn_rest="${_sn_rest#?}"
+            _sn_max="${_sn_max#?}"
+        done
+    fi
+    printf '%s\n' "$_sn_value"
+}
+
+# Supported hosts use 64-bit shell arithmetic. Bound both endpoints before
+# comparing/subtracting; zero timestamps denote unavailable event information.
+get_scan_duration() {
+    _sd_start=$(normalize_scan_number "$1" 9223372036854775807)
+    _sd_end=$(normalize_scan_number "$2" 9223372036854775807)
+    if [ "$_sd_start" = unknown ] || [ "$_sd_end" = unknown ] ||
+       [ "$_sd_start" = 0 ] || [ "$_sd_end" = 0 ]; then
+        printf '%s\n' unknown
+    elif [ "$_sd_end" -lt "$_sd_start" ]; then
+        printf '%s\n' unknown
+    else
+        printf '%s\n' "$((_sd_end - _sd_start))"
+    fi
+}
