@@ -76,7 +76,7 @@ def main [] {
                                         let payload = ($call.args | get ($index + 1) | from json)
                                         let label = (if $kind == scrub { 'Scrub' } else { 'Resilver' })
                                         let timing = (if $duration { '1h 1m' } else { 'unknown' })
-                                        check ($payload == {title: $'ZFS ($label) Completed: tank', text: $"Pool: tank\nStatus: completed with errors\nErrors Found: 2\nDuration: ($timing)", priority: normal, tags: [env:test pool:tank vdev:disk vdev_state:ONLINE], alert_type: error, source_type_name: zfs, host: fixture}) $'event payload: ($context)'
+                                        check ($payload == {title: $'ZFS ($label) Completed: tank', text: $"Pool: tank\nEvent ID: unknown\nStatus: completed with errors\nErrors Found: 2\nDuration: ($timing)", priority: normal, tags: [env:test pool:tank vdev:disk vdev_state:ONLINE], alert_type: error, source_type_name: zfs, host: fixture}) $'event payload: ($context)'
                                     } else {
                                         let sender = ($call.input | split row ':' | first | split row '.' | last)
                                         let value = (match $sender { errors => '2', duration => '3660', in_progress => '0' })

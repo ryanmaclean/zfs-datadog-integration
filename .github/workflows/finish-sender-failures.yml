@@ -6,6 +6,7 @@ on:
       - scripts/resilver_finish-datadog.sh
       - scripts/zfs-datadog-lib.sh
       - .github/tests/finish-sender-failures.nu
+      - .github/tests/finish-event-id.nu
       - .github/workflows/finish-sender-failures.yml
   push:
     paths:
@@ -13,6 +14,7 @@ on:
       - scripts/resilver_finish-datadog.sh
       - scripts/zfs-datadog-lib.sh
       - .github/tests/finish-sender-failures.nu
+      - .github/tests/finish-event-id.nu
       - .github/workflows/finish-sender-failures.yml
   workflow_dispatch:
 permissions:
@@ -31,3 +33,5 @@ jobs:
         run: tar -xzf /tmp/nu-finish-sender-0.115.1.tar.gz -C /tmp
       - name: Run isolated sender regression
         run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu --no-config-file .github/tests/finish-sender-failures.nu
+      - name: Run finish event ID regression
+        run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu --no-config-file .github/tests/finish-event-id.nu

@@ -282,7 +282,7 @@ curl argc=16
   arg: -d
   arg: {
   "title": "ZFS Scrub Completed: tank",
-  "text": "Pool: tank\nStatus: completed with errors\nErrors Found: 4\nDuration: 2h 3m",
+  "text": "Pool: tank\nEvent ID: 42\nStatus: completed with errors\nErrors Found: 4\nDuration: 2h 3m",
   "priority": "normal",
   "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
   "alert_type": "error",
@@ -355,7 +355,7 @@ curl argc=16
   arg: -d
   arg: {
   "title": "ZFS Resilver Completed: tank",
-  "text": "Pool: tank\nStatus: completed successfully\nErrors Found: 0\nDuration: 0h 10m",
+  "text": "Pool: tank\nEvent ID: 42\nStatus: completed successfully\nErrors Found: 0\nDuration: 0h 10m",
   "priority": "normal",
   "tags": ["env:production","service:zfs","pool:tank","vdev:da1","vdev_state:DEGRADED"],
   "alert_type": "success",
