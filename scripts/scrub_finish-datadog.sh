@@ -17,6 +17,7 @@ fi
 
 # Extract event information
 POOL="${ZEVENT_POOL:-unknown}"
+EID=$(get_event_id)
 ERRORS="${ZEVENT_POOL_SCRUB_ERRORS:-0}"
 START_TIME="${ZEVENT_POOL_SCRUB_START:-0}"
 END_TIME="${ZEVENT_POOL_SCRUB_END:-0}"
@@ -47,7 +48,7 @@ fi
 
 # Prepare event details
 TITLE="ZFS Scrub Completed: $POOL"
-TEXT="Pool: $POOL\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_TEXT}"
+TEXT="Pool: $POOL\nEvent ID: $EID\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_TEXT}"
 
 # Attempt every sender, retaining any failure for the final exit status.
 SEND_STATUS=0

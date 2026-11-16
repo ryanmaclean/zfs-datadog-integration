@@ -5,7 +5,7 @@
 # POSIX-compatible for BSD/FreeBSD/TrueNAS
 #
 # Strictly POSIX: no local. Function-scoped variables use a per-function
-# prefix (_lm_, _ev_, _sm_, _ph_, _at_, _bt_) so they cannot collide with
+# prefix (_lm_, _ev_, _sm_, _ph_, _at_, _bt_, _ei_) so they cannot collide with
 # the sourcing zedlet's variables or with each other across nested calls.
 
 # Load configuration
@@ -210,6 +210,36 @@ get_alert_type() {
         faulted|offline|unavail) echo "error" ;;
         *) echo "info" ;;
     esac
+}
+
+# Return a decimal uint64 ZED event ID, or an explicit unknown marker.
+# Validation is syntactic only: it does not authenticate the event producer.
+# Compare digits individually to avoid shell signed-integer overflow.
+get_event_id() {
+    _ei_value="${ZEVENT_EID:-}"
+    case "$_ei_value" in
+        ''|*[!0-9]*) printf '%s\n' unknown; return ;;
+    esac
+    if [ "${#_ei_value}" -gt 20 ]; then
+        printf '%s\n' unknown
+        return
+    fi
+    if [ "${#_ei_value}" -eq 20 ]; then
+        _ei_rest="$_ei_value"
+        _ei_max=18446744073709551615
+        while [ -n "$_ei_rest" ]; do
+            _ei_digit="${_ei_rest%"${_ei_rest#?}"}"
+            _ei_limit="${_ei_max%"${_ei_max#?}"}"
+            if [ "$_ei_digit" -gt "$_ei_limit" ]; then
+                printf '%s\n' unknown
+                return
+            fi
+            [ "$_ei_digit" -lt "$_ei_limit" ] && break
+            _ei_rest="${_ei_rest#?}"
+            _ei_max="${_ei_max#?}"
+        done
+    fi
+    printf '%s\n' "$_ei_value"
 }
 
 # Stable scan progress identity. Preserve every configured static tag verbatim.
