@@ -1,6 +1,10 @@
 #!/usr/bin/env nu
 # SPDX-License-Identifier: MIT
-# Synthetic integration tests: no network client or pool utility in PATH.
+# Synthetic integration tests: only recording nc/logger stubs are in PATH.
+# Events and metrics both leave as DogStatsD datagrams to the loopback Agent;
+# the library must never retry or sleep.
+use datagram.nu *
+
 def check [ok: bool, message: string] {
     if not $ok { error make {msg: $message} }
 }
@@ -8,22 +12,19 @@ def check [ok: bool, message: string] {
 def run-tests [root: string, fixture: string, nu_exe: string] {
     let bin = ($fixture | path join bin)
     mkdir $bin
-    for tool in [dirname basename date cat] {
-        let target = ('/usr/bin' | path join $tool)
+    for tool in [dirname basename date cat wc] {
+        let target = (which --all $tool | where type == external | first | get path)
         ^ln -s $target ($bin | path join $tool)
     }
     let stub = ('#!' + $nu_exe + " --no-config-file\n" + 'def --wrapped main [...args: string] {
     let name = ($env.CURRENT_FILE | path basename)
     let file = ($env.CAPTURE | path join $name)
-    let old = (if ($file | path exists) { open --raw $file | from json } else { [] })
-    $old | append [$args] | to json | save --force $file
-    if $name == "curl" {
-        print "202"
-        if (($old | length) < ($env.FAILURES | into int)) { exit 7 }
-    }
+    let input = (if $name == "nc" { open --raw /dev/stdin } else { "" })
+    ({args: $args, input: $input} | to json -r) + (char newline) | save --append $file
+    if $name == "nc" and $env.NC_RC != "0" { exit ($env.NC_RC | into int) }
 }
 ')
-    for tool in [curl logger sleep] {
+    for tool in [nc logger sleep curl] {
         $stub | save ($bin | path join $tool)
         ^chmod +x ($bin | path join $tool)
     }
@@ -40,59 +41,44 @@ def run-tests [root: string, fixture: string, nu_exe: string] {
         for case in $cases {
             let handler = ($case.name + '-datadog.sh')
             cp ($root | path join scripts $handler) $fixture
-            for scenario in [success retry exhausted missing] {
+            for scenario in [success failure missing] {
                 let capture = ($fixture | path join capture)
                 if ($capture | path exists) { rm -r $capture }
                 mkdir $capture
                 let config = ($fixture | path join config.sh)
                 if ($config | path exists) { rm $config }
                 if $scenario != missing {
-                    "DD_API_KEY='synthetic-key'\nDD_API_URL='https://synthetic.invalid'\nDD_TAGS='env:synthetic,team:storage'\n" | save $config
+                    "DOGSTATSD_HOST='127.0.0.1'\nDOGSTATSD_PORT='18125'\nDD_TAGS='env:synthetic,team:storage'\n" | save $config
                 }
-                let failures = (match $scenario { retry => 1, exhausted => 3, _ => 0 })
-                let result = (^env -i $'PATH=($bin)' $'CAPTURE=($capture)' $'FAILURES=($failures)' HOSTNAME=synthetic-host ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk0 ZEVENT_VDEV_STATE=ONLINE $interpreter ($fixture | path join $handler) | complete)
+                let nc_rc = (if $scenario == failure { '7' } else { '0' })
+                let result = (^env -i $'PATH=($bin)' $'CAPTURE=($capture)' $'NC_RC=($nc_rc)' HOSTNAME=synthetic-host ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk0 ZEVENT_VDEV_STATE=ONLINE $interpreter ($fixture | path join $handler) | complete)
                 let context = $'($shell)/($case.name)/($scenario)'
                 if $scenario == missing {
                     check ($result.exit_code == (if $shell == bash { 1 } else { 2 })) $'($context): missing config exit'
-                    check (not ($capture | path join curl | path exists)) $'($context): unexpected curl'
-                    check (not ($capture | path join sleep | path exists)) $'($context): unexpected sleep'
-                    check (not ($capture | path join logger | path exists)) $'($context): unexpected logger'
+                    for tool in [nc sleep curl logger] {
+                        check (not ($capture | path join $tool | path exists)) $'($context): unexpected ($tool)'
+                    }
                     check ($result.stderr | str contains 'config.sh') $'($context): missing diagnostic'
                 } else {
-                    check ($result.exit_code == (if $scenario == exhausted { 1 } else { 0 })) $'($context): exit'
-                    let calls = (open --raw ($capture | path join curl) | from json)
-                    let attempts = (match $scenario { success => 1, retry => 2, _ => 3 })
-                    check (($calls | length) == $attempts) $'($context): attempts'
-                    let payload = {
-                        title: $case.title, text: $case.text, priority: $case.priority,
-                        tags: [env:synthetic team:storage pool:tank vdev:disk0 vdev_state:ONLINE $'event_type:($case.name)'],
-                        alert_type: $case.alert, source_type_name: zfs, host: synthetic-host
+                    check ($result.exit_code == (if $scenario == failure { 1 } else { 0 })) $'($context): exit'
+                    let calls = (open --raw ($capture | path join nc) | lines | each { from json })
+                    check (($calls | length) == 1) $'($context): exactly one datagram, no retry'
+                    for tool in [sleep curl] {
+                        check (not ($capture | path join $tool | path exists)) $'($context): unexpected ($tool)'
                     }
-                    for call in $calls {
-                        # #40 adds exactly these output/status pairs at the front.
-                        let args = (if (($call | take 5) == [-s -o /dev/null -w '%{http_code}']) { [-s ...($call | skip 5)] } else { $call })
-                        check (($args | take 12) == [-s -m '10' -X POST 'https://synthetic.invalid/api/v1/events' -H 'Content-Type: application/json' -H 'DD-API-KEY: synthetic-key' -d ($args | last)] and ($args | length) == 12) $'($context): curl arguments'
-                        check (($args | last | from json) == $payload) $'($context): exact payload'
+                    let call = ($calls | first)
+                    check ($call.args == [-u -w1 127.0.0.1 '18125']) $'($context): nc arguments'
+                    check (datagram is-event $call.input) $'($context): event datagram'
+                    let event = (datagram event $call.input)
+                    let expected = {
+                        title: $case.title, text: $case.text, priority: $case.priority
+                        alert_type: $case.alert, source: zfs
+                        tags: [env:synthetic team:storage pool:tank vdev:disk0 vdev_state:ONLINE $'event_type:($case.name)']
                     }
-                    let sleeps = (if ($capture | path join sleep | path exists) { open --raw ($capture | path join sleep) | from json } else { [] })
-                    let expected = (match $scenario { success => [], retry => [['1']], _ => [['1'] ['2']] })
-                    check ($sleeps == $expected) $'($context): backoff'
-                    let logs = (open --raw ($capture | path join logger) | from json | each {|log|
-                        if $log == [-t zfs-datadog '[ERROR] Failed to send event after 3 attempts: 202'] {
-                            [-t zfs-datadog '[ERROR] Failed to send event after 3 attempts']
-                        } else { $log }
-                    })
-                    mut expected_logs = []
-                    for index in ($expected | enumerate) {
-                        let attempt = ($index.index + 1)
-                        if $attempt < $attempts {
-                            let wait = (if $attempt == 1 { 1 } else { 2 })
-                            $expected_logs = ($expected_logs | append [[-t zfs-datadog ('[WARN] Failed to send event (attempt ' + ($attempt | into string) + '/3), retrying in ' + ($wait | into string) + 's...')]])
-                        }
-                    }
-                    let final = (if $scenario == exhausted { '[ERROR] Failed to send event after 3 attempts' } else { $'[INFO] Event sent to Datadog: ($case.title)' })
-                    $expected_logs = ($expected_logs | append [[-t zfs-datadog $final]])
-                    check ($logs == $expected_logs) $'($context): logger calls'
+                    check ($event == $expected) $'($context): exact event ($event | to nuon)'
+                    let logs = (open --raw ($capture | path join logger) | lines | each { from json | get args })
+                    let final = (if $scenario == failure { '[ERROR] Local Agent event handoff failed' } else { '[INFO] Event handed to local Agent socket' })
+                    check ($logs == [[-t zfs-datadog $final]]) $'($context): logger calls ($logs | to nuon)'
                 }
                 $count += 1
             }

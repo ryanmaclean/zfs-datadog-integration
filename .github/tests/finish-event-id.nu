@@ -1,7 +1,10 @@
 #!/usr/bin/env nu
 # SPDX-License-Identifier: MIT
 # Actual completion handlers, synthetic transports, no real config or ZFS calls.
+# Events and metrics reach the local Agent as loopback DogStatsD datagrams; a
+# recording nc stub captures them and the event datagram is decoded.
 use std/assert
+use datagram.nu *
 
 def main [] {
     let repo = ($env.FILE_PWD | path join ../.. | path expand)
@@ -9,7 +12,7 @@ def main [] {
     try {
         let bin = ($work | path join bin)
         mkdir $bin
-        for tool in [dirname basename date cat cut] {
+        for tool in [dirname basename date cat cut wc] {
             ^ln -s (which --all $tool | where type == external | first | get path) ($bin | path join $tool)
         }
         for name in [zfs-datadog-lib.sh scrub_finish-datadog.sh resilver_finish-datadog.sh] {
@@ -18,16 +21,13 @@ def main [] {
         let stub = ($'#!($nu.current-exe) --no-config-file' + "\n" + '
 def main --wrapped [...args: string] {
     let tool = ($env.CURRENT_FILE | path basename)
-    if $tool == "curl" {
-        let i = ($args | enumerate | where item == "-d" | get 0.index)
-        ($args | get ($i + 1) | from json | to json -r) | save -f $env.EVENT
-        print -n "202"
-    } else if $tool == "nc" {
+    if $tool == "nc" {
+        if $args != ["-u" "-w1" "127.0.0.1" "18125"] { error make {msg: "unexpected nc argv"} }
         (open --raw /dev/stdin) + "\n" | save --append $env.METRICS
     } else if $tool == "sleep" { error make {msg: "unexpected retry"} }
 }
 ')
-        for tool in [curl nc logger sleep] {
+        for tool in [nc logger sleep] {
             $stub | save ($bin | path join $tool)
             ^chmod +x ($bin | path join $tool)
         }
@@ -58,25 +58,26 @@ def main --wrapped [...args: string] {
             let executable = (which $shell | first | get path)
             for scan in [scrub resilver] {
                 for case in $cases {
-                    let event = ($work | path join event.json)
                     let metrics = ($work | path join metrics)
-                    if ($event | path exists) { rm $event }
                     '' | save -f $metrics
                     let eid_env = (if $case.value == null { [] } else { [$'ZEVENT_EID=($case.value)'] })
-                    let result = (^env -i $'PATH=($bin)' DD_API_KEY=synthetic DD_API_URL=https://synthetic.invalid HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=synthetic.invalid DOGSTATSD_PORT=8125 MONITOR_SCRUB=true MONITOR_RESILVER=true ZEVENT_POOL=tank ZEVENT_POOL_SCRUB_ERRORS=0 ZEVENT_POOL_RESILVER_ERRORS=0 $'EVENT=($event)' $'METRICS=($metrics)' ...$eid_env $executable ($work | path join $'($scan)_finish-datadog.sh') | complete)
+                    let result = (^env -i $'PATH=($bin)' HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 MONITOR_SCRUB=true MONITOR_RESILVER=true ZEVENT_POOL=tank ZEVENT_POOL_SCRUB_ERRORS=0 ZEVENT_POOL_RESILVER_ERRORS=0 $'METRICS=($metrics)' ...$eid_env $executable ($work | path join $'($scan)_finish-datadog.sh') | complete)
                     let context = $'($shell)/($scan)/($case | to nuon)'
                     assert equal $result.exit_code 0 $'exit: ($context): ($result | to nuon)'
                     assert equal $result.stdout '' $'stdout: ($context): ($result | to nuon)'
-                    let payload = (open --raw $event | from json)
-                    assert equal $payload.text $"Pool: tank\nEvent ID: ($case.expected)\nStatus: completed successfully\nErrors Found: 0\nDuration: unknown" $'payload: ($context): ($payload | to nuon)'
+                    let lines = (open --raw $metrics | lines)
+                    let packets = ($lines | where {|l| datagram is-event $l })
+                    assert equal ($packets | length) 1 $'one event datagram: ($context)'
+                    let payload = (datagram event ($packets | first))
+                    assert equal $payload.text $'Pool: tank\nEvent ID: ($case.expected)\nStatus: completed successfully\nErrors Found: 0\nDuration: unknown' $'payload: ($context): ($payload | to nuon)'
                     assert equal $payload.tags [env:test pool:tank] $'tags: ($context)'
-                    let actual_metrics = (open --raw $metrics | lines)
-                    assert equal $actual_metrics [$'zfs.($scan).errors:0|g|#env:test,pool:tank,host:fixture' $'zfs.($scan).in_progress:0|g|#env:test,pool:tank,host:fixture'] $'metrics: ($context): ($actual_metrics | to nuon)'
+                    let actual_metrics = ($lines | where {|l| not (datagram is-event $l) })
+                    assert equal $actual_metrics [$'zfs.($scan).errors:0|g|#env:test,pool:tank' $'zfs.($scan).in_progress:0|g|#env:test,pool:tank'] $'metrics: ($context): ($actual_metrics | to nuon)'
                     $count += 1
                 }
             }
         }
         print $'PASS: ($count) actual-handler synthetic event-ID cases across sh/dash/bash'
-    } catch {|err| rm -rf $work; error make {msg: $err.msg} }
-    rm -rf $work
+    } catch {|err| rm -r $work; error make {msg: $err.msg} }
+    rm -r $work
 }

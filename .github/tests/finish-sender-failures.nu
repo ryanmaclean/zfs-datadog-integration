@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-# Synthetic transport tests: no real curl, nc, logger, sleep, pool or service.
+# Synthetic transport tests: no real nc, logger, pool or service, and no curl at all.
+use datagram.nu *
+
 def check [ok: bool, message: string] {
     if not $ok { error make {msg: $message} }
 }
@@ -10,26 +12,20 @@ def main [] {
     try {
         let bin = ($root | path join bin)
         mkdir $bin
-        for cmd in [cat cut dirname basename] {
+        for cmd in [cat cut dirname basename wc] {
             let source = (which $cmd | first | get path)
             ^ln -s $source ($bin | path join $cmd)
         }
-        # Each executable is a Nu stub; argv[0] is encoded explicitly.
+        # Each executable is a Nu stub; argv[0] is encoded explicitly. Events and
+        # metrics are both loopback datagrams on nc; the library never retries.
         for cmd in [curl nc sleep logger date] {
             let body = ('#!' + $nu_exe + "\n" + 'def --wrapped main [...args: string] {
     let cmd = "' + $cmd + '"
     let input = (if $cmd == "nc" { open --raw /dev/stdin } else { "" })
     {cmd: $cmd, args: $args, input: $input} | to json --raw | $in + "\n" | save --append $env.TRACE
-    if $cmd == "curl" {
-        let base = ["-s" "-m" "10" "-X" "POST" "https://synthetic.invalid/api/v1/events" "-H" "Content-Type: application/json" "-H" "DD-API-KEY: synthetic" "-d"]
-        let ordinary = (($args | take 11) == $base) and (($args | length) == 12)
-        let optional = (($args | take 5) == ["-s" "-o" "/dev/null" "-w" "%{http_code}"]) and (([...($args | take 1) ...($args | skip 5)] | take 11) == $base) and (($args | length) == 16)
-        if not ($ordinary or $optional) { exit 91 }
-        print -n "202"
-        if ("event" in ($env.FAIL | split row ",")) { exit 1 }
-    } else if $cmd == "nc" {
-        if $args != ["-u" "-w1" "synthetic.invalid" "8125"] { exit 92 }
-        let name = ($input | split row ":" | first | split row "." | last)
+    if $cmd == "nc" {
+        if $args != ["-u" "-w1" "127.0.0.1" "8125"] { exit 92 }
+        let name = (if ($input | str starts-with "_e{") { "event" } else { $input | split row ":" | first | split row "." | last })
         if ($name in ($env.FAIL | split row ",")) { exit 1 }
     } else if $cmd == "date" { print "synthetic-time" }
 }
@@ -54,44 +50,37 @@ def main [] {
                             let trace = ($root | path join trace)
                             '' | save --force $trace
                             let end = (if $duration { '3760' } else { '0' })
-                            let result = (^env -i $'PATH=($bin)' $'TRACE=($trace)' $'FAIL=($failures | str join ",")' DD_API_KEY=synthetic DD_API_URL=https://synthetic.invalid HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=synthetic.invalid DOGSTATSD_PORT=8125 $'MONITOR_SCRUB=($enabled)' $'MONITOR_RESILVER=($enabled)' ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk ZEVENT_VDEV_STATE=ONLINE $'ZEVENT_POOL_($kind | str uppercase)_ERRORS=2' $'ZEVENT_POOL_($kind | str uppercase)_START=100' $'ZEVENT_POOL_($kind | str uppercase)_END=($end)' $shell_path ($root | path join $'($kind)_finish-datadog.sh') | complete)
+                            let result = (^env -i $'PATH=($bin)' $'TRACE=($trace)' $'FAIL=($failures | str join ",")' HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=8125 $'MONITOR_SCRUB=($enabled)' $'MONITOR_RESILVER=($enabled)' ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk ZEVENT_VDEV_STATE=ONLINE $'ZEVENT_POOL_($kind | str upcase)_ERRORS=2' $'ZEVENT_POOL_($kind | str upcase)_START=100' $'ZEVENT_POOL_($kind | str upcase)_END=($end)' $shell_path ($root | path join $'($kind)_finish-datadog.sh') | complete)
                             let context = $'($shell)/($kind)/duration=($duration)/mask=($mask)/enabled=($enabled)'
                             check ($result.exit_code == (if $enabled and ($failures | is-not-empty) { 1 } else { 0 })) $'exit: ($context): ($result.stderr)'
                             let records = (open --raw $trace | lines | each { from json })
-                            let calls = ($records | where cmd in [curl nc])
+                            let calls = ($records | where cmd == nc)
                             if not $enabled {
                                 check ($records | is-empty) $'disabled: ($context)'
                             } else {
-                                let tags = 'env:test,pool:tank,vdev:disk,vdev_state:ONLINE,host:fixture'
-                                mut expected = []
-                                for sender in $senders {
-                                    let retries = (if $sender in $failures { if $sender == event { 3 } else { 2 } } else { 1 })
-                                    for attempt in 1..$retries { $expected = ($expected | append $sender) }
-                                }
-                                let actual = ($calls | each {|c| if $c.cmd == curl { 'event' } else { $c.input | split row ':' | first | split row '.' | last } })
-                                check ($actual == $expected) $'order/retries: ($context)'
+                                let tags = 'env:test,pool:tank,vdev:disk,vdev_state:ONLINE'
+                                # Exactly one datagram per sender, in order; no curl, no sleep, no retry.
+                                check ($records | where cmd in [curl sleep] | is-empty) $'no curl or sleep: ($context)'
+                                let actual = ($calls | each {|c| if (datagram is-event $c.input) { 'event' } else { $c.input | split row ':' | first | split row '.' | last } })
+                                check ($actual == $senders) $'order/attempts: ($context)'
                                 for call in $calls {
-                                    if $call.cmd == curl {
-                                        let index = ($call.args | enumerate | where item == '-d' | get index | first)
-                                        let payload = ($call.args | get ($index + 1) | from json)
+                                    if (datagram is-event $call.input) {
+                                        let payload = (datagram event $call.input)
                                         let label = (if $kind == scrub { 'Scrub' } else { 'Resilver' })
                                         let timing = (if $duration { '1h 1m' } else { 'unknown' })
-                                        check ($payload == {title: $'ZFS ($label) Completed: tank', text: $"Pool: tank\nEvent ID: unknown\nStatus: completed with errors\nErrors Found: 2\nDuration: ($timing)", priority: normal, tags: [env:test pool:tank vdev:disk vdev_state:ONLINE], alert_type: error, source_type_name: zfs, host: fixture}) $'event payload: ($context)'
+                                        check ($payload == {title: $'ZFS ($label) Completed: tank', text: $'Pool: tank\nEvent ID: unknown\nStatus: completed with errors\nErrors Found: 2\nDuration: ($timing)', priority: normal, alert_type: error, source: zfs, tags: [env:test pool:tank vdev:disk vdev_state:ONLINE]}) $'event payload: ($context)'
                                     } else {
                                         let sender = ($call.input | split row ':' | first | split row '.' | last)
                                         let value = (match $sender { errors => '2', duration => '3660', in_progress => '0' })
-                                        let metric_tags = (if $sender == 'in_progress' { 'env:test,pool:tank,host:fixture' } else { $tags })
+                                        let metric_tags = (if $sender == 'in_progress' { 'env:test,pool:tank' } else { $tags })
                                         check ($call.input == $'zfs.($kind).($sender):($value)|g|#($metric_tags)') $'metric payload: ($context)'
                                     }
                                 }
-                                let sleeps = ($records | where cmd == sleep | get args | flatten)
-                                mut expected_sleeps = []
-                                for sender in $senders {
-                                    if $sender in $failures { $expected_sleeps = ($expected_sleeps | append (if $sender == event { ['1' '2'] } else { ['1'] })) }
-                                }
-                                check ($sleeps == $expected_sleeps) $'backoff: ($context)'
                                 check ($result.stderr | str contains 'completion event processed: tank - 2 errors') $'completion log: ($context)'
                                 check (($result.stderr | str contains 'completion sender failure: tank') == ($failures | is-not-empty)) $'failure log: ($context)'
+                                check (($result.stderr | str contains 'Local Agent event handoff failed') == ('event' in $failures)) $'event handoff log: ($context)'
+                                let metric_failures = ($failures | where {|f| $f != 'event' } | length)
+                                check (($result.stderr | lines | where {|l| $l | str contains 'Local Agent metric handoff failed' } | length) == $metric_failures) $'metric handoff log: ($context)'
                             }
                             $cases += 1
                         }
@@ -101,8 +90,8 @@ def main [] {
         }
         print $'PASS: ($cases) synthetic cases under sh/dash/bash; no backend delivery assertion'
     } catch {|err|
-        rm -rf $root
+        rm -r $root
         error make {msg: $err.msg}
     }
-    rm -rf $root
+    rm -r $root
 }
