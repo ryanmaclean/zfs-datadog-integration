@@ -14,7 +14,7 @@ def require_one [profile: string, files: list<string>, event_class: string] {
 def main [repo_root: string] {
     let repo = ($repo_root | path expand)
     let install = (open --raw $"($repo)/scripts/install.sh")
-    let pinned_manifest = '25e0c70db4d8386bdabb5673726101a42d530c438bb8560a8fedf3d7a3331a3f'
+    let pinned_manifest = '168133800c5def86d8df0d007e8d11e183cbc1c42f915c490702549dab40cb9c'
     let pinned_installer = '798915ae63c81fa8d2ce7f52d1741368c9ec2a40e4e7ed649007f2b356e4dfe0'
     let manifest = (open --raw $"($repo)/scripts/payload.sha256")
     if (($manifest | hash sha256) != $pinned_manifest) {
