@@ -132,8 +132,8 @@ jobs:
         run: .github/scripts/check-shipped-posix.sh
 
       # Run every shipped zedlet against fixed ZEVENT_* inputs with recording
-      # stubs for curl/nc/logger, under sh, dash and bash, and compare the
-      # exact Events API payloads and DogStatsD lines with the golden file
+      # stubs for nc/logger, under sh, dash and bash, and compare the exact
+      # Agent-local DogStatsD event and metric datagrams with the golden file
       # generated from the pre-cleanup scripts.
       - name: Zedlet payload regression test
         run: .github/scripts/test-zedlet-payloads.sh

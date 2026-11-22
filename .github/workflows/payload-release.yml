@@ -1,0 +1,110 @@
+name: Payload Release
+
+# Stores the shipped ZED payload bundle (the files listed in
+# scripts/payload.sha256) as a durable GitHub prerelease asset. Actions
+# artifacts expire; a release asset does not. Manual only: pass the exact
+# commit to bundle. The run refuses unless every check run on that commit is
+# green and the manifest verifies.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Full 40-char commit SHA to bundle (a PR head)'
+        required: true
+      tag:
+        description: 'New tag to create, e.g. payload-pr31-d270c8b'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    name: Bundle and store payload
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      checks: read
+    env:
+      SHA: ${{ inputs.sha }}
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Validate inputs
+        run: |
+          case "$SHA" in
+            *[!0-9a-f]*|"") echo "sha must be lowercase hex" >&2; exit 1 ;;
+          esac
+          test "${#SHA}" -eq 40
+          case "$TAG" in
+            payload-[A-Za-z0-9._-]*) ;;
+            *) echo "tag must start with payload-" >&2; exit 1 ;;
+          esac
+          if gh api "repos/$REPO/git/ref/tags/$TAG" > /dev/null 2>&1; then
+            echo "tag $TAG already exists; refusing to overwrite" >&2
+            exit 1
+          fi
+
+      - name: Require green checks on the commit
+        run: |
+          gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+            -q '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion)"' > checks.tsv
+          cat checks.tsv
+          test -s checks.tsv
+          if awk -F'\t' '$2 != "completed" || ($3 != "success" && $3 != "skipped")' checks.tsv | grep .; then
+            echo "commit $SHA does not have all checks green" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      - name: Verify manifest and build bundle
+        run: |
+          test "$(git rev-parse HEAD)" = "$SHA"
+          ( cd scripts && sha256sum -c payload.sha256 )
+          n=$(wc -l < scripts/payload.sha256 | tr -d ' ')
+          short=$(printf '%s' "$SHA" | cut -c1-7)
+          name="zfs-datadog-payload-$short"
+          out="$RUNNER_TEMP/out"
+          mkdir -p "$out" "$RUNNER_TEMP/stage/$name"
+          while read -r _ f; do
+            cp "scripts/$f" "$RUNNER_TEMP/stage/$name/$f"
+          done < scripts/payload.sha256
+          cp scripts/payload.sha256 "$RUNNER_TEMP/stage/$name/payload.sha256"
+          ts=$(git log -1 --format=%ct "$SHA")
+          ( cd "$RUNNER_TEMP/stage" && tar --sort=name --owner=0 --group=0 \
+              --numeric-owner --mtime="@$ts" -cf - "$name" | gzip -n -9 ) \
+              > "$out/$name.tar.gz"
+          cp scripts/payload.sha256 "$out/payload.sha256"
+          ( cd "$out" && sha256sum "$name.tar.gz" payload.sha256 > SHA256SUMS )
+          printf '{"repo":"%s","commit":"%s","ref_workflow":"%s","build_host":"github-hosted ubuntu-latest runner %s","toolchain":"%s; %s","manifest_files":%s,"built_at_utc":"%s","run_url":"%s/%s/actions/runs/%s"}\n' \
+            "$REPO" "$SHA" "$GITHUB_WORKFLOW" "$RUNNER_NAME" \
+            "$(tar --version | head -n 1)" "$(gzip --version | head -n 1)" \
+            "$n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "$GITHUB_SERVER_URL" "$REPO" "$GITHUB_RUN_ID" > "$out/PROVENANCE.json"
+          cat "$out/PROVENANCE.json" "$out/SHA256SUMS"
+          printf '%s\n' "$n" > "$RUNNER_TEMP/n"
+
+      - name: Create prerelease with assets
+        run: |
+          out="$RUNNER_TEMP/out"
+          n=$(cat "$RUNNER_TEMP/n")
+          {
+            printf 'Shipped ZED payload bundle (%s manifest files) from commit %s.\n\n' "$n" "$SHA"
+            printf 'Provenance: PROVENANCE.json asset. Integrity: SHA256SUMS asset.\n'
+            printf 'Not a tested-on-ZFS claim: CI proves syntax, POSIX policy, payload goldens and a loopback DogStatsD smoke only.\n'
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$TAG" --repo "$REPO" --target "$SHA" --prerelease \
+            --title "ZED payload $TAG ($n files)" --notes-file "$RUNNER_TEMP/notes.md" \
+            "$out"/zfs-datadog-payload-*.tar.gz "$out/payload.sha256" "$out/SHA256SUMS" "$out/PROVENANCE.json"
+
+      - name: Re-download and verify stored assets
+        run: |
+          mkdir -p "$RUNNER_TEMP/verify"
+          gh release download "$TAG" --repo "$REPO" --dir "$RUNNER_TEMP/verify"
+          ( cd "$RUNNER_TEMP/verify" && sha256sum -c SHA256SUMS )

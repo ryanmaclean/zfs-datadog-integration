@@ -295,13 +295,13 @@ ssh localhost
 3. **Remote Dev**: Connect from iPad/iPhone
 
 ### **Learn More**
-- `PROJECT-SUMMARY.md` - Complete overview
+- `docs/archive/agent-status-2025-10/PROJECT-SUMMARY.md` - Complete overview
 - `code-app-ml-extension/INSTALL.md` - Detailed ML extension guide
 - `PORTABLE-SOLUTION.md` - Remote development deep dive
-- `SESSION-COMPLETE.md` - What we built
+- `docs/archive/agent-status-2025-10/SESSION-COMPLETE.md` - What we built
 
 ### **Get Help**
-- Check `NEW-USER-TEST.md` for common friction points
+- Check `docs/archive/agent-status-2025-10/NEW-USER-TEST.md` for common friction points
 - See troubleshooting sections in docs
 - Open GitHub issue if stuck
 

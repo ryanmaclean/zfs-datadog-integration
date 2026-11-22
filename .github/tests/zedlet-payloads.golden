@@ -61,14 +61,14 @@ logger -t zfs-datadog [ERROR] Local Agent event handoff failed
 nc -u -w1 127.0.0.1 8125
   data: zfs.pool.health:1|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
-logger -t zfs-datadog [INFO] Pool health event processed: tank - DEGRADED
+logger -t zfs-datadog [ERROR] Pool health submission failed: tank - DEGRADED
 --- failed-nc exit 1 sends 2 expected 2
 === scrub_start-datadog.sh (sysevent.fs.zfs.scrub_start)
 nc -u -w1 127.0.0.1 8125
   data: zfs.scrub.start:1|c|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [DEBUG] Metric handed to local Agent socket
 nc -u -w1 127.0.0.1 8125
-  data: zfs.scrub.in_progress:1|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: zfs.scrub.in_progress:1|g|#service:zfs,pool:tank
 logger -t zfs-datadog [DEBUG] Metric handed to local Agent socket
 nc -u -w1 127.0.0.1 8125
   data: _e{23,50}:ZFS Scrub Started: tank|Pool: tank\nEvent ID: 42\nStarted at: 1700000000 0|p:normal|t:info|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
@@ -80,16 +80,16 @@ nc -u -w1 127.0.0.1 8125
   data: zfs.scrub.start:1|c|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 nc -u -w1 127.0.0.1 8125
-  data: zfs.scrub.in_progress:1|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: zfs.scrub.in_progress:1|g|#service:zfs,pool:tank
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 nc -u -w1 127.0.0.1 8125
   data: _e{23,50}:ZFS Scrub Started: tank|Pool: tank\nEvent ID: 42\nStarted at: 1700000000 0|p:normal|t:info|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent event handoff failed
-logger -t zfs-datadog [INFO] Scrub start event processed: pool=tank eid=42
+logger -t zfs-datadog [ERROR] Scrub start sender failure: pool=tank eid=42 (one or more sends failed)
 --- failed-nc exit 1 sends 3 expected 3
 === scrub_finish-datadog.sh (sysevent.fs.zfs.scrub_finish)
 nc -u -w1 127.0.0.1 8125
-  data: _e{25,75}:ZFS Scrub Completed: tank|Pool: tank\nStatus: completed with errors\nErrors Found: 4\nDuration: 2h 3m|p:normal|t:error|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: _e{25,89}:ZFS Scrub Completed: tank|Pool: tank\nEvent ID: 42\nStatus: completed with errors\nErrors Found: 4\nDuration: 2h 3m|p:normal|t:error|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [INFO] Event handed to local Agent socket
 nc -u -w1 127.0.0.1 8125
   data: zfs.scrub.errors:4|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
@@ -98,13 +98,13 @@ nc -u -w1 127.0.0.1 8125
   data: zfs.scrub.duration:7384|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [DEBUG] Metric handed to local Agent socket
 nc -u -w1 127.0.0.1 8125
-  data: zfs.scrub.in_progress:0|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: zfs.scrub.in_progress:0|g|#service:zfs,pool:tank
 logger -t zfs-datadog [DEBUG] Metric handed to local Agent socket
 logger -t zfs-datadog [INFO] Scrub completion event processed: tank - 4 errors
 --- exit 0
 === failed-nc scrub_finish-datadog.sh (sysevent.fs.zfs.scrub_finish)
 nc -u -w1 127.0.0.1 8125
-  data: _e{25,75}:ZFS Scrub Completed: tank|Pool: tank\nStatus: completed with errors\nErrors Found: 4\nDuration: 2h 3m|p:normal|t:error|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: _e{25,89}:ZFS Scrub Completed: tank|Pool: tank\nEvent ID: 42\nStatus: completed with errors\nErrors Found: 4\nDuration: 2h 3m|p:normal|t:error|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent event handoff failed
 nc -u -w1 127.0.0.1 8125
   data: zfs.scrub.errors:4|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
@@ -113,16 +113,17 @@ nc -u -w1 127.0.0.1 8125
   data: zfs.scrub.duration:7384|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 nc -u -w1 127.0.0.1 8125
-  data: zfs.scrub.in_progress:0|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: zfs.scrub.in_progress:0|g|#service:zfs,pool:tank
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 logger -t zfs-datadog [INFO] Scrub completion event processed: tank - 4 errors
+logger -t zfs-datadog [ERROR] Scrub completion sender failure: tank
 --- failed-nc exit 1 sends 4 expected 4
 === resilver_start-datadog.sh (sysevent.fs.zfs.resilver_start)
 nc -u -w1 127.0.0.1 8125
   data: zfs.resilver.start:1|c|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [DEBUG] Metric handed to local Agent socket
 nc -u -w1 127.0.0.1 8125
-  data: zfs.resilver.in_progress:1|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: zfs.resilver.in_progress:1|g|#service:zfs,pool:tank
 logger -t zfs-datadog [DEBUG] Metric handed to local Agent socket
 nc -u -w1 127.0.0.1 8125
   data: _e{26,50}:ZFS Resilver Started: tank|Pool: tank\nEvent ID: 42\nStarted at: 1700000000 0|p:normal|t:warning|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
@@ -134,16 +135,16 @@ nc -u -w1 127.0.0.1 8125
   data: zfs.resilver.start:1|c|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 nc -u -w1 127.0.0.1 8125
-  data: zfs.resilver.in_progress:1|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: zfs.resilver.in_progress:1|g|#service:zfs,pool:tank
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 nc -u -w1 127.0.0.1 8125
   data: _e{26,50}:ZFS Resilver Started: tank|Pool: tank\nEvent ID: 42\nStarted at: 1700000000 0|p:normal|t:warning|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent event handoff failed
-logger -t zfs-datadog [INFO] Resilver start event processed: pool=tank eid=42
+logger -t zfs-datadog [ERROR] Resilver start sender failure: pool=tank eid=42
 --- failed-nc exit 1 sends 3 expected 3
 === resilver_finish-datadog.sh (sysevent.fs.zfs.resilver_finish)
 nc -u -w1 127.0.0.1 8125
-  data: _e{28,77}:ZFS Resilver Completed: tank|Pool: tank\nStatus: completed successfully\nErrors Found: 0\nDuration: 0h 10m|p:normal|t:success|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: _e{28,91}:ZFS Resilver Completed: tank|Pool: tank\nEvent ID: 42\nStatus: completed successfully\nErrors Found: 0\nDuration: 0h 10m|p:normal|t:success|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [INFO] Event handed to local Agent socket
 nc -u -w1 127.0.0.1 8125
   data: zfs.resilver.errors:0|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
@@ -152,13 +153,13 @@ nc -u -w1 127.0.0.1 8125
   data: zfs.resilver.duration:600|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [DEBUG] Metric handed to local Agent socket
 nc -u -w1 127.0.0.1 8125
-  data: zfs.resilver.in_progress:0|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: zfs.resilver.in_progress:0|g|#service:zfs,pool:tank
 logger -t zfs-datadog [DEBUG] Metric handed to local Agent socket
 logger -t zfs-datadog [INFO] Resilver completion event processed: tank - 0 errors
 --- exit 0
 === failed-nc resilver_finish-datadog.sh (sysevent.fs.zfs.resilver_finish)
 nc -u -w1 127.0.0.1 8125
-  data: _e{28,77}:ZFS Resilver Completed: tank|Pool: tank\nStatus: completed successfully\nErrors Found: 0\nDuration: 0h 10m|p:normal|t:success|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: _e{28,91}:ZFS Resilver Completed: tank|Pool: tank\nEvent ID: 42\nStatus: completed successfully\nErrors Found: 0\nDuration: 0h 10m|p:normal|t:success|s:zfs|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent event handoff failed
 nc -u -w1 127.0.0.1 8125
   data: zfs.resilver.errors:0|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
@@ -167,9 +168,10 @@ nc -u -w1 127.0.0.1 8125
   data: zfs.resilver.duration:600|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 nc -u -w1 127.0.0.1 8125
-  data: zfs.resilver.in_progress:0|g|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
+  data: zfs.resilver.in_progress:0|g|#service:zfs,pool:tank
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 logger -t zfs-datadog [INFO] Resilver completion event processed: tank - 0 errors
+logger -t zfs-datadog [ERROR] Resilver completion sender failure: tank
 --- failed-nc exit 1 sends 4 expected 4
 === config_sync-datadog.sh (sysevent.fs.zfs.config_sync)
 nc -u -w1 127.0.0.1 8125
@@ -238,6 +240,7 @@ nc -u -w1 127.0.0.1 8125
   data: zfs.checksum.errors:3|c|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 logger -t zfs-datadog [ERROR] Checksum error detected: tank - da1 - 3 errors
+logger -t zfs-datadog [ERROR] Checksum error reporting failed: tank - da1
 --- failed-nc exit 1 sends 2 expected 2
 === ereport.fs.zfs.io-datadog.sh (ereport.fs.zfs.io)
 nc -u -w1 127.0.0.1 8125
@@ -268,4 +271,5 @@ nc -u -w1 127.0.0.1 8125
   data: zfs.io.write_errors:2|c|#service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED
 logger -t zfs-datadog [ERROR] Local Agent metric handoff failed
 logger -t zfs-datadog [ERROR] I/O error detected: tank - da1 - R:1 W:2
+logger -t zfs-datadog [ERROR] I/O error reporting failed: tank - da1 - one or more senders failed
 --- failed-nc exit 1 sends 4 expected 4

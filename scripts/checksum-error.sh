@@ -20,11 +20,9 @@ POOL="${ZEVENT_POOL:-unknown}"
 VDEV_PATH="${ZEVENT_VDEV_PATH:-unknown}"
 VDEV_STATE="${ZEVENT_VDEV_STATE:-}"
 CHECKSUM_ERRORS="${ZEVENT_VDEV_CKSUM_ERRORS:-1}"
-valid_nonnegative_integer "$CHECKSUM_ERRORS" || exit 1
 
 # Build tags
 TAGS=$(build_tags) || exit 1
-SEND_STATUS=0
 
 # Prepare event details
 VDEV_NAME=$(basename "$VDEV_PATH")
@@ -35,12 +33,18 @@ if [ -n "$VDEV_STATE" ]; then
     TEXT="${TEXT}\nVdev State: $VDEV_STATE"
 fi
 
-# Send event to Datadog
-send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS" || SEND_STATUS=1
+# Attempt both senders and retain any reporting failure.
+REPORT_STATUS=0
+send_datadog_event "$TITLE" "$TEXT" "error" "$TAGS" || REPORT_STATUS=1
 
 # Send metric
-send_metric "zfs.checksum.errors" "$CHECKSUM_ERRORS" "counter" "$TAGS" || SEND_STATUS=1
+send_metric "zfs.checksum.errors" "$CHECKSUM_ERRORS" "counter" "$TAGS" || REPORT_STATUS=1
 
 log_message "ERROR" "Checksum error detected: $POOL - $VDEV_NAME - $CHECKSUM_ERRORS errors"
 
-exit "$SEND_STATUS"
+if [ "$REPORT_STATUS" -ne 0 ]; then
+    log_message "ERROR" "Checksum error reporting failed: $POOL - $VDEV_NAME"
+fi
+
+# UDP submission success does not confirm backend delivery.
+exit "$REPORT_STATUS"

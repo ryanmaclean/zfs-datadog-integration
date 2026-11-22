@@ -199,6 +199,43 @@ get_alert_type() {
     esac
 }
 
+# Return a decimal uint64 ZED event ID, or an explicit unknown marker.
+# Validation is syntactic only: it does not authenticate the event producer.
+# Compare digits individually to avoid shell signed-integer overflow.
+get_event_id() {
+    _ei_value="${ZEVENT_EID:-}"
+    case "$_ei_value" in
+        ''|*[!0-9]*) printf '%s\n' unknown; return ;;
+    esac
+    if [ "${#_ei_value}" -gt 20 ]; then
+        printf '%s\n' unknown
+        return
+    fi
+    if [ "${#_ei_value}" -eq 20 ]; then
+        _ei_rest="$_ei_value"
+        _ei_max=18446744073709551615
+        while [ -n "$_ei_rest" ]; do
+            _ei_digit="${_ei_rest%"${_ei_rest#?}"}"
+            _ei_limit="${_ei_max%"${_ei_max#?}"}"
+            if [ "$_ei_digit" -gt "$_ei_limit" ]; then
+                printf '%s\n' unknown
+                return
+            fi
+            [ "$_ei_digit" -lt "$_ei_limit" ] && break
+            _ei_rest="${_ei_rest#?}"
+            _ei_max="${_ei_max#?}"
+        done
+    fi
+    printf '%s\n' "$_ei_value"
+}
+
+# Stable scan progress identity. Preserve every configured static tag verbatim.
+# Existing series cannot be retracted; this flag does not track concurrent scans
+# or freshness, and missing pool identity still collapses to pool:unknown.
+build_pool_tags() {
+    printf '%s\n' "$DD_TAGS,pool:${ZEVENT_POOL:-unknown}"
+}
+
 # Build tags from ZFS event environment variables
 build_tags() (
     _bt_base_tags="$DD_TAGS"
@@ -230,3 +267,55 @@ build_tags() (
 )
 
 # Functions are sourced, no need to export in POSIX sh
+
+# Normalize an unsigned decimal up to a caller-supplied decimal bound.
+# Limit raw representation length before stripping leading zeros. Call via
+# command substitution because POSIX shell has no portable local variables.
+normalize_scan_number() {
+    _sn_value="$1"
+    _sn_max="$2"
+    case "$_sn_value" in
+        ''|*[!0123456789]*) printf '%s\n' unknown; return ;;
+    esac
+    if [ "${#_sn_value}" -gt 20 ]; then
+        printf '%s\n' unknown
+        return
+    fi
+    while [ "${#_sn_value}" -gt 1 ] && [ "${_sn_value#0}" != "$_sn_value" ]; do
+        _sn_value="${_sn_value#0}"
+    done
+    if [ "${#_sn_value}" -gt "${#_sn_max}" ]; then
+        printf '%s\n' unknown
+        return
+    fi
+    if [ "${#_sn_value}" -eq "${#_sn_max}" ]; then
+        _sn_rest="$_sn_value"
+        while [ -n "$_sn_rest" ]; do
+            _sn_digit="${_sn_rest%"${_sn_rest#?}"}"
+            _sn_limit="${_sn_max%"${_sn_max#?}"}"
+            if [ "$_sn_digit" -gt "$_sn_limit" ]; then
+                printf '%s\n' unknown
+                return
+            fi
+            [ "$_sn_digit" -lt "$_sn_limit" ] && break
+            _sn_rest="${_sn_rest#?}"
+            _sn_max="${_sn_max#?}"
+        done
+    fi
+    printf '%s\n' "$_sn_value"
+}
+
+# Supported hosts use 64-bit shell arithmetic. Bound both endpoints before
+# comparing/subtracting; zero timestamps denote unavailable event information.
+get_scan_duration() {
+    _sd_start=$(normalize_scan_number "$1" 9223372036854775807)
+    _sd_end=$(normalize_scan_number "$2" 9223372036854775807)
+    if [ "$_sd_start" = unknown ] || [ "$_sd_end" = unknown ] ||
+       [ "$_sd_start" = 0 ] || [ "$_sd_end" = 0 ]; then
+        printf '%s\n' unknown
+    elif [ "$_sd_end" -lt "$_sd_start" ]; then
+        printf '%s\n' unknown
+    else
+        printf '%s\n' "$((_sd_end - _sd_start))"
+    fi
+}

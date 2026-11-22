@@ -17,30 +17,27 @@ fi
 
 # Extract event information
 POOL="${ZEVENT_POOL:-unknown}"
-ERRORS="${ZEVENT_POOL_RESILVER_ERRORS:-0}"
-START_TIME="${ZEVENT_POOL_RESILVER_START:-0}"
-END_TIME="${ZEVENT_POOL_RESILVER_END:-0}"
-for NUMBER in "$ERRORS" "$START_TIME" "$END_TIME"; do
-    valid_nonnegative_integer "$NUMBER" || exit 1
-done
+EID=$(get_event_id)
+ERRORS=$(normalize_scan_number "${ZEVENT_POOL_RESILVER_ERRORS:-}" 18446744073709551615)
+DURATION=$(get_scan_duration "${ZEVENT_POOL_RESILVER_START:-}" "${ZEVENT_POOL_RESILVER_END:-}")
 
-# Calculate duration
-if [ "$START_TIME" -gt 0 ] && [ "$END_TIME" -gt 0 ]; then
-    DURATION=$((END_TIME - START_TIME))
+if [ "$DURATION" != unknown ]; then
     DURATION_HOURS=$((DURATION / 3600))
     DURATION_MINS=$(((DURATION % 3600) / 60))
+    DURATION_TEXT="${DURATION_HOURS}h ${DURATION_MINS}m"
 else
-    DURATION=0
-    DURATION_HOURS=0
-    DURATION_MINS=0
+    DURATION_TEXT="unknown"
 fi
 
 # Build tags
 TAGS=$(build_tags) || exit 1
-SEND_STATUS=0
+PROGRESS_TAGS=$(build_pool_tags) || exit 1
 
 # Determine alert type based on errors
-if [ "$ERRORS" -eq 0 ]; then
+if [ "$ERRORS" = unknown ]; then
+    ALERT_TYPE="info"
+    STATUS="completed (result unknown)"
+elif [ "$ERRORS" = 0 ]; then
     ALERT_TYPE="success"
     STATUS="completed successfully"
 else
@@ -50,19 +47,28 @@ fi
 
 # Prepare event details
 TITLE="ZFS Resilver Completed: $POOL"
-TEXT="Pool: $POOL\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_HOURS}h ${DURATION_MINS}m"
+TEXT="Pool: $POOL\nEvent ID: $EID\nStatus: $STATUS\nErrors Found: $ERRORS\nDuration: ${DURATION_TEXT}"
+
+# Attempt every sender, retaining any failure for the final exit status.
+SEND_STATUS=0
 
 # Send event to Datadog
 send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS" || SEND_STATUS=1
 
 # Send metrics
-send_metric "zfs.resilver.errors" "$ERRORS" "gauge" "$TAGS" || SEND_STATUS=1
-if [ "$DURATION" -gt 0 ]; then
+if [ "$ERRORS" != unknown ]; then
+    send_metric "zfs.resilver.errors" "$ERRORS" "gauge" "$TAGS" || SEND_STATUS=1
+fi
+if [ "$DURATION" != unknown ] && [ "$DURATION" -gt 0 ]; then
     send_metric "zfs.resilver.duration" "$DURATION" "gauge" "$TAGS" || SEND_STATUS=1
 fi
 # Clear in-progress flag set by resilver_start-datadog.sh
-send_metric "zfs.resilver.in_progress" "0" "gauge" "$TAGS" || SEND_STATUS=1
+send_metric "zfs.resilver.in_progress" "0" "gauge" "$PROGRESS_TAGS" || SEND_STATUS=1
 
 log_message "INFO" "Resilver completion event processed: $POOL - $ERRORS errors"
+
+if [ "$SEND_STATUS" -ne 0 ]; then
+    log_message "ERROR" "Resilver completion sender failure: $POOL"
+fi
 
 exit "$SEND_STATUS"

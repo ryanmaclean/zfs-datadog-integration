@@ -27,4 +27,4 @@ PRIORITY="normal"
 TAGS=$(build_tags) || exit 1
 send_datadog_event "$TITLE" "$TEXT" "$ALERT_TYPE" "$TAGS" "$PRIORITY" "$EVENT_TYPE" || exit 1
 
-exit 0
+exit $?
