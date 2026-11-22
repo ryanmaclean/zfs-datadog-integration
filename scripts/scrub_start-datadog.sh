@@ -17,7 +17,8 @@ fi
 
 # Extract event information
 POOL="${ZEVENT_POOL:-unknown}"
-TIMESTAMP="${ZEVENT_TIME:-0}"
+# ZED exports ZEVENT_TIME as "seconds nanoseconds" and adds ZEVENT_TIME_STRING.
+TIMESTAMP="${ZEVENT_TIME_STRING:-${ZEVENT_TIME_SECS:-unknown}}"
 EID="${ZEVENT_EID:-0}"
 
 # Build tags

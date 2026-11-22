@@ -18,8 +18,15 @@ fi
 # Extract event information
 POOL="${ZEVENT_POOL:-unknown}"
 EID=$(get_event_id)
-ERRORS=$(normalize_scan_number "${ZEVENT_POOL_SCRUB_ERRORS:-}" 18446744073709551615)
-DURATION=$(get_scan_duration "${ZEVENT_POOL_SCRUB_START:-}" "${ZEVENT_POOL_SCRUB_END:-}")
+# Real zevents carry no scan result: read the pool's scan line first, then any
+# ZEVENT_POOL_SCRUB_* values a ZED build exports, else report unknown.
+if RESULT=$(zpool_scan_result "$POOL" scrub); then
+    ERRORS=${RESULT% *}
+    DURATION=${RESULT#* }
+else
+    ERRORS=$(normalize_scan_number "${ZEVENT_POOL_SCRUB_ERRORS:-}" 18446744073709551615)
+    DURATION=$(get_scan_duration "${ZEVENT_POOL_SCRUB_START:-}" "${ZEVENT_POOL_SCRUB_END:-}")
+fi
 
 if [ "$DURATION" != unknown ]; then
     DURATION_HOURS=$((DURATION / 3600))
@@ -41,8 +48,11 @@ elif [ "$ERRORS" = 0 ]; then
     ALERT_TYPE="success"
     STATUS="completed successfully"
 else
-    ALERT_TYPE="error"
-    STATUS="completed with errors"
+    # Never report a guessed 0 errors as success.
+    ERRORS=unknown
+    DURATION=0
+    ALERT_TYPE="warning"
+    TEXT="Pool: $POOL\nStatus: finished, result unavailable from zpool status\nErrors Found: unknown"
 fi
 
 # Prepare event details
