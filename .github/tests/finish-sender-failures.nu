@@ -12,8 +12,8 @@ def main [] {
     try {
         let bin = ($root | path join bin)
         mkdir $bin
-        for cmd in [cat cut dirname basename wc] {
-            let source = (which $cmd | first | get path)
+        for cmd in [cat cut dirname basename wc mktemp rm sed awk] {
+            let source = (which --all $cmd | where {|r| $r.type == "external" } | first | get path)
             ^ln -s $source ($bin | path join $cmd)
         }
         # Each executable is a Nu stub; argv[0] is encoded explicitly. Events and
@@ -24,7 +24,7 @@ def main [] {
     let input = (if $cmd == "nc" { open --raw /dev/stdin } else { "" })
     {cmd: $cmd, args: $args, input: $input} | to json --raw | $in + "\n" | save --append $env.TRACE
     if $cmd == "nc" {
-        if $args != ["-u" "-w1" "127.0.0.1" "8125"] { exit 92 }
+        if $args != ["-u" "-w0" "127.0.0.1" "8125"] { exit 92 }
         let name = (if ($input | str starts-with "_e{") { "event" } else { $input | split row ":" | first | split row "." | last })
         if ($name in ($env.FAIL | split row ",")) { exit 1 }
     } else if $cmd == "date" { print "synthetic-time" }
@@ -50,7 +50,7 @@ def main [] {
                             let trace = ($root | path join trace)
                             '' | save --force $trace
                             let end = (if $duration { '3760' } else { '0' })
-                            let result = (^env -i $'PATH=($bin)' $'TRACE=($trace)' $'FAIL=($failures | str join ",")' HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=8125 $'MONITOR_SCRUB=($enabled)' $'MONITOR_RESILVER=($enabled)' ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk ZEVENT_VDEV_STATE=ONLINE $'ZEVENT_POOL_($kind | str upcase)_ERRORS=2' $'ZEVENT_POOL_($kind | str upcase)_START=100' $'ZEVENT_POOL_($kind | str upcase)_END=($end)' $shell_path ($root | path join $'($kind)_finish-datadog.sh') | complete)
+                            let result = (^env -i $'PATH=($bin)' $'TMPDIR=($bin)' $'TRACE=($trace)' $'FAIL=($failures | str join ",")' HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=8125 $'MONITOR_SCRUB=($enabled)' $'MONITOR_RESILVER=($enabled)' ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk ZEVENT_VDEV_STATE=ONLINE $'ZEVENT_POOL_($kind | str upcase)_ERRORS=2' $'ZEVENT_POOL_($kind | str upcase)_START=100' $'ZEVENT_POOL_($kind | str upcase)_END=($end)' $shell_path ($root | path join $'($kind)_finish-datadog.sh') | complete)
                             let context = $'($shell)/($kind)/duration=($duration)/mask=($mask)/enabled=($enabled)'
                             check ($result.exit_code == (if $enabled and ($failures | is-not-empty) { 1 } else { 0 })) $'exit: ($context): ($result.stderr)'
                             let records = (open --raw $trace | lines | each { from json })

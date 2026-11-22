@@ -9,7 +9,7 @@ use datagram.nu *
 def check-case [work: path, shell: string, event: int, metric: int, enabled: bool, vdev: bool] {
     let log = ($work | path join calls.jsonl)
     '' | save -f $log
-    let result = (^env -i $'PATH=($work)/bin' $'HOME=($work)' $'CALL_LOG=($log)'
+    let result = (^env -i $'PATH=($work)/bin' $'TMPDIR=($work)/bin' $'HOME=($work)' $'CALL_LOG=($log)'
         $'EVENT_RC=($event)' $'METRIC_RC=($metric)' HOSTNAME=synthetic-host
         $'MONITOR_POOL_HEALTH=($enabled)' ZEVENT_POOL=synthetic-pool ZEVENT_VDEV_STATE=DEGRADED
         $'ZEVENT_VDEV_PATH=(if $vdev { "/synthetic/disk-one" } else { "" })'
@@ -28,7 +28,7 @@ def check-case [work: path, shell: string, event: int, metric: int, enabled: boo
     let title = $'ZFS Pool Health Change: synthetic-pool(if $vdev { " (vdev: disk-one)" } else { "" })'
     let text = (if $vdev { 'Pool: synthetic-pool\nVdev: disk-one\nNew State: DEGRADED\nPath: /synthetic/disk-one' } else { 'Pool: synthetic-pool\nNew State: DEGRADED' })
     for call in $sends {
-        assert equal $call.args ['-u' '-w1' '127.0.0.1' '18125']
+        assert equal $call.args ['-u' '-w0' '127.0.0.1' '18125']
     }
     assert (datagram is-event $sends.0.stdin)
     assert equal (datagram event $sends.0.stdin) {title: $title, text: $text, priority: normal, alert_type: warning, source: zfs, tags: $tags}
@@ -54,7 +54,7 @@ DOGSTATSD_HOST="127.0.0.1"
 DOGSTATSD_PORT="18125"
 ' | save ($work | path join config.sh)
         # Only known, harmless utilities are available to the shell and its library.
-        for name in [dirname basename cat cut tr date wc] {
+        for name in [dirname basename cat cut tr date wc mktemp rm] {
             ^ln -s ((which --all $name | where type == external | first).path) ($work | path join bin $name)
         }
         let shebang = $'#!($nu.current-exe) --no-config-file(char newline)'

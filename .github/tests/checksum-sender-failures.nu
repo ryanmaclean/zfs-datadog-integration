@@ -17,7 +17,7 @@ def main [] {
     try {
         let bin = ($tmp | path join bin)
         mkdir $bin
-        for name in [dirname basename cat cut wc] {
+        for name in [dirname basename cat cut wc mktemp rm] {
             ^/bin/ln -s $'/usr/bin/($name)' ($bin | path join $name)
         }
         cp ($repo | path join scripts/checksum-error.sh) $tmp
@@ -46,7 +46,7 @@ def --wrapped main [...args: string] {
                         for enabled in [true false] {
                             let trace = ($tmp | path join trace)
                             '' | save --force $trace
-                            let result = (^/usr/bin/env -i $'PATH=($bin)' 'HOSTNAME=testhost' 'DD_TAGS=env:test' 'DOGSTATSD_HOST=127.0.0.1' 'DOGSTATSD_PORT=18125' 'ZEVENT_POOL=tank' 'ZEVENT_VDEV_PATH=/synthetic/disk0' 'ZEVENT_VDEV_CKSUM_ERRORS=17' ...(if $state == '' { [] } else { [$'ZEVENT_VDEV_STATE=($state)'] }) $'MONITOR_CHECKSUM_ERRORS=($enabled)' $'EVENT_RC=($event)' $'METRIC_RC=($metric)' $'TRACE=($trace)' $shell ($tmp | path join checksum-error.sh) | complete)
+                            let result = (^/usr/bin/env -i $'PATH=($bin)' $'TMPDIR=($bin)' 'HOSTNAME=testhost' 'DD_TAGS=env:test' 'DOGSTATSD_HOST=127.0.0.1' 'DOGSTATSD_PORT=18125' 'ZEVENT_POOL=tank' 'ZEVENT_VDEV_PATH=/synthetic/disk0' 'ZEVENT_VDEV_CKSUM_ERRORS=17' ...(if $state == '' { [] } else { [$'ZEVENT_VDEV_STATE=($state)'] }) $'MONITOR_CHECKSUM_ERRORS=($enabled)' $'EVENT_RC=($event)' $'METRIC_RC=($metric)' $'TRACE=($trace)' $shell ($tmp | path join checksum-error.sh) | complete)
                             assert equal $result.stdout '' "zedlet stdout"
                             assert (not ($result.stderr | str contains 'Error: nu::')) "stub execution must succeed"
                             let calls = (open --raw $trace | lines | each { from json })
@@ -69,7 +69,7 @@ def --wrapped main [...args: string] {
                                 let tags = ([env:test pool:tank vdev:disk0] | append (if $state == '' { [] } else { [$'vdev_state:($state)'] }))
                                 let text = ('Pool: tank\nVdev: disk0\nChecksum Errors: 17\nPath: /synthetic/disk0') + (if $state == '' { '' } else { $'\nVdev State: ($state)' })
                                 for call in $transports {
-                                    assert equal $call.args [-u -w1 127.0.0.1 '18125'] $context
+                                    assert equal $call.args [-u -w0 127.0.0.1 '18125'] $context
                                 }
                                 assert equal (datagram event ($transports | first | get input)) {title: 'ZFS Checksum Error: tank', text: $text, priority: normal, alert_type: error, source: zfs, tags: $tags} $context
                                 assert equal ($transports | last | get input) $'zfs.checksum.errors:17|c|#($tags | str join ",")' $context

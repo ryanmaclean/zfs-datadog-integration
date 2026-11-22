@@ -15,7 +15,7 @@ def main [] {
         mkdir $bin
         cp ($repo | path join scripts/io-error.sh) $root
         cp ($repo | path join scripts/zfs-datadog-lib.sh) $root
-        for name in [dirname basename cat cut date wc] {
+        for name in [dirname basename cat cut date wc mktemp rm] {
             let source = ([/usr/bin /bin] | each { path join $name } | where { path exists } | first)
             ln -s $source ($bin | path join $name)
         }
@@ -49,7 +49,7 @@ def --wrapped main [...args: string] {
                         for enabled in [true false] {
                             let trace = ($root | path join trace)
                             '' | save -f $trace
-                            let result = (^$envcmd -i $'PATH=($bin)' $'HOME=($root)' LC_ALL=C HOSTNAME=fixture DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 DD_TAGS=env:test ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk ZEVENT_VDEV_STATE=FAULTED ...(if $read > 0 { [$'ZEVENT_VDEV_READ_ERRORS=($read)'] } else { [] }) ...(if $write > 0 { [$'ZEVENT_VDEV_WRITE_ERRORS=($write)'] } else { [] }) $'MONITOR_IO_ERRORS=($enabled)' $'TRACE=($trace)' $'FAIL_SENDERS=($fail_senders | str join ,)' $shell ($root | path join io-error.sh) | complete)
+                            let result = (^$envcmd -i $'PATH=($bin)' $'TMPDIR=($bin)' $'HOME=($root)' LC_ALL=C HOSTNAME=fixture DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 DD_TAGS=env:test ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk ZEVENT_VDEV_STATE=FAULTED ...(if $read > 0 { [$'ZEVENT_VDEV_READ_ERRORS=($read)'] } else { [] }) ...(if $write > 0 { [$'ZEVENT_VDEV_WRITE_ERRORS=($write)'] } else { [] }) $'MONITOR_IO_ERRORS=($enabled)' $'TRACE=($trace)' $'FAIL_SENDERS=($fail_senders | str join ,)' $shell ($root | path join io-error.sh) | complete)
                             let calls = (open --raw $trace | lines | each { from json })
                             let context = $'($shell) read=($read) write=($write) mask=($mask) enabled=($enabled)'
                             if not $enabled {
@@ -70,7 +70,7 @@ def --wrapped main [...args: string] {
                                 let transport = ($calls | where name == nc)
                                 assert equal ($transport | length) (1 + $n) $context
                                 for call in $transport {
-                                    assert equal $call.args [-u -w1 127.0.0.1 '18125'] $context
+                                    assert equal $call.args [-u -w0 127.0.0.1 '18125'] $context
                                 }
                                 assert equal (datagram event ($transport | first | get input)) $want_event $context
                                 assert equal ($transport | skip 1 | get input) ($metrics | each {|m| $'($m.name):($m.value)|c|#($tags)' }) $context

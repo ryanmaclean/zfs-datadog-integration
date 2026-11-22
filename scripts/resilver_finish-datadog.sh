@@ -48,11 +48,8 @@ elif [ "$ERRORS" = 0 ]; then
     ALERT_TYPE="success"
     STATUS="completed successfully"
 else
-    # Never report a guessed 0 errors as success.
-    ERRORS=unknown
-    DURATION=0
-    ALERT_TYPE="warning"
-    TEXT="Pool: $POOL\nStatus: finished, result unavailable from zpool status\nErrors Found: unknown"
+    ALERT_TYPE="error"
+    STATUS="completed with errors"
 fi
 
 # Prepare event details

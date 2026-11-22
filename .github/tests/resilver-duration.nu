@@ -16,12 +16,12 @@ def main [] {
         for name in [resilver_finish-datadog.sh zfs-datadog-lib.sh] {
             cp ($root | path join scripts $name) $zed
         }
-        for name in [dirname cat cut wc] {
+        for name in [dirname cat cut wc mktemp rm] {
             ^ln -s ($"/usr/bin/($name)") ($bin | path join $name)
         }
         let stubs = {
             nc: 'def --wrapped main [...args: string] {
-    if $args != ["-u" "-w1" "127.0.0.1" "18125"] { error make {msg: "unexpected nc argv"} }
+    if $args != ["-u" "-w0" "127.0.0.1" "18125"] { error make {msg: "unexpected nc argv"} }
     open --raw /dev/stdin | save --append $env.METRIC_LOG
     "\n" | save --append $env.METRIC_LOG
 }'
@@ -53,7 +53,7 @@ def main [] {
                 let metrics = ($work | path join metrics)
                 "" | save --force $metrics
                 mut vars = [
-                    $"PATH=($bin)" $"HOME=($work)"
+                    $"PATH=($bin)" $"TMPDIR=($bin)" $"HOME=($work)"
                     $"METRIC_LOG=($metrics)"
                     "DOGSTATSD_HOST=127.0.0.1" "DOGSTATSD_PORT=18125"
                     "HOSTNAME=test-host" "DD_TAGS=env:test"

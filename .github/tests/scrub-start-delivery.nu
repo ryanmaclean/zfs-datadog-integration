@@ -49,13 +49,13 @@ def --wrapped main [...args: string] {
                     '' | save --force $calls
                     '' | save --force $curls
                     '' | save --force $sleeps
-                    let result = (^env -i $"PATH=($temp)/bin:/usr/bin:/bin" MONITOR_SCRUB=true ZEVENT_POOL=fake-pool ZEVENT_TIME=123 ZEVENT_EID=456 DD_TAGS=env:test HOSTNAME=fake-host DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 $"CALLS=($calls)" $"CURLS=($curls)" $"SLEEPS=($sleeps)" $"FAIL_START=($start)" $"FAIL_PROGRESS=($progress)" $"FAIL_EVENT=($event)" /bin/sh ($temp | path join 'scrub_start-datadog.sh') | complete)
+                    let result = (^env -i $"PATH=($temp)/bin:/usr/bin:/bin" $"TMPDIR=($temp)/bin" MONITOR_SCRUB=true ZEVENT_POOL=fake-pool ZEVENT_TIME_SECS=123 ZEVENT_EID=456 DD_TAGS=env:test HOSTNAME=fake-host DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 $"CALLS=($calls)" $"CURLS=($curls)" $"SLEEPS=($sleeps)" $"FAIL_START=($start)" $"FAIL_PROGRESS=($progress)" $"FAIL_EVENT=($event)" /bin/sh ($temp | path join 'scrub_start-datadog.sh') | complete)
                     let sent = (open --raw $calls | lines | where {|l| $l != '' } | each { from json })
                     let start_payload = 'zfs.scrub.start:1|c|#env:test,pool:fake-pool'
                     let progress_payload = 'zfs.scrub.in_progress:1|g|#env:test,pool:fake-pool'
                     let expected_event = {title: 'ZFS Scrub Started: fake-pool', text: 'Pool: fake-pool\nEvent ID: 456\nStarted at: 123', priority: normal, alert_type: info, source: zfs, tags: [env:test pool:fake-pool]}
                     # One datagram per sender in order (start, progress, event): failures are never retried.
-                    let args_ok = ($sent | all {|s| $s.args == ['-u' '-w1' '127.0.0.1' '18125'] })
+                    let args_ok = ($sent | all {|s| $s.args == ['-u' '-w0' '127.0.0.1' '18125'] })
                     let shape_ok = (($sent | length) == 3) and ($sent | get 0.input) == $start_payload and ($sent | get 1.input) == $progress_payload and (datagram is-event ($sent | get 2.input))
                     let event_ok = $shape_ok and ((datagram event ($sent | get 2.input)) == $expected_event)
                     let no_curl_sleep = ((open --raw $curls) == '') and ((open --raw $sleeps) == '')

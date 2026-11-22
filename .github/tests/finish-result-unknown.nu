@@ -10,7 +10,7 @@ def main [] {
     try {
         let bin = ($work | path join bin)
         mkdir $bin
-        for tool in [dirname basename date cat cut wc] {
+        for tool in [dirname basename date cat cut wc mktemp rm sed awk] {
             ^ln -s (which --all $tool | where type == external | first | get path) ($bin | path join $tool)
         }
         for name in [zfs-datadog-lib.sh scrub_finish-datadog.sh resilver_finish-datadog.sh] {
@@ -20,7 +20,7 @@ def main [] {
 def main --wrapped [...args: string] {
     let tool = ($env.CURRENT_FILE | path basename)
     if $tool == "nc" {
-        if $args != ["-u" "-w1" "127.0.0.1" "18125"] { error make {msg: "unexpected nc argv"} }
+        if $args != ["-u" "-w0" "127.0.0.1" "18125"] { error make {msg: "unexpected nc argv"} }
         let packet = (open --raw /dev/stdin)
         $packet + "\n" | save --append $env.METRICS
         let is_event = ($packet | str starts-with "_e{")
@@ -357,7 +357,7 @@ def main --wrapped [...args: string] {
                         if $value != null { $value_env = ($value_env | append $'ZEVENT_POOL_($scan | str upcase)_($field | str upcase)=($value)') }
                     }
                     let failure = ($case.fail? | default 'none')
-                    let result = (^env -i $'PATH=($bin)' HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 MONITOR_SCRUB=true MONITOR_RESILVER=true ZEVENT_POOL=tank $'FAIL=($failure)' $'METRICS=($metrics)' ZEVENT_EID=42 ...$value_env $executable ($work | path join $'($scan)_finish-datadog.sh') | complete)
+                    let result = (^env -i $'PATH=($bin)' $'TMPDIR=($bin)' HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 MONITOR_SCRUB=true MONITOR_RESILVER=true ZEVENT_POOL=tank $'FAIL=($failure)' $'METRICS=($metrics)' ZEVENT_EID=42 ...$value_env $executable ($work | path join $'($scan)_finish-datadog.sh') | complete)
                     let context = $'($shell)/($scan)/($case | to nuon)'
                     assert equal $result.exit_code (if $failure == 'none' { 0 } else { 1 }) $'exit: ($context): ($result | to nuon)'
                     assert equal $result.stdout '' $'stdout: ($context): ($result | to nuon)'

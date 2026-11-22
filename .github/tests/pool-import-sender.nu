@@ -10,7 +10,7 @@ def run-tests [root: path] {
     let nu_bin = $nu.current-exe
     let bin = ($root | path join bin)
     mkdir $bin
-    for tool in [dirname basename date cat wc] {
+    for tool in [dirname basename date cat wc mktemp rm] {
         let source = (which --all $tool | where type == external | first | get path)
         ^ln -s $source ($bin | path join $tool)
     }
@@ -51,7 +51,7 @@ def main --wrapped [...args: string] {
             if $case.name != missing-config {
                 "DOGSTATSD_HOST=127.0.0.1\nDOGSTATSD_PORT=18125\nDD_TAGS=env:fixture,team:storage\nHOSTNAME=fixture-host\n" | save ($dir | path join config.sh)
             }
-            let result = (^env -i $"PATH=($bin)" $"FIXTURE=($dir)" $"NC_RC=($case.rc)" HOSTNAME=fixture-host ZEVENT_POOL=fixture-pool ZEVENT_VDEV_PATH=/synthetic/fixture-disk ZEVENT_VDEV_STATE=ONLINE $interpreter ($dir | path join pool_import-datadog.sh) | complete)
+            let result = (^env -i $"PATH=($bin)" $"TMPDIR=($bin)" $"FIXTURE=($dir)" $"NC_RC=($case.rc)" HOSTNAME=fixture-host ZEVENT_POOL=fixture-pool ZEVENT_VDEV_PATH=/synthetic/fixture-disk ZEVENT_VDEV_STATE=ONLINE $interpreter ($dir | path join pool_import-datadog.sh) | complete)
             if $case.code == null {
                 assert ($result.exit_code != 0) $"($shell): missing config must fail"
             } else {
@@ -61,7 +61,7 @@ def main --wrapped [...args: string] {
             let calls = if ($nc_file | path exists) { open --raw $nc_file | lines | each { from json } } else { [] }
             assert equal ($calls | length) $case.datagrams
             for call in $calls {
-                assert equal $call.args ["-u" "-w1" "127.0.0.1" "18125"]
+                assert equal $call.args ["-u" "-w0" "127.0.0.1" "18125"]
                 assert (datagram is-event $call.input)
                 assert equal (datagram event $call.input) $expected
             }

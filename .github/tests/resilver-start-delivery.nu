@@ -15,8 +15,8 @@ def check-case [root: path, shell: path, failures: list<bool>, first_fails: bool
         cp ($root | path join scripts/resilver_start-datadog.sh) $case
         cp ($root | path join scripts/zfs-datadog-lib.sh) $case
         # Only these inert utilities are available to the child shell.
-        for tool in [dirname cut cat basename wc] {
-            ^ln -s (which $tool | first | get path) ($bin | path join $tool)
+        for tool in [dirname cut cat basename wc mktemp rm] {
+            ^ln -s (which --all $tool | where {|r| $r.type == "external" } | first | get path) ($bin | path join $tool)
         }
         let stub = r#'
 use std/assert
@@ -38,7 +38,7 @@ use std/assert
             $content | save ($bin | path join $tool)
             ^chmod +x ($bin | path join $tool)
         }
-        let result = (^env -i $'PATH=($bin)' $'HOME=($case)' 'HOSTNAME=synthetic-host' 'DOGSTATSD_HOST=127.0.0.1' 'DOGSTATSD_PORT=18125' 'DD_TAGS=env:test,team:storage' 'ZEVENT_POOL=synthetic-pool' 'ZEVENT_TIME=1234567890' 'ZEVENT_EID=42' 'ZEVENT_VDEV_PATH=/synthetic/disk-test' 'ZEVENT_VDEV_STATE=ONLINE' $'MONITOR_RESILVER=($enabled)' $'FAILURES=($failures | to json --raw)' $'FIRST_FAILS=($first_fails)' $shell ($case | path join resilver_start-datadog.sh) | complete)
+        let result = (^env -i $'PATH=($bin)' $'TMPDIR=($bin)' $'HOME=($case)' 'HOSTNAME=synthetic-host' 'DOGSTATSD_HOST=127.0.0.1' 'DOGSTATSD_PORT=18125' 'DD_TAGS=env:test,team:storage' 'ZEVENT_POOL=synthetic-pool' 'ZEVENT_TIME_SECS=1234567890' 'ZEVENT_EID=42' 'ZEVENT_VDEV_PATH=/synthetic/disk-test' 'ZEVENT_VDEV_STATE=ONLINE' $'MONITOR_RESILVER=($enabled)' $'FAILURES=($failures | to json --raw)' $'FIRST_FAILS=($first_fails)' $shell ($case | path join resilver_start-datadog.sh) | complete)
         let calls = (if ($case | path join calls.jsonl | path exists) { open --raw ($case | path join calls.jsonl) | lines | each { from json } } else { [] })
         if $enabled != 'true' {
             assert equal $result.exit_code 0
@@ -60,7 +60,7 @@ use std/assert
             assert equal ($transports | each {|x| $x.tool }) ['nc' 'nc' 'nc']
             assert equal ($calls | where tool == sleep | length) 0
             for x in $transports {
-                assert equal $x.args ['-u' '-w1' '127.0.0.1' '18125']
+                assert equal $x.args ['-u' '-w0' '127.0.0.1' '18125']
             }
             assert equal ($transports | first 2 | get input) $payloads
             assert equal (datagram event ($transports | last | get input)) {

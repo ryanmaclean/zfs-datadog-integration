@@ -12,7 +12,7 @@ def main [] {
     try {
         let bin = ($root | path join bin)
         mkdir $bin
-        for tool in [dirname cat cut tr basename date wc] {
+        for tool in [dirname cat cut tr basename date wc mktemp rm] {
             ^ln -s (which --all $tool | where type == external | first | get path) ($bin | path join $tool)
         }
         for scan in [scrub resilver] {
@@ -25,7 +25,7 @@ def main [] {
         # file; events and metrics are told apart by the _e{ prefix.
         ($'#!($nu_exe) --stdin' + '
  def main --wrapped [...args: string] {
-   if $args != ["-u" "-w1" "127.0.0.1" "18125"] { error make {msg: $"unexpected nc args ($args)"} }
+   if $args != ["-u" "-w0" "127.0.0.1" "18125"] { error make {msg: $"unexpected nc args ($args)"} }
    let packet = ($in | str trim)
    let file = (if ($packet | str starts-with "_e{") { $env.EVENTS } else { $env.METRICS })
    $packet + "\n" | save --append $file
@@ -49,7 +49,7 @@ def main [] {
                             '' | save -f $events
                             let vdev = (if $phase == start { '/dev/start-disk' } else { $finish_vdev })
                             let state = (if $phase == start { 'DEGRADED' } else { 'ONLINE' })
-                            let result = (^env -i $'PATH=($bin)' $'HOSTNAME=synthetic-host' 'DOGSTATSD_HOST=127.0.0.1' 'DOGSTATSD_PORT=18125' 'MONITOR_SCRUB=true' 'MONITOR_RESILVER=true' $'DD_TAGS=($static)' $'ZEVENT_POOL=($pool)' $'ZEVENT_VDEV_PATH=($vdev)' $'ZEVENT_VDEV_STATE=($state)' 'ZEVENT_POOL_SCRUB_START=100' 'ZEVENT_POOL_SCRUB_END=160' 'ZEVENT_POOL_RESILVER_START=100' 'ZEVENT_POOL_RESILVER_END=160' $'METRICS=($metrics)' $'EVENTS=($events)' $'/usr/bin/($shell)' ($root | path join $'($scan)_($phase)-datadog.sh') | complete)
+                            let result = (^env -i $'PATH=($bin)' $'TMPDIR=($bin)' $'HOSTNAME=synthetic-host' 'DOGSTATSD_HOST=127.0.0.1' 'DOGSTATSD_PORT=18125' 'MONITOR_SCRUB=true' 'MONITOR_RESILVER=true' $'DD_TAGS=($static)' $'ZEVENT_POOL=($pool)' $'ZEVENT_VDEV_PATH=($vdev)' $'ZEVENT_VDEV_STATE=($state)' 'ZEVENT_POOL_SCRUB_START=100' 'ZEVENT_POOL_SCRUB_END=160' 'ZEVENT_POOL_RESILVER_START=100' 'ZEVENT_POOL_RESILVER_END=160' $'METRICS=($metrics)' $'EVENTS=($events)' $'/usr/bin/($shell)' ($root | path join $'($scan)_($phase)-datadog.sh') | complete)
                             check ($result.exit_code == 0) $'($shell) ($scan) ($phase) failed: ($result.stderr)'
                             let pooltag = (if $pool == '' { 'unknown' } else { $pool })
                             let stable = $'($static),pool:($pooltag)'

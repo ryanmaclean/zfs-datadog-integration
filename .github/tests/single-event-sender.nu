@@ -12,7 +12,7 @@ def check [ok: bool, message: string] {
 def run-tests [root: string, fixture: string, nu_exe: string] {
     let bin = ($fixture | path join bin)
     mkdir $bin
-    for tool in [dirname basename date cat wc] {
+    for tool in [dirname basename date cat wc mktemp rm] {
         let target = (which --all $tool | where type == external | first | get path)
         ^ln -s $target ($bin | path join $tool)
     }
@@ -51,7 +51,7 @@ def run-tests [root: string, fixture: string, nu_exe: string] {
                     "DOGSTATSD_HOST='127.0.0.1'\nDOGSTATSD_PORT='18125'\nDD_TAGS='env:synthetic,team:storage'\n" | save $config
                 }
                 let nc_rc = (if $scenario == failure { '7' } else { '0' })
-                let result = (^env -i $'PATH=($bin)' $'CAPTURE=($capture)' $'NC_RC=($nc_rc)' HOSTNAME=synthetic-host ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk0 ZEVENT_VDEV_STATE=ONLINE $interpreter ($fixture | path join $handler) | complete)
+                let result = (^env -i $'PATH=($bin)' $'TMPDIR=($bin)' $'CAPTURE=($capture)' $'NC_RC=($nc_rc)' HOSTNAME=synthetic-host ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk0 ZEVENT_VDEV_STATE=ONLINE $interpreter ($fixture | path join $handler) | complete)
                 let context = $'($shell)/($case.name)/($scenario)'
                 if $scenario == missing {
                     check ($result.exit_code == (if $shell == bash { 1 } else { 2 })) $'($context): missing config exit'
@@ -67,7 +67,7 @@ def run-tests [root: string, fixture: string, nu_exe: string] {
                         check (not ($capture | path join $tool | path exists)) $'($context): unexpected ($tool)'
                     }
                     let call = ($calls | first)
-                    check ($call.args == [-u -w1 127.0.0.1 '18125']) $'($context): nc arguments'
+                    check ($call.args == [-u -w0 127.0.0.1 '18125']) $'($context): nc arguments'
                     check (datagram is-event $call.input) $'($context): event datagram'
                     let event = (datagram event $call.input)
                     let expected = {
