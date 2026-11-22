@@ -18,12 +18,12 @@ fi
 # Extract event information
 POOL="${ZEVENT_POOL:-unknown}"
 VDEV_PATH="${ZEVENT_VDEV_PATH:-unknown}"
-VDEV_STATE="${ZEVENT_VDEV_STATE:-}"
+VDEV_STATE=$(zevent_vdev_state)
 READ_ERRORS="${ZEVENT_VDEV_READ_ERRORS:-0}"
 WRITE_ERRORS="${ZEVENT_VDEV_WRITE_ERRORS:-0}"
 
 # Build tags
-TAGS=$(build_tags)
+TAGS=$(build_tags) || exit 1
 
 # Prepare event details
 VDEV_NAME=$(basename "$VDEV_PATH")

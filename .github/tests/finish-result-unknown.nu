@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Actual completion handlers, synthetic transports, no real config or ZFS calls.
 use std/assert
+use datagram.nu *
 
 def main [] {
     let repo = ($env.FILE_PWD | path join ../.. | path expand)
@@ -9,7 +10,7 @@ def main [] {
     try {
         let bin = ($work | path join bin)
         mkdir $bin
-        for tool in [dirname basename date cat cut] {
+        for tool in [dirname basename date cat cut wc mktemp rm sed awk] {
             ^ln -s (which --all $tool | where type == external | first | get path) ($bin | path join $tool)
         }
         for name in [zfs-datadog-lib.sh scrub_finish-datadog.sh resilver_finish-datadog.sh] {
@@ -18,20 +19,19 @@ def main [] {
         let stub = ($'#!($nu.current-exe) --no-config-file' + "\n" + '
 def main --wrapped [...args: string] {
     let tool = ($env.CURRENT_FILE | path basename)
-    if $tool == "curl" {
-        let i = ($args | enumerate | where item == "-d" | get 0.index)
-        ($args | get ($i + 1) | from json | to json -r) | save -f $env.EVENT
-        print -n (if $env.FAIL == "event" { "503" } else { "202" })
-    } else if $tool == "nc" {
-        let metric = (open --raw /dev/stdin)
-        $metric + "\n" | save --append $env.METRICS
-        if $env.FAIL == "progress" { exit 1 }
+    if $tool == "nc" {
+        if $args != ["-u" "-w0" "127.0.0.1" "18125"] { error make {msg: "unexpected nc argv"} }
+        let packet = (open --raw /dev/stdin)
+        $packet + "\n" | save --append $env.METRICS
+        let is_event = ($packet | str starts-with "_e{")
+        if $env.FAIL == "event" and $is_event { exit 1 }
+        if $env.FAIL == "progress" and ($packet | str contains ".in_progress:") { exit 1 }
     } else if $tool == "sleep" {
-        if $env.FAIL == "none" { error make {msg: "unexpected retry"} }
+        error make {msg: "unexpected retry"}
     }
 }
 ')
-        for tool in [curl nc logger sleep] {
+        for tool in [nc logger sleep] {
             $stub | save ($bin | path join $tool)
             ^chmod +x ($bin | path join $tool)
         }
@@ -349,39 +349,40 @@ def main --wrapped [...args: string] {
             let executable = (which $shell | first | get path)
             for scan in [scrub resilver] {
                 for case in $cases {
-                    let event = ($work | path join event.json)
                     let metrics = ($work | path join metrics)
-                    if ($event | path exists) { rm $event }
                     '' | save -f $metrics
                     mut value_env = []
                     for field in [errors start end] {
                         let value = ($case | get $field)
-                        if $value != null { $value_env = ($value_env | append $'ZEVENT_POOL_($scan | str uppercase)_($field | str uppercase)=($value)') }
+                        if $value != null { $value_env = ($value_env | append $'ZEVENT_POOL_($scan | str upcase)_($field | str upcase)=($value)') }
                     }
                     let failure = ($case.fail? | default 'none')
-                    let result = (^env -i $'PATH=($bin)' DD_API_KEY=synthetic DD_API_URL=https://synthetic.invalid HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=synthetic.invalid DOGSTATSD_PORT=8125 MONITOR_SCRUB=true MONITOR_RESILVER=true ZEVENT_POOL=tank $'FAIL=($failure)' $'EVENT=($event)' $'METRICS=($metrics)' ZEVENT_EID=42 ...$value_env $executable ($work | path join $'($scan)_finish-datadog.sh') | complete)
+                    let result = (^env -i $'PATH=($bin)' $'TMPDIR=($bin)' HOSTNAME=fixture DD_TAGS=env:test DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 MONITOR_SCRUB=true MONITOR_RESILVER=true ZEVENT_POOL=tank $'FAIL=($failure)' $'METRICS=($metrics)' ZEVENT_EID=42 ...$value_env $executable ($work | path join $'($scan)_finish-datadog.sh') | complete)
                     let context = $'($shell)/($scan)/($case | to nuon)'
                     assert equal $result.exit_code (if $failure == 'none' { 0 } else { 1 }) $'exit: ($context): ($result | to nuon)'
                     assert equal $result.stdout '' $'stdout: ($context): ($result | to nuon)'
-                    let payload = (open --raw $event | from json)
+                    let lines = (open --raw $metrics | lines)
+                    let packets = ($lines | where {|l| datagram is-event $l })
+                    assert equal ($packets | length) 1 $'one event datagram: ($context)'
+                    let payload = (datagram event ($packets | first))
                     let status = (if $case.expected_errors == unknown { 'completed (result unknown)' } else if $case.expected_errors == '0' { 'completed successfully' } else { 'completed with errors' })
                     let alert = (if $case.expected_errors == unknown { 'info' } else if $case.expected_errors == '0' { 'success' } else { 'error' })
                     assert ($result.stderr | lines | all {|line| $line | str starts-with '[' }) $'unexpected shell diagnostic: ($context): ($result | to nuon)'
-                    assert equal $payload.text $"Pool: tank\nEvent ID: 42\nStatus: ($status)\nErrors Found: ($case.expected_errors)\nDuration: ($case.duration_text)" $'payload: ($context): ($payload | to nuon)'
+                    assert equal $payload.text $'Pool: tank\nEvent ID: 42\nStatus: ($status)\nErrors Found: ($case.expected_errors)\nDuration: ($case.duration_text)' $'payload: ($context): ($payload | to nuon)'
                     assert equal $payload.alert_type $alert $'alert: ($context): ($payload | to nuon)'
                     assert equal $payload.tags [env:test pool:tank] $'tags: ($context)'
                     mut expected_metrics = []
-                    if $case.expected_errors != unknown { $expected_metrics = ($expected_metrics | append $'zfs.($scan).errors:($case.expected_errors)|g|#env:test,pool:tank,host:fixture') }
-                    if $case.duration != unknown and $case.duration != '0' { $expected_metrics = ($expected_metrics | append $'zfs.($scan).duration:($case.duration)|g|#env:test,pool:tank,host:fixture') }
-                    $expected_metrics = ($expected_metrics | append $'zfs.($scan).in_progress:0|g|#env:test,pool:tank,host:fixture')
-                    if $failure == 'progress' { $expected_metrics = ($expected_metrics | append $'zfs.($scan).in_progress:0|g|#env:test,pool:tank,host:fixture') }
-                    let actual_metrics = (open --raw $metrics | lines)
+                    if $case.expected_errors != unknown { $expected_metrics = ($expected_metrics | append $'zfs.($scan).errors:($case.expected_errors)|g|#env:test,pool:tank') }
+                    if $case.duration != unknown and $case.duration != '0' { $expected_metrics = ($expected_metrics | append $'zfs.($scan).duration:($case.duration)|g|#env:test,pool:tank') }
+                    # The library never retries: a failed progress handoff is still one datagram.
+                    $expected_metrics = ($expected_metrics | append $'zfs.($scan).in_progress:0|g|#env:test,pool:tank')
+                    let actual_metrics = ($lines | where {|l| not (datagram is-event $l) })
                     assert equal $actual_metrics $expected_metrics $'metrics: ($context): ($actual_metrics | to nuon)'
                     $count += 1
                 }
             }
         }
         print $'PASS: ($count) actual-handler synthetic finish-result cases across sh/dash/bash'
-    } catch {|err| rm -rf $work; error make {msg: $err.msg} }
-    rm -rf $work
+    } catch {|err| rm -r $work; error make {msg: $err.msg} }
+    rm -r $work
 }

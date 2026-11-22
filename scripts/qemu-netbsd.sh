@@ -70,7 +70,7 @@ echo "2. Set password: passwd"
 echo "3. Install ZFS: pkgin install zfs"
 echo "4. Load kernel module: modload zfs"
 echo "5. SSH: ssh -p 2226 root@localhost"
-echo "6. Copy zedlets: scp -P 2226 *.sh root@localhost:/tmp/"
+echo "6. NetBSD native ZFS event delivery is not verified; do not copy Linux ZED zedlets."
 echo ""
 
 # Run QEMU

@@ -6,6 +6,7 @@ Captures and validates Events API and DogStatsD metrics
 
 import http.server
 import json
+import os
 import socket
 import threading
 import sys
@@ -75,11 +76,9 @@ class MockDatadogHTTPHandler(http.server.BaseHTTPRequestHandler):
         """Suppress default HTTP logging"""
         pass
 
-def dogstatsd_server(host='0.0.0.0', port=8125):
+def dogstatsd_server(sock):
     """UDP server for DogStatsD metrics"""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((host, port))
-    
+    host, port = sock.getsockname()
     print(f"📊 DogStatsD server listening on {host}:{port}")
     
     while True:
@@ -114,13 +113,17 @@ def main():
     print("=" * 70)
     print()
     
-    # Start DogStatsD UDP server in background thread
-    statsd_thread = threading.Thread(target=dogstatsd_server, daemon=True)
+    bind_host = os.environ.get('MOCK_BIND_HOST', '0.0.0.0')
+
+    # Bind UDP before advertising HTTP readiness to the smoke test.
+    statsd_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    statsd_sock.bind((bind_host, int(os.environ.get('MOCK_DOGSTATSD_PORT', '8125'))))
+    statsd_thread = threading.Thread(target=dogstatsd_server, args=(statsd_sock,), daemon=True)
     statsd_thread.start()
     
     # Start HTTP server for Events API
-    http_port = 8080
-    print(f"📡 Events API server listening on http://0.0.0.0:{http_port}")
+    http_port = int(os.environ.get('MOCK_HTTP_PORT', '8080'))
+    print(f"📡 Events API server listening on http://{bind_host}:{http_port}")
     print(f"   Use: DD_API_URL='http://localhost:{http_port}'")
     print()
     print(f"📊 Status endpoint: http://localhost:{http_port}/status")
@@ -129,7 +132,7 @@ def main():
     print("="*70)
     print()
     
-    server = http.server.HTTPServer(("0.0.0.0", http_port), MockDatadogHTTPHandler)
+    server = http.server.HTTPServer((bind_host, http_port), MockDatadogHTTPHandler)
     
     try:
         server.serve_forever()

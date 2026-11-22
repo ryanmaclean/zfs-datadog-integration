@@ -74,8 +74,8 @@ echo ""
 echo "After installation:"
 echo "1. Configure network in TrueNAS web UI (http://truenas-ip)"
 echo "2. Enable SSH in System Settings"
-echo "3. Copy zedlets: scp *.sh root@truenas-ip:/tmp/"
-echo "4. Install zedlets: ssh root@truenas-ip 'bash /tmp/install.sh'"
+echo "3. Use the sealed Linux payload path in scripts/test-truenas-scale.sh."
+echo "4. Verify one ZED dispatch and one Datadog intake before release."
 echo ""
 
 # Run QEMU

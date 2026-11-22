@@ -1,7 +1,10 @@
 #!/usr/bin/env nu
 # SPDX-License-Identifier: MIT
 # Standalone, offline regression. Only the copied zedlet/library and recording
-# Nushell stubs run; env -i prevents inherited configuration or credentials.
+# Nushell stubs run; env -i prevents inherited configuration. Events and
+# metrics are captured as the loopback DogStatsD datagrams the Agent receives.
+use datagram.nu *
+
 def main [] {
     let root = ($env.CURRENT_FILE | path dirname | path dirname | path dirname)
     let work = (mktemp -d -t resilver-duration.XXXXXXXX)
@@ -13,17 +16,15 @@ def main [] {
         for name in [resilver_finish-datadog.sh zfs-datadog-lib.sh] {
             cp ($root | path join scripts $name) $zed
         }
-        for name in [dirname cat cut] {
+        for name in [dirname cat cut wc mktemp rm] {
             ^ln -s ($"/usr/bin/($name)") ($bin | path join $name)
         }
         let stubs = {
-            curl: 'def --wrapped main [...args: string] {
-    let i = ($args | enumerate | where item == "-d" | first | get index)
-    ($args | get ($i + 1)) | save --force $env.EVENT_LOG
-    print -n "202"
+            nc: 'def --wrapped main [...args: string] {
+    if $args != ["-u" "-w0" "127.0.0.1" "18125"] { error make {msg: "unexpected nc argv"} }
+    open --raw /dev/stdin | save --append $env.METRIC_LOG
+    "\n" | save --append $env.METRIC_LOG
 }'
-            nc: 'def --wrapped main [...args: string] { open --raw /dev/stdin | save --append $env.METRIC_LOG; "
-" | save --append $env.METRIC_LOG }'
             logger: 'def --wrapped main [...args: string] {}'
             date: 'def --wrapped main [...args: string] { print "2000-01-01 00:00:00" }'
             sleep: 'def --wrapped main [...args: string] { error make {msg: "unexpected retry"} }'
@@ -49,14 +50,12 @@ def main [] {
         mut failures = []
         for shell in [sh dash bash] {
             for case in $cases {
-                let event = ($work | path join event.json)
-                if ($event | path exists) { rm $event }
                 let metrics = ($work | path join metrics)
                 "" | save --force $metrics
                 mut vars = [
-                    $"PATH=($bin)" $"HOME=($work)"
-                    $"EVENT_LOG=($event)" $"METRIC_LOG=($metrics)"
-                    "DD_API_KEY=fake-test-key" "DD_API_URL=https://example.invalid"
+                    $"PATH=($bin)" $"TMPDIR=($bin)" $"HOME=($work)"
+                    $"METRIC_LOG=($metrics)"
+                    "DOGSTATSD_HOST=127.0.0.1" "DOGSTATSD_PORT=18125"
                     "HOSTNAME=test-host" "DD_TAGS=env:test"
                     "MONITOR_RESILVER=true" "ZEVENT_POOL=fake-pool"
                     "ZEVENT_POOL_RESILVER_ERRORS=0"
@@ -64,11 +63,13 @@ def main [] {
                 if $case.start != null { $vars = ($vars | append $"ZEVENT_POOL_RESILVER_START=($case.start)") }
                 if $case.end != null { $vars = ($vars | append $"ZEVENT_POOL_RESILVER_END=($case.end)") }
                 let result = (^/usr/bin/env -i ...$vars $"/bin/($shell)" ($zed | path join resilver_finish-datadog.sh) | complete)
-                if not ($event | path exists) { error make {msg: $"zedlet failed: ($result | to nuon)"} }
+                let all = (open --raw $metrics | lines)
+                let packets = ($all | where {|l| datagram is-event $l })
+                if ($packets | length) != 1 { error make {msg: $"zedlet failed: ($result | to nuon)"} }
                 let valid = ($case.name == "valid")
                 let expected = (if $valid { "2h 3m" } else { "unknown" })
-                let payload = (open --raw $event | from json)
-                let lines = (open --raw $metrics | lines)
+                let payload = (datagram event ($packets | first))
+                let lines = ($all | where {|l| not (datagram is-event $l) })
                 let duration = ($lines | where {str starts-with "zfs.resilver.duration:"})
                 let ok = ($result.exit_code == 0 and
                     ($payload.text | str ends-with $"Duration: ($expected)") and
@@ -89,8 +90,8 @@ def main [] {
         }
         print "PASS: all 27 cases"
     } catch {|err|
-        rm -rf $work
+        rm -r $work
         error make {msg: $err.msg}
     }
-    rm -rf $work
+    rm -r $work
 }

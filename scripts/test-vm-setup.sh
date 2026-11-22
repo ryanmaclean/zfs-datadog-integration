@@ -1,21 +1,6 @@
 #!/bin/sh
-#
-# Test Environment Setup Script
-# Sets up Lima VM with ZFS for testing Datadog integration
-#
-
-set -e
-
-echo "Installing Lima (if not already installed)..."
-if ! command -v limactl > /dev/null 2>&1; then
-    echo "Installing Lima via Homebrew..."
-    brew install lima
-else
-    echo "Lima already installed"
-fi
-
-echo ""
-echo "Lima installed successfully!"
-echo "Next steps:"
-echo "1. Run: limactl start --name=zfs-test ubuntu-lts"
-echo "2. Run: ./test-in-vm.sh"
+# Do not install Lima on the laptop or advertise the retired integration path.
+printf '%s\n' \
+  'HOLD: no reviewed off-i9 disposable VM and packaged Agent-local fixture.' \
+  'Lima is not installed and no VM is started by this entrypoint.' >&2
+exit 78

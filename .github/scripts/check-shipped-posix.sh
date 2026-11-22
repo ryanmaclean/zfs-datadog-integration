@@ -4,7 +4,7 @@
 # no exceptions: line 1 exactly "#!/bin/sh", and no "# bash-required:" escape
 # hatch, even though check-shebangs.sh allows that for developer tooling.
 #
-# The shipped set is read from install.sh (LIB and ZEDLETS) plus the
+# The shipped set is read from install.sh (LIB, ZEDLETS, HANDLERS) plus the
 # installer, uninstaller, validator and config files, so a new zedlet is
 # covered as soon as the installer ships it.
 set -eu
@@ -12,14 +12,15 @@ cd "$(git rev-parse --show-toplevel)"
 
 lib=$(sed -n "s/^LIB='\\(.*\\)'\$/\\1/p" scripts/install.sh)
 zedlets=$(sed -n "/^ZEDLETS='/,/'\$/p" scripts/install.sh | tr -d "'" | sed 's/^ZEDLETS=//')
-if [ -z "$lib" ] || [ -z "$zedlets" ]; then
-    echo "Could not read LIB/ZEDLETS from scripts/install.sh" >&2
+handlers=$(sed -n "s/^HANDLERS='\\(.*\\)'\$/\\1/p" scripts/install.sh)
+if [ -z "$lib" ] || [ -z "$zedlets" ] || [ -z "$handlers" ]; then
+    echo "Could not read LIB/ZEDLETS/HANDLERS from scripts/install.sh" >&2
     exit 1
 fi
 
 fail=0
 count=0
-for f in $lib $zedlets install.sh uninstall.sh validate-config.sh config.sh config.sh.example; do
+for f in $lib $zedlets $handlers install.sh uninstall.sh validate-config.sh config.sh config.sh.example; do
     path="scripts/$f"
     count=$((count + 1))
     before=$fail

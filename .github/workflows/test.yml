@@ -3,8 +3,10 @@ name: Test
 on:
   push:
     branches: [ main, master, develop ]
+  # Stacked PRs target the branch they build on, not master, so ci/** and
+  # fix/** bases run CI too. Without them a PR into #24's branch got no checks.
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, 'ci/**', 'fix/**' ]
 
 jobs:
   shellcheck:
@@ -130,29 +132,28 @@ jobs:
         run: .github/scripts/check-shipped-posix.sh
 
       # Run every shipped zedlet against fixed ZEVENT_* inputs with recording
-      # stubs for curl/nc/logger, under sh, dash and bash, and compare the
-      # exact Events API payloads and DogStatsD lines with the golden file
+      # stubs for nc/logger, under sh, dash and bash, and compare the exact
+      # Agent-local DogStatsD event and metric datagrams with the golden file
       # generated from the pre-cleanup scripts.
       - name: Zedlet payload regression test
         run: .github/scripts/test-zedlet-payloads.sh
 
-      # Nushell is an MIT-licensed CI tool. Verify the official release archive
-      # before using it for the HTTP status regression.
-      - name: Download Nushell 0.115.1
-        run: curl -fsSL -o /tmp/nu-0.115.1.tar.gz https://github.com/nushell/nushell/releases/download/0.115.1/nu-0.115.1-x86_64-unknown-linux-gnu.tar.gz
+      # Real nc, real loopback listener: one UDP datagram must not cost a
+      # second (nc -w1 waited out its timeout after EOF), and must arrive.
+      - name: DogStatsD handoff latency test
+        run: UDP_LATENCY_REQUIRE_NC=1 .github/scripts/test-udp-latency.sh
 
-      - name: Verify Nushell archive
-        run: echo 'd11d825241f6504a3617c535fa725a9dd6d009c86d7b19fb3168b47635b9d8b0  /tmp/nu-0.115.1.tar.gz' | sha256sum -c -
-
-      - name: Extract Nushell
-        run: tar -xzf /tmp/nu-0.115.1.tar.gz -C /tmp
-
-      - name: Event HTTP status regression
-        run: /tmp/nu-0.115.1-x86_64-unknown-linux-gnu/nu .github/tests/event-http-status.nu
+      # The source tarball must stay small: unrelated trees are export-ignore.
+      - name: Source export size test
+        run: .github/scripts/test-export-archive.sh
 
   mock-server-test:
-    name: Mock Server Tests
+    name: Loopback DogStatsD smoke (mock receiver)
     runs-on: ubuntu-latest
+    env:
+      MOCK_BIND_HOST: '127.0.0.1'
+      MOCK_DOGSTATSD_PORT: '18125'
+      MOCK_HTTP_PORT: '18080'
     steps:
       - uses: actions/checkout@v3
       
@@ -161,17 +162,16 @@ jobs:
         with:
           python-version: '3.x'
       
-      - name: Start mock Datadog server
+      - name: Start loopback mock receiver
         run: |
-          python3 mock-datadog-server.py &
-          echo $! > mock-server.pid
-          sleep 2
-      
+          python3 -u mock-datadog-server.py > "$RUNNER_TEMP/zfs-mock.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/zfs-mock.pid"
+
       - name: Test config template
         run: |
           cp scripts/config.sh.example /tmp/config.sh
           sed -i 's/your_api_key_here/test_key_12345678901234567890123/' /tmp/config.sh
-          
+
       - name: Test zedlet syntax
         run: |
           echo "Testing zedlet scripts..."
@@ -179,12 +179,68 @@ jobs:
             echo "Syntax check: $zedlet"
             sh -n "$zedlet"
           done
-      
+
+      # This proves only a synthetic ZED event reaches a local UDP receiver.
+      # It does not prove Agent parsing, Datadog intake, or native ZFS delivery.
+      - name: Exercise one ZED-to-loopback event and metric
+        run: |
+          command -v nc
+          ready=0
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error \
+                "http://127.0.0.1:${MOCK_HTTP_PORT}/status" \
+                > "$RUNNER_TEMP/zfs-status.json"; then
+              ready=1
+              break
+            fi
+            sleep 0.2
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat "$RUNNER_TEMP/zfs-mock.log"
+            exit 1
+          fi
+          python3 -c '
+          import json, sys
+          status = json.load(open(sys.argv[1]))
+          assert status["events_received"] == 0
+          assert status["metrics_received"] == 0
+          ' "$RUNNER_TEMP/zfs-status.json"
+          env DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT="$MOCK_DOGSTATSD_PORT" \
+            DD_TAGS=service:zfs MONITOR_POOL_HEALTH=true \
+            ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/dev/da1 \
+            ZEVENT_VDEV_STATE=DEGRADED \
+            sh scripts/statechange-datadog.sh
+          matched=0
+          for attempt in {1..30}; do
+            curl --fail --silent --show-error \
+              "http://127.0.0.1:${MOCK_HTTP_PORT}/status" \
+              > "$RUNNER_TEMP/zfs-status.json"
+            if python3 -c '
+          import json, sys
+          status = json.load(open(sys.argv[1]))
+          messages = [row["message"] for row in status["metrics"]]
+          tags = "service:zfs,pool:tank,vdev:da1,vdev_state:DEGRADED"
+          assert status["events_received"] == 0
+          assert len(messages) == 2
+          assert any(row.startswith("_e{") and "|#" + tags in row for row in messages)
+          assert "zfs.pool.health:1|g|#" + tags in messages
+          ' "$RUNNER_TEMP/zfs-status.json" 2> /dev/null; then
+              matched=1
+              break
+            fi
+            sleep 0.2
+          done
+          if [ "$matched" -ne 1 ]; then
+            cat "$RUNNER_TEMP/zfs-status.json"
+            cat "$RUNNER_TEMP/zfs-mock.log"
+            exit 1
+          fi
+
       - name: Stop mock server
         if: always()
         run: |
-          if [ -f mock-server.pid ]; then
-            kill $(cat mock-server.pid) || true
+          if [ -f "$RUNNER_TEMP/zfs-mock.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/zfs-mock.pid")" || true
           fi
 
   documentation:

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # No network: only allowlisted utilities and synthetic Nu transports enter PATH.
 use std/assert
+use datagram.nu *
 
 def main [] {
     let repo = ($env.CURRENT_FILE | path dirname | path dirname | path dirname)
@@ -14,19 +15,19 @@ def main [] {
         mkdir $bin
         cp ($repo | path join scripts/io-error.sh) $root
         cp ($repo | path join scripts/zfs-datadog-lib.sh) $root
-        for name in [dirname basename cat cut date] {
+        for name in [dirname basename cat cut date wc mktemp rm] {
             let source = ([/usr/bin /bin] | each { path join $name } | where { path exists } | first)
             ln -s $source ($bin | path join $name)
         }
+        # No curl: events and metrics are both loopback datagrams handed to nc.
         let stub = '
 def --wrapped main [...args: string] {
     let name = ($env.CURRENT_FILE | path basename)
     let input = if $name == "nc" { open --raw /dev/stdin } else { "" }
     {name: $name, args: $args, input: $input} | to json -r | $in + "\n" | save --append $env.TRACE
-    if $name == "curl" { print -n "202"; exit ($env.EVENT_FAIL | into int) }
     if $name == "nc" {
-        let metric = ($input | split row ":" | first)
-        exit (if $metric in ($env.FAIL_METRICS | split row ",") { 1 } else { 0 })
+        let key = (if ($input | str starts-with "_e{") { "event" } else { $input | split row ":" | first })
+        exit (if $key in ($env.FAIL_SENDERS | split row ",") { 1 } else { 0 })
     }
 }
 '
@@ -44,52 +45,38 @@ def --wrapped main [...args: string] {
                     for mask in 0..<(2 ** ($n + 1)) {
                         let event_fail = ($mask mod 2)
                         let failed = ($metrics | enumerate | where {|m| (($mask // (2 ** ($m.index + 1))) mod 2) == 1 } | get item.name)
+                        let fail_senders = (if $event_fail == 1 { ['event'] | append $failed } else { $failed })
                         for enabled in [true false] {
                             let trace = ($root | path join trace)
                             '' | save -f $trace
-                            let result = (^$envcmd -i $'PATH=($bin)' $'HOME=($root)' LC_ALL=C HOSTNAME=fixture DD_API_KEY=synthetic DD_API_URL=https://invalid.example DOGSTATSD_HOST=invalid.example DOGSTATSD_PORT=18125 DD_TAGS=env:test ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk ZEVENT_VDEV_STATE=FAULTED ...(if $read > 0 { [$'ZEVENT_VDEV_READ_ERRORS=($read)'] } else { [] }) ...(if $write > 0 { [$'ZEVENT_VDEV_WRITE_ERRORS=($write)'] } else { [] }) $'MONITOR_IO_ERRORS=($enabled)' $'TRACE=($trace)' $'EVENT_FAIL=($event_fail)' $'FAIL_METRICS=($failed | str join ,)' $shell ($root | path join io-error.sh) | complete)
+                            let result = (^$envcmd -i $'PATH=($bin)' $'TMPDIR=($bin)' $'HOME=($root)' LC_ALL=C HOSTNAME=fixture DOGSTATSD_HOST=127.0.0.1 DOGSTATSD_PORT=18125 DD_TAGS=env:test ZEVENT_POOL=tank ZEVENT_VDEV_PATH=/synthetic/disk ZEVENT_VDEV_STATE=FAULTED ...(if $read > 0 { [$'ZEVENT_VDEV_READ_ERRORS=($read)'] } else { [] }) ...(if $write > 0 { [$'ZEVENT_VDEV_WRITE_ERRORS=($write)'] } else { [] }) $'MONITOR_IO_ERRORS=($enabled)' $'TRACE=($trace)' $'FAIL_SENDERS=($fail_senders | str join ,)' $shell ($root | path join io-error.sh) | complete)
                             let calls = (open --raw $trace | lines | each { from json })
+                            let context = $'($shell) read=($read) write=($write) mask=($mask) enabled=($enabled)'
                             if not $enabled {
                                 assert equal $result.exit_code 0
                                 assert equal $result.stderr ''
                                 assert equal $calls []
                             } else {
                                 let bad = ($event_fail == 1 or ($failed | is-not-empty))
-                                assert equal $result.exit_code (if $bad { 1 } else { 0 })
-                                assert ($result.stderr | str contains $'I/O error detected: tank - disk - R:($read) W:($write)')
+                                assert equal $result.exit_code (if $bad { 1 } else { 0 }) $'($context): exit ($result.stderr)'
+                                assert ($result.stderr | str contains $'I/O error detected: tank - disk - R:($read) W:($write)') $context
                                 assert equal ($result.stderr | str contains 'I/O error reporting failed:') $bad
-                                mut expected = []
-                                let tags = 'env:test,pool:tank,vdev:disk,vdev_state:FAULTED'
-                                let payload = {title: 'ZFS I/O Error: tank', text: $"Pool: tank\nVdev: disk\nRead Errors: ($read)\nWrite Errors: ($write)\nPath: /synthetic/disk\nVdev State: FAULTED", priority: normal, tags: ($tags | split row ,), alert_type: error, source_type_name: zfs, host: fixture}
-                                for attempt in 1..(if $event_fail == 1 { 3 } else { 1 }) {
-                                    $expected = ($expected | append {name: curl})
-                                    if $event_fail == 1 and $attempt < 3 { $expected = ($expected | append {name: sleep, args: [($attempt | into string)]}) }
+                                assert equal ($result.stderr | str contains 'Local Agent event handoff failed') ($event_fail == 1) $context
+                                assert equal ($result.stderr | lines | where { $in | str contains 'Local Agent metric handoff failed' } | length) ($failed | length) $context
+                                let tags = 'env:test,pool:tank,vdev:disk,vdev_state:FAILED_PLACEHOLDER' | str replace FAILED_PLACEHOLDER FAULTED
+                                let want_event = {title: 'ZFS I/O Error: tank', text: $'Pool: tank\nVdev: disk\nRead Errors: ($read)\nWrite Errors: ($write)\nPath: /synthetic/disk\nVdev State: FAULTED', priority: normal, alert_type: error, source: zfs, tags: ($tags | split row ,)}
+                                # One datagram per send, in order: event then each metric. No retries, no sleeps, no curl.
+                                assert equal ($calls | where name in [curl sleep] | length) 0 $context
+                                let transport = ($calls | where name == nc)
+                                assert equal ($transport | length) (1 + $n) $context
+                                for call in $transport {
+                                    assert equal $call.args [-u -w0 127.0.0.1 '18125'] $context
                                 }
-                                for m in $metrics {
-                                    for attempt in 1..(if $m.name in $failed { 2 } else { 1 }) {
-                                        $expected = ($expected | append {name: nc, args: [-u -w1 invalid.example '18125'], input: $'($m.name):($m.value)|c|#($tags),host:fixture'})
-                                        if $m.name in $failed and $attempt == 1 { $expected = ($expected | append {name: sleep, args: ['1']}) }
-                                    }
-                                }
-                                let transport = ($calls | where name != logger)
-                                assert equal ($transport | get name) ($expected | get name)
-                                for pair in ($transport | zip $expected) {
-                                    let actual = $pair.0
-                                    let want = $pair.1
-                                    if $actual.name == curl {
-                                        let args = (if ($actual.args | first 5) == [-s -o /dev/null -w '%{http_code}'] { [-s ...($actual.args | skip 5)] } else { $actual.args })
-                                        let index = ($args | enumerate | where item == '-d' | get index | first)
-                                        assert equal ($args | get ($index + 1) | from json) $payload
-                                        assert equal ($args | first ($index + 1)) [-s -m '10' -X POST https://invalid.example/api/v1/events -H 'Content-Type: application/json' -H 'DD-API-KEY: synthetic' -d]
-                                        assert equal ($args | length) ($index + 2)
-                                    } else {
-                                        assert equal $actual.args $want.args
-                                        if $actual.name == nc { assert equal $actual.input $want.input }
-                                    }
-                                }
+                                assert equal (datagram event ($transport | first | get input)) $want_event $context
+                                assert equal ($transport | skip 1 | get input) ($metrics | each {|m| $'($m.name):($m.value)|c|#($tags)' }) $context
                                 let logs = ($calls | where name == logger | get args | each { last })
-                                assert equal ($logs | where { $in | str contains 'I/O error reporting failed:' } | length) (if $bad { 1 } else { 0 })
-                                assert ($logs | last | str contains (if $bad { 'I/O error reporting failed:' } else { 'I/O error detected:' }))
+                                assert equal ($logs | where { $in | str contains 'I/O error reporting failed:' } | length) (if $bad { 1 } else { 0 }) $context
+                                assert ($logs | last | str contains (if $bad { 'I/O error reporting failed:' } else { 'I/O error detected:' })) $context
                             }
                             $cases += 1
                         }
@@ -97,10 +84,10 @@ def --wrapped main [...args: string] {
                 }
             }
         }
-        print $'PASS: ($cases) isolated cases across sh/dash/bash; payloads, ordering, retries, status and disabled behavior'
+        print $'PASS: ($cases) isolated cases across sh/dash/bash; datagrams, ordering, single-attempt sends, status and disabled behavior'
     } catch {|err|
-        rm -rf $root
+        rm -r $root
         error make $err
     }
-    rm -rf $root
+    rm -r $root
 }

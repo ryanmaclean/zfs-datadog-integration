@@ -18,8 +18,15 @@ fi
 # Extract event information
 POOL="${ZEVENT_POOL:-unknown}"
 EID=$(get_event_id)
-ERRORS=$(normalize_scan_number "${ZEVENT_POOL_RESILVER_ERRORS:-}" 18446744073709551615)
-DURATION=$(get_scan_duration "${ZEVENT_POOL_RESILVER_START:-}" "${ZEVENT_POOL_RESILVER_END:-}")
+# Real zevents carry no scan result: read the pool's scan line first, then any
+# ZEVENT_POOL_RESILVER_* values a ZED build exports, else report unknown.
+if RESULT=$(zpool_scan_result "$POOL" resilver); then
+    ERRORS=${RESULT% *}
+    DURATION=${RESULT#* }
+else
+    ERRORS=$(normalize_scan_number "${ZEVENT_POOL_RESILVER_ERRORS:-}" 18446744073709551615)
+    DURATION=$(get_scan_duration "${ZEVENT_POOL_RESILVER_START:-}" "${ZEVENT_POOL_RESILVER_END:-}")
+fi
 
 if [ "$DURATION" != unknown ]; then
     DURATION_HOURS=$((DURATION / 3600))
@@ -30,8 +37,8 @@ else
 fi
 
 # Build tags
-TAGS=$(build_tags)
-PROGRESS_TAGS=$(build_pool_tags)
+TAGS=$(build_tags) || exit 1
+PROGRESS_TAGS=$(build_pool_tags) || exit 1
 
 # Determine alert type based on errors
 if [ "$ERRORS" = unknown ]; then

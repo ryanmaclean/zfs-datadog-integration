@@ -17,11 +17,13 @@ fi
 
 # Extract event information
 POOL="${ZEVENT_POOL:-unknown}"
-VDEV_STATE="${ZEVENT_VDEV_STATE:-unknown}"
+# ZED sets ZEVENT_VDEV_STATE to the numeric vdev_state_t; use the readable name.
+VDEV_STATE=$(zevent_vdev_state)
+VDEV_STATE="${VDEV_STATE:-unknown}"
 VDEV_PATH="${ZEVENT_VDEV_PATH:-}"
 
 # Build tags
-TAGS=$(build_tags)
+TAGS=$(build_tags) || exit 1
 
 # Get numeric health value and alert type
 HEALTH_VALUE=$(get_pool_health_value "$VDEV_STATE")
