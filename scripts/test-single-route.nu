@@ -14,7 +14,7 @@ def require_one [profile: string, files: list<string>, event_class: string] {
 def main [repo_root: string] {
     let repo = ($repo_root | path expand)
     let install = (open --raw $"($repo)/scripts/install.sh")
-    let pinned_manifest = '168133800c5def86d8df0d007e8d11e183cbc1c42f915c490702549dab40cb9c'
+    let pinned_manifest = '0a95420261f9b54ce5b5f1b9dbe2accfca9d31549f2de3fc10698afbbc3c4ee7'
     let pinned_installer = '798915ae63c81fa8d2ce7f52d1741368c9ec2a40e4e7ed649007f2b356e4dfe0'
     let manifest = (open --raw $"($repo)/scripts/payload.sha256")
     if (($manifest | hash sha256) != $pinned_manifest) {
@@ -79,25 +79,11 @@ def main [repo_root: string] {
         }
     }
 
+    # The legacy Lima helper is a held exit-78 stub: it must not carry an install route.
     let lima = (open --raw $"($repo)/scripts/automate-lima-complete.sh")
-    let lima_payload = ($lima | split row 'payload=(' | get 1 | split row ')' | first | parse -r '(?P<name>[A-Za-z0-9_.-]+[.]sh)' | get name)
-    for required in ($fresh | append 'checksum-error.sh' | append 'io-error.sh' | append 'data-error.sh' | append 'install.sh') {
-        if not ($required in $lima_payload) {
-            error make {msg: $"Lima upload lacks ($required)"}
-        }
-    }
-    if ('all-datadog.sh' in $lima_payload) {
-        error make {msg: 'Lima still uploads the all-event route'}
-    }
-    if not ($lima | str contains $"ZFS_DD_EXPECTED_MANIFEST_SHA=($pinned_manifest) sh /root/zfs-datadog-src/install.sh") {
-        error make {msg: 'Lima bypasses guarded activation'}
-    }
-    if not ($lima | str contains $pinned_installer) or ($lima | str contains '/tmp/*.sh') {
-        error make {msg: 'Lima lacks sealed installer or still uses a wildcard upload'}
-    }
-    for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io', 'ereport.fs.zfs.data'] {
-        require_one 'Lima guarded install' $fresh $event_class
+    if not ($lima | str contains "HOLD (78)") or ($lima | str contains "install.sh") {
+        error make {msg: "Lima helper is no longer a held stub"}
     }
 
-    print 'PASS: fresh, five Packer, and Lima profiles select one exact route per ereport; existing all-route profile is blocked'
+    print 'PASS: fresh, five Packer profiles select one exact route per ereport; the legacy Lima helper stays held'
 }
