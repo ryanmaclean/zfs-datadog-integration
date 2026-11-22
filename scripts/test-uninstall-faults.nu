@@ -9,12 +9,13 @@ def main [repo_root: string] {
     let repo = ($repo_root | path expand)
     let sandbox = (^mktemp -d /root/zfs-dd-uninstall-fixture.XXXXXX | str trim)
     let names = [
-        zfs-datadog-lib.sh config.sh .checksum-error.sh .io-error.sh
+        zfs-datadog-lib.sh config.sh .checksum-error.sh .io-error.sh .data-error.sh
         statechange-datadog.sh scrub_start-datadog.sh scrub_finish-datadog.sh
         resilver_start-datadog.sh resilver_finish-datadog.sh
         config_sync-datadog.sh pool_import-datadog.sh pool_destroy-datadog.sh
         vdev_attach-datadog.sh vdev_remove-datadog.sh
         ereport.fs.zfs.checksum-datadog.sh ereport.fs.zfs.io-datadog.sh
+        ereport.fs.zfs.data-datadog.sh
     ]
 
     let systemctl_stub = "#!/usr/bin/env nu

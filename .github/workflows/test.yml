@@ -138,6 +138,15 @@ jobs:
       - name: Zedlet payload regression test
         run: .github/scripts/test-zedlet-payloads.sh
 
+      # Real nc, real loopback listener: one UDP datagram must not cost a
+      # second (nc -w1 waited out its timeout after EOF), and must arrive.
+      - name: DogStatsD handoff latency test
+        run: UDP_LATENCY_REQUIRE_NC=1 .github/scripts/test-udp-latency.sh
+
+      # The source tarball must stay small: unrelated trees are export-ignore.
+      - name: Source export size test
+        run: .github/scripts/test-export-archive.sh
+
   mock-server-test:
     name: Loopback DogStatsD smoke (mock receiver)
     runs-on: ubuntu-latest

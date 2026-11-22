@@ -14,8 +14,8 @@ def require_one [profile: string, files: list<string>, event_class: string] {
 def main [repo_root: string] {
     let repo = ($repo_root | path expand)
     let install = (open --raw $"($repo)/scripts/install.sh")
-    let pinned_manifest = 'da664477b4134a995fa6ba1a2618a59fee63c5587f7f1fb47ef507c32097a5f5'
-    let pinned_installer = '05fddf48cd287456bb108eeca44228ec47d7cd3752acbeba67fce09712f686e8'
+    let pinned_manifest = '25e0c70db4d8386bdabb5673726101a42d530c438bb8560a8fedf3d7a3331a3f'
+    let pinned_installer = '798915ae63c81fa8d2ce7f52d1741368c9ec2a40e4e7ed649007f2b356e4dfe0'
     let manifest = (open --raw $"($repo)/scripts/payload.sha256")
     if (($manifest | hash sha256) != $pinned_manifest) {
         error make {msg: 'reviewed payload manifest digest changed'}
@@ -24,8 +24,8 @@ def main [repo_root: string] {
         error make {msg: 'reviewed installer digest changed'}
     }
     let manifest_lines = ($manifest | lines | where {|line| $line != ''})
-    if (($manifest_lines | length) != 17) {
-        error make {msg: 'payload manifest must enumerate 17 files'}
+    if (($manifest_lines | length) != 19) {
+        error make {msg: 'payload manifest must enumerate 19 files'}
     }
     for line in $manifest_lines {
         let parts = ($line | split row ' ')
@@ -39,7 +39,7 @@ def main [repo_root: string] {
     }
     let fresh = ($install | split row "ZEDLETS='" | get 1 | split row "'" | first | lines | where {|line| $line != ''})
 
-    for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
+    for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io', 'ereport.fs.zfs.data'] {
         require_one 'fresh guarded install' $fresh $event_class
     }
 
@@ -49,7 +49,7 @@ def main [repo_root: string] {
     if (((selected $existing 'ereport.fs.zfs.checksum') | length) != 2) {
         error make {msg: 'legacy duplicate-route fixture no longer reproduces'}
     }
-    if not ($install | str contains "OLD_ROUTES='all-datadog.sh checksum-error.sh io-error.sh'") {
+    if not ($install | str contains "OLD_ROUTES='all-datadog.sh checksum-error.sh io-error.sh data-error.sh'") {
         error make {msg: 'installer lost the existing-route preflight block'}
     }
     if not ($install | str contains 'Existing integration path requires reviewed migration') {
@@ -59,7 +59,7 @@ def main [repo_root: string] {
     for distro in ['ubuntu', 'debian', 'rocky', 'fedora', 'arch'] {
         let packer = (open --raw $"($repo)/packer/packer-($distro)-zfs.pkr.hcl")
         let uploaded = ($packer | parse -r 'scripts/(?P<name>[A-Za-z0-9_.-]+[.]sh)' | get name)
-        for required in ($fresh | append '.checksum-error.sh' | append '.io-error.sh') {
+        for required in ($fresh | append '.checksum-error.sh' | append '.io-error.sh' | append '.data-error.sh') {
             let source_name = ($required | str trim --left --char '.')
             if not ($source_name in $uploaded) {
                 error make {msg: $"($distro) Packer upload lacks ($source_name)"}
@@ -74,14 +74,14 @@ def main [repo_root: string] {
         if not ($packer | str contains $pinned_installer) or ($packer | str contains '/tmp/*.sh') {
             error make {msg: $"($distro) Packer lacks sealed installer or still uses a wildcard upload"}
         }
-        for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
+        for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io', 'ereport.fs.zfs.data'] {
             require_one $"($distro) Packer guarded install" $fresh $event_class
         }
     }
 
     let lima = (open --raw $"($repo)/scripts/automate-lima-complete.sh")
     let lima_payload = ($lima | split row 'payload=(' | get 1 | split row ')' | first | parse -r '(?P<name>[A-Za-z0-9_.-]+[.]sh)' | get name)
-    for required in ($fresh | append 'checksum-error.sh' | append 'io-error.sh' | append 'install.sh') {
+    for required in ($fresh | append 'checksum-error.sh' | append 'io-error.sh' | append 'data-error.sh' | append 'install.sh') {
         if not ($required in $lima_payload) {
             error make {msg: $"Lima upload lacks ($required)"}
         }
@@ -95,7 +95,7 @@ def main [repo_root: string] {
     if not ($lima | str contains $pinned_installer) or ($lima | str contains '/tmp/*.sh') {
         error make {msg: 'Lima lacks sealed installer or still uses a wildcard upload'}
     }
-    for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io'] {
+    for event_class in ['ereport.fs.zfs.checksum', 'ereport.fs.zfs.io', 'ereport.fs.zfs.data'] {
         require_one 'Lima guarded install' $fresh $event_class
     }
 

@@ -176,7 +176,7 @@ ok "All dependencies found"
 printf '\n'
 
 # --------------------------------------------------------------- payload ----
-# Only the two ereport wrappers are enabled for checksum and I/O. The
+# Only the three ereport wrappers (checksum, I/O, data) are enabled. The
 # executable handlers are dotfiles, which ZED ignores by definition. The
 # former all-datadog router and public helper names are upgrade conflicts.
 LIB='zfs-datadog-lib.sh'
@@ -192,9 +192,10 @@ pool_destroy-datadog.sh
 vdev_attach-datadog.sh
 vdev_remove-datadog.sh
 ereport.fs.zfs.checksum-datadog.sh
-ereport.fs.zfs.io-datadog.sh'
-HANDLERS='checksum-error.sh io-error.sh'
-OLD_ROUTES='all-datadog.sh checksum-error.sh io-error.sh'
+ereport.fs.zfs.io-datadog.sh
+ereport.fs.zfs.data-datadog.sh'
+HANDLERS='checksum-error.sh io-error.sh data-error.sh'
+OLD_ROUTES='all-datadog.sh checksum-error.sh io-error.sh data-error.sh'
 
 printf 'Checking source files...\n'
 MISSING_SRC=''
@@ -244,12 +245,13 @@ while read -r expected name extra; do
     esac
     case "$expected" in *[!0-9a-f]*) err "Malformed payload hash"; exit 1 ;; esac
     case "$name" in
-        install.sh|config.sh|zfs-datadog-lib.sh|checksum-error.sh|io-error.sh|\
+        install.sh|config.sh|zfs-datadog-lib.sh|checksum-error.sh|io-error.sh|data-error.sh|\
         statechange-datadog.sh|scrub_start-datadog.sh|scrub_finish-datadog.sh|\
         resilver_start-datadog.sh|resilver_finish-datadog.sh|\
         config_sync-datadog.sh|pool_import-datadog.sh|pool_destroy-datadog.sh|\
         vdev_attach-datadog.sh|vdev_remove-datadog.sh|\
-        ereport.fs.zfs.checksum-datadog.sh|ereport.fs.zfs.io-datadog.sh) ;;
+        ereport.fs.zfs.checksum-datadog.sh|ereport.fs.zfs.io-datadog.sh|\
+        ereport.fs.zfs.data-datadog.sh) ;;
         *) err "Unknown payload name: $name"; exit 1 ;;
     esac
     case "$payload_seen" in *" $name "*) err "Duplicate payload name: $name"; exit 1 ;; esac
@@ -260,11 +262,11 @@ while read -r expected name extra; do
     }
     payload_count=$((payload_count + 1))
 done < "$manifest"
-[ "$payload_count" -eq 17 ] || { err "Incomplete payload manifest"; exit 1; }
+[ "$payload_count" -eq 19 ] || { err "Incomplete payload manifest"; exit 1; }
 
 # Refuse old and partial installations before touching a configuration or
 # ZED. An unknown or modified old route cannot be retired by filename alone.
-for f in $LIB $ZEDLETS $OLD_ROUTES .checksum-error.sh .io-error.sh config.sh .env.local .zfs-datadog.manifest; do
+for f in $LIB $ZEDLETS $OLD_ROUTES .checksum-error.sh .io-error.sh .data-error.sh config.sh .env.local .zfs-datadog.manifest; do
     if [ -e "$ZED_DIR/$f" ] || [ -L "$ZED_DIR/$f" ]; then
         err "Existing integration path requires reviewed migration: $ZED_DIR/$f"
         exit 1

@@ -59,14 +59,14 @@ sudo vi /root/zfs-datadog-integration/scripts/config.sh
 sudo openssl dgst -sha256 /root/zfs-datadog-integration/scripts/config.sh
 ```
 
-The installer checks all 17 source payloads against `scripts/payload.sha256`
+The installer checks all 19 source payloads against `scripts/payload.sha256`
 and requires its independently approved SHA-256 in
 `ZFS_DD_EXPECTED_MANIFEST_SHA`. If `scripts/config.sh` changed, replace only
 its digest entry in the manifest with the new reviewed digest. Independently
 review the exact configured file, all manifest entries, the installer digest,
 and the final manifest digest without publishing configuration contents. Do
 not treat a self-computed digest as independent approval. The manifest must
-still contain exactly the installer's 17 expected names and matching hashes.
+still contain exactly the installer's 19 expected names and matching hashes.
 Once approved, do not change the source tree before installation.
 
 ```bash
@@ -278,7 +278,29 @@ MONITOR_SCRUB="true"
 MONITOR_RESILVER="true"
 MONITOR_CHECKSUM_ERRORS="true"
 MONITOR_IO_ERRORS="true"
+MONITOR_DATA_ERRORS="true"
 ```
+
+---
+
+## Data Errors and Source Download Size
+
+**Data ereports.** Besides checksum and I/O ereports, the integration handles
+`ereport.fs.zfs.data` (`ereport.fs.zfs.data-datadog.sh`, handler
+`.data-error.sh`). FreeBSD emits one for every block ZFS could not read back
+correctly, so a pool with damaged data shows up even when no vdev checksum
+counter moved. It sends one `error` event and the `zfs.data.error` counter,
+tagged with the pool and `zio_type:read` or `zio_type:write`; the objset,
+object, level and block id are in the event text only. Set
+`MONITOR_DATA_ERRORS="false"` in `config.sh` to turn it off.
+
+**Source download size.** `.gitattributes` marks the editor extension, VM and
+kernel build trees, and logs as `export-ignore`, so `git archive` and GitHub's
+tarball and zip downloads omit them (about 80 MB before, well under 1 MB
+compressed now). A full `git clone` still has everything and no history was
+rewritten. Check the export with `.github/scripts/test-export-archive.sh`.
+Files that are `export-ignore`d are missing from a tarball, so use a clone to
+work on them.
 
 ---
 
